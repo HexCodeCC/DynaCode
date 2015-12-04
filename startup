@@ -1,0 +1,62 @@
+local tWidth, tHeight = term.getSize()
+
+local shortBoot = false
+local function printCentre( text, y, colour )
+    if colour then term.setTextColour( colour ) end
+    term.setCursorPos( tWidth / 2 - ( text:len() / 2 ), y )
+    term.clearLine()
+    term.write( text )
+end
+
+local function title()
+    printCentre("DynaCode - ComputerCraft Graphics Framework", 6, colors.blue)
+    printCentre("Loading Class Definitions", 7, colors.lightBlue)
+    printCentre("Created by Harry Felton (hbomb79)", tHeight, colors.gray)
+end
+
+local function cls( colour )
+    term.setBackgroundColour( colour )
+    term.clear()
+    title()
+    sleep(0)
+end
+
+cls( colors.black )
+cls( colors.gray )
+cls( colors.lightGray )
+cls( colors.white )
+shell.run("dobuild.lua", "/src", "bin/DynaCode.lua")
+printCentre("Booting DynaCode", 7, colors.lightBlue)
+
+term.setTextColour( colors.red )
+dofile("bin/DynaCode.lua")
+
+app = Application( "testName", tWidth, tHeight )
+app.backgroundColour = colors.cyan
+
+stage = app + Stage({
+    name = "TestStage";
+    X = 20;
+    Y = 3;
+    width = 15;
+    height = 6;
+    textColour = colors.blue;
+    titleTextColour = colors.white;
+    titleBackgroundColour = 128;
+    backgroundColour = colors.white;
+    shadowColour = colors.gray;
+    shadow = true;
+    title = "Test Window"
+})
+
+--TODO Nodes...
+--label = stage + Label( {width = 10; Y = 2; text = "Hello World"} )
+
+cls( 1 )
+printCentre("Load Complete", 7, colours.lightBlue)
+printCentre("Press any key to begin", 11, colors.lightGray)
+if not shortBoot then
+    while true do local e = { os.pullEventRaw() } if e[1] == "key" then break end end
+end
+sleep(0)
+app:run()
