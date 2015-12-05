@@ -1,19 +1,10 @@
 # DynaCode
 
 ### What's this?
-DynaCode is a graphics framework for ComputerCraft, currently in its 7th interation. Hopefully I will be satisfied with it this time round and finally release it!
+This is DynaCode develop branch. All files in here are under development and downloading builds from this branch is not reccommended as most of the time they won't work correctly, if at all.
 
-DynaCode adds basic onscreen elements (nodes) but also provides features that developer can use to create their own nodes.
+Switch to the master branch or visit a release branch before downloading builds.
 
-### Install
-DynaCode is not finished yet, but you *can* use it. To do so simply download the **build/DynaCode.lua** and save it in your ComputerCraft computer. When fully realeased a pastebin installer will be available.
-
-Once the **DynaCode.lua** file is inside of your computer, simply use this line of code at the start of your file:
-
-```lua
-dofile("path/to/DynaCode.lua")
-```
-Then all DynaCode classes will be available.
 
 ### Help
 
