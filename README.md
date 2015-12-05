@@ -1,7 +1,10 @@
 # DynaCode
 
 ### What's this?
+
 This is DynaCode's develop branch. All files in here are under development and downloading builds from this branch is not recommended as most of the time they won't work correctly, if at all.
+
+This is DynaCode develop branch. All files in here are under development and downloading builds from this branch is not reccommended as most of the time they won't work correctly, if at all.
 
 Switch to the master branch or visit a release branch before downloading builds.
 
