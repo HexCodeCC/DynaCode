@@ -1,5 +1,4 @@
 class "Event" {
-    data = nil;
     raw = nil;
 
     handled = false;

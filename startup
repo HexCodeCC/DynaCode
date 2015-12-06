@@ -1,6 +1,7 @@
 local tWidth, tHeight = term.getSize()
 
 local shortBoot = false
+local logging = true
 local function printCentre( text, y, colour )
     if colour then term.setTextColour( colour ) end
     term.setCursorPos( tWidth / 2 - ( text:len() / 2 ), y )
@@ -25,22 +26,70 @@ cls( colors.black )
 cls( colors.gray )
 cls( colors.lightGray )
 cls( colors.white )
+
+--[[
+    All Logging code is temporary.
+]]--
+
+local modes = {
+    i = "Info";
+    w = "Warn";
+    e = "Error";
+    s = "Success";
+}
+
+function _G.log( mode, ... )
+    if not logging then return end
+
+    local args = { ... }
+
+    local message = ""
+    for i = 1, #args do
+        message = message .. tostring( args[i] )
+    end
+
+    local h = fs.open("DynaCode.log", "a")
+    h.write( "["..tostring( os.clock() ).."][" .. (( modes[ mode ] ) or tostring( mode )) .. "] > "..message.."\n" )
+    h.close()
+end
+
+if logging then
+    local h = fs.open("DynaCode.log", "w")
+    h.write("")
+    h.close()
+end
+
+local oPrint = _G.print
+local oError = _G.error
+local a = 0
+_G.print = function( text )
+    printCentre( text, 8, colors.lightGray )
+    a = a + 1
+    if not shortBoot and a % 3 == 0 then
+        sleep()
+    end
+end
+
+_G.error = function( msg, level )
+    _G.print = oPrint
+    return oError( msg, level )
+end
+
+log("i", "Starting up")
 shell.run("dobuild.lua", "/src", "bin/DynaCode.lua")
 printCentre("Booting DynaCode", 7, colors.lightBlue)
-
-term.setTextColour( colors.red )
 dofile("bin/DynaCode.lua")
 
-app = Application( "testName", tWidth, tHeight )
+app = Application( tWidth, tHeight )
 app.backgroundColour = colors.cyan
 
 stage = app + Stage({
     name = "TestStage";
-    X = 20;
-    Y = 3;
-    width = 15;
-    height = 6;
-    textColour = colors.blue;
+    X = 5;
+    Y = 5;
+    width = 30;
+    height = 10;
+    textColour = colors.lightGray;
     titleTextColour = colors.white;
     titleBackgroundColour = 128;
     backgroundColour = colors.white;
@@ -49,8 +98,13 @@ stage = app + Stage({
     title = "Test Window"
 })
 
---TODO Nodes...
---label = stage + Label( {width = 10; Y = 2; text = "Hello World"} )
+label = stage + Label("Hello World!", 3, 1)
+label.acceptMouse = true
+function label:onMouseDown( event )
+    log("i", "Label clicked")
+end
+
+button = stage + Button("Test Button", 3, 3, 10, 3)
 
 cls( 1 )
 printCentre("Load Complete", 7, colours.lightBlue)
@@ -58,5 +112,7 @@ printCentre("Press any key to begin", 11, colors.lightGray)
 if not shortBoot then
     while true do local e = { os.pullEventRaw() } if e[1] == "key" then break end end
 end
+_G.print = oPrint
+log("w", "Output total: "..a)
 sleep(0)
 app:run()

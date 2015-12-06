@@ -3,7 +3,12 @@ class "StageCanvas" extends "Canvas" {
 }
 
 function StageCanvas:initialise( ... )
-    self.super:initialise( ... )
+    --self.super:initialise( ... )
+    local width, height = ParseClassArguments( self, { ... }, { {"width", "number"}, {"height", "number"} }, true, true )
+    AssertClass( self.stage, "Stage", true, "StageCanvas requires stage to be a Stage instance, not: "..tostring( self.stage ) )
+
+    self.super:initialise( width, height )
+
     self:redrawFrame()
 end
 
@@ -22,20 +27,18 @@ function StageCanvas:redrawFrame()
     local backgroundColour = self.backgroundColour
     local textColour = self.textColour
 
-    local width = self.width --+ ( stage.shadow and 1 or 0 )
-    local height = self.height + ( stage.shadow and 1 or 0 )
+    local width = self.width --+ ( stage.shadow and 0 or 0 )
+    local height = self.height --+ ( stage.shadow and 1 or 0 )
 
     local frame = {}
-    local max = 0
     for y = 0, height do
         local yPos = width * y
         for x = 1, width do
-            max = x > max and x or max
             -- Find out what goes here (title, shadow, background)
             local pos = yPos + x
             if hasTitleBar and y == 0 and ( hasShadow and x < width or not hasShadow ) then
                 -- Draw the correct part of the title bar here.
-                if x == width - 1 and stage.closeButton then
+                if x == stage.width and stage.closeButton then
                     frame[pos] = {"X", stage.closeButtonTextColour, stage.closeButtonBackgroundColour}
                 else
                     local char = string.sub( title, x, x )
@@ -55,7 +58,6 @@ function StageCanvas:redrawFrame()
             end
         end
     end
-    --error("Max X reached: "..max)
     self.frame = frame
 end
 
@@ -64,15 +66,16 @@ function StageCanvas:drawToCanvas( canvas, xO, yO )
     local frame = self.frame
     local stage = self.stage
 
-    local xO = type( xO ) == "number" and xO or 0
-    local yO = type( yO ) == "number" and yO or 0
+    local xO = type( xO ) == "number" and xO - 1 or 0
+    local yO = type( yO ) == "number" and yO - 1 or 0
 
-    local width = self.width --+ ( stage.shadow and 1 or 0 )
+    local width = self.width --+ ( stage.shadow and 0 or 0 )
     local height = self.height - ( stage.shadow and 0 or 1 )
 
     for y = 0, height do
         local yPos = width * y
         local yBPos = canvas.width * ( y + yO )
+
         for x = 1, width do
             local pos = yPos + x
             local bPos = yBPos + (x + xO)
@@ -83,7 +86,8 @@ function StageCanvas:drawToCanvas( canvas, xO, yO )
                     -- draw the frame
                     local framePixel = frame[ pos ]
                     if framePixel then
-                        canvas.buffer[ bPos ] = { framePixel[1], framePixel[2] or self.textColour, framePixel[3] or self.backgroundColour }
+                        local fP = framePixel[1]
+                        canvas.buffer[ bPos ] = { fP, framePixel[2] or self.textColour, framePixel[3] or self.backgroundColour }
                     end
                     --canvas.buffer[ bPos ] = framePixel
                 else
@@ -95,4 +99,15 @@ function StageCanvas:drawToCanvas( canvas, xO, yO )
             end
         end
     end
+end
+
+function StageCanvas:clear()
+    local width = self.width
+    local height = self.height
+    local buffer = {}
+    for i = 1, width * height do
+        buffer[ i ] = { false, false, false }
+    end
+
+    self.buffer = buffer
 end

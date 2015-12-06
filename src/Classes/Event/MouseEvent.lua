@@ -10,7 +10,7 @@ class "MouseEvent" extends "Event" {
 
 function MouseEvent:initialise( raw )
     self.super:initialise( raw )
-    local t = sub( raw[1], -string.find( raw[1], "_" ) + 1 )
+    local t = sub( raw[1], string.find( raw[1], "_" ) + 1, raw[1]:len() )
 
     self.sub = t:upper()
     self.misc = raw[2]
@@ -31,4 +31,9 @@ function MouseEvent:onPoint( x, y )
         return true
     end
     return false
+end
+
+function MouseEvent:convertToRelative( parent )
+    self.X = self.X - parent.X + 1
+    self.Y = self.Y - parent.Y + 1
 end

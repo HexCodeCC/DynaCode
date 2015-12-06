@@ -9,7 +9,6 @@ class "Application" alias "COLOUR_REDIRECT" {
     event = nil;
 
     stages = nil;
-    name = nil;
 
     changed = true
 }
@@ -18,7 +17,7 @@ function Application:initialise( ... )
     -- Classes can be called with either a single table of arguments, or a series of required arguments. The latter only allows certain arguments.
     -- Here, we use the classUtil.lua functionality to parse the arguments passed to the application.
 
-    ParseClassArguments( self, { ... }, { { "name", "string" }, { "width", "number" }, {"height", "number"} }, true )
+    ParseClassArguments( self, { ... }, { { "width", "number" }, {"height", "number"} }, true )
 
     self.canvas = ApplicationCanvas( self, self.width, self.height )
     self.hotkey = HotkeyManager( self )
@@ -62,6 +61,7 @@ end
 
 function Application:addStage( stage )
     stage.application = self
+    --stage.ID = (type( stage )):sub( 8 )
 
     self.stages[ #self.stages + 1 ] = stage
     return stage
@@ -131,4 +131,7 @@ function Application:finish( thread )
     if type( thread ) == "function" then thread() end
 end
 
-class "Test"
+function Application:mapWindow( x1, y1, x2, y2 )
+    -- Updates drawing map for windows. Prevents windows that aren't visible from drawing themselves (if they are covered by other windows)
+    -- Also clears the area used by the window if the current window is not visible.
+end

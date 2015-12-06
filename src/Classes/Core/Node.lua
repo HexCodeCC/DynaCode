@@ -15,6 +15,12 @@ abstract class "Node" alias "COLOUR_REDIRECT" {
     canvas = nil;
 
     __node = true;
+
+    acceptKeyboard = false;
+    acceptMouse = false;
+    acceptMisc = false;
+
+    manuallyHandle = false;
 }
 
 function Node:initialise( ... )
@@ -31,7 +37,7 @@ function Node:draw( xO, yO )
     end
 
     -- Draw to the stageCanvas
-    self.canvas:drawToCanvas( self.stage.canvas, self.X - 1, self.Y - 1 )
+    self.canvas:drawToCanvas( self.stage.canvas, self.X, self.Y )
     self.changed = false
 
     if self.postDraw then
@@ -48,21 +54,22 @@ function Node:setY( y )
 end
 
 function Node:setWidth( width )
-    --TODO Update canvas width
+    --TODO Update canvas width *job release-0*
     self.width = width
 end
 
 function Node:setHeight( height )
-    --TODO set height on instance and canvas.
+    --TODO set height on instance and canvas. *job release-0*
+    self.height = height
 end
 
 function Node:setBackgroundColour( col )
-    --TODO force update on children too (if they are using the nodes color as default)
+    --TODO force update on children too (if they are using the nodes color as default) *job release-0*
     self.backgroundColour = col
 end
 
 function Node:setTextColour( col )
-    --TODO force update on children too (if they are using the nodes color as default)
+    --TODO force update on children too (if they are using the nodes color as default) *job release-0*
     self.textColour = col
 end
 
@@ -70,6 +77,43 @@ function Node:onParentChanged()
     self.changed = true
 end
 
+local function call( self, callback, ... )
+    if type( self[ callback ] ) == "function" then
+        self[ callback ]( self, ... )
+    end
+end
+
+local clickMatrix = {
+    CLICK = "onMouseDown";
+    UP = "onMouseUp";
+    SCROLL = "onMouseScroll";
+    DRAG = "onMouseDrag";
+}
 function Node:handleEvent( event )
     -- Automatically fires callbacks on the node depending on the event. For example onMouseMiss, onMouseDown, onMouseUp etc...
+    if not self.manuallyHandle then
+        local eCall = false
+        if event.main == "MOUSE" and self.acceptMouse then
+            if event:inArea( self.X, self.Y, self.X + self.width - 1, self.Y + self.height - 1 ) then
+                log("MOUSE", event.sub)
+                call( self, clickMatrix[ event.sub ] or error("No click matrix entry for "..tostring( event.sub )), event )
+            else
+                call( self, "onMouseMiss", event )
+            end
+        elseif event.main == "KEY" and self.acceptKeyboard then
+            if self.acceptKeyboard then -- basically focused
+                call( self, event.sub == "UP" and "onKeyUp" or "onKeyDown", event )
+            end
+        elseif event.main == "CHAR" and self.acceptKeyboard then
+            if self.acceptKeyboard then
+                call( self, "onChar", event )
+            end
+        elseif self.acceptMisc then
+            -- unknown main event
+            call( self, "onUnknownEvent", event )
+            eCall = true
+        end
+    else
+        call( self, "onEvent", event )
+    end
 end
