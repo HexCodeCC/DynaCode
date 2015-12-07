@@ -1,4 +1,5 @@
 local insert = table.insert
+local sub = string.sub
 -- Stages have shadows when focused, these shadows are stored in the same buffer as the window. Because of this when a stage gains/looses a buffer the buffer should be resized accordingly.
 
 local shadowB = false
@@ -9,7 +10,6 @@ class "Stage" alias "COLOUR_REDIRECT" {
     width = 10;
     height = 6;
 
-    --TODO: Proper borderless property. *job release-0*
     borderless = false;
 
     canvas = nil;
@@ -24,20 +24,24 @@ class "Stage" alias "COLOUR_REDIRECT" {
     backgroundColour = 32768;
 
     shadow = true;
+    shadowColour = colours.grey;
+
     focused = false;
 
     closeButton = true;
     closeButtonTextColour = 1;
     closeButtonBackgroundColour = colours.red;
+
+    controller = nil;
 }
 
 function Stage:initialise( ... )
     -- Every stage has a unique ID used to find it afterwards, this removes the need to loop every stage looking for the correct object.
-
     local name, X, Y, width, height = ParseClassArguments( self, { ... }, { {"name", "string"}, {"X", "number"}, {"Y", "number"}, {"width", "number"}, {"height", "number"} }, true, true )
 
     self.canvas = StageCanvas( {width = width; height = height; textColour = self.textColour; backgroundColour = self.backgroundColour, stage = self} )
 
+    self.controller = {}
     self.X = X
     self.Y = Y
     self.name = name
@@ -59,22 +63,38 @@ function Stage:initialise( ... )
     end)
 
     self.nodes = {}
-    self:shadowUpdated()
+    self:updateCanvasSize()
 end
 
-function Stage:shadowUpdated()
-    -- if shadow is true and shadowB is false, expand the buffer
-    if self.shadow and not shadowB then
-        self.canvas.width = self.width + 1
-        self.canvas.height = self.height + 1
-        self.canvas:redrawFrame()
-        shadowB = true
-    elseif not self.shadow and shadowB then
-        self.canvas.width = self.width
-        self.canvas.height = self.height
-        self.canvas:redrawFrame()
-        shadowB = false
-    end
+function Stage:updateCanvasSize()
+    if not self.canvas then return end
+    local offset = 0
+    if self.shadow then offset = 1 end
+
+    self.canvas.width = self.width + offset
+    self.canvas.height = self.height + offset + ( not self.borderless and 1 or 0 )
+
+    self.canvas:redrawFrame()
+end
+
+function Stage:setShadow( bool )
+    self.shadow = bool
+    self:updateCanvasSize()
+end
+
+function Stage:setBorderless( bool )
+    self.borderless = bool
+    self:updateCanvasSize()
+end
+
+function Stage:setHeight( height )
+    self.height = height
+    self:updateCanvasSize()
+end
+
+function Stage:setWidth( width )
+    self.width = width
+    self:updateCanvasSize()
 end
 
 function Stage:setApplication( app )
@@ -145,4 +165,78 @@ end
 
 function Stage:mapNode( x1, y1, x2, y2 )
     -- functions similarly to Application:mapWindow.
+end
+
+function Stage:mapToApp()
+    local canvas = self.canvas
+
+    self.application:mapWindow( self.X, self.Y, self.X + canvas.width, self.Y + canvas.height )
+end
+
+local function getFromDCML( path )
+    return DCML.parse( DCML.loadFile( path ) )
+end
+function Stage:replaceWithDCML( path )
+    local data = getFromDCML( path )
+
+    for i = 1, #self.nodes do
+        local node = self.nodes[i]
+        node.stage = nil
+
+        table.remove( self.nodes, i )
+    end
+
+    for i = 1, #data do
+        data[i].stage = self
+        table.insert( self.nodes, data[i] )
+    end
+end
+
+function Stage:appendFromDCML( path )
+    -- TODO
+end
+
+function Stage:removeKeyboardFocus( from )
+    local current = self.currentKeyboardFocus
+    if current and current == from then
+        current.acceptKeyboard = false
+        if current.onFocusLost then current:onFocusLost( self, node ) end
+
+        self.currentKeyboardFocus = false
+    end
+end
+
+function Stage:redirectKeyboardFocusHere( node )
+    self:removeKeyboardFocus( self.currentKeyboardFocus )
+    
+    node.acceptKeyboard = true
+    self.currentKeyboardFocus = node
+    if node.onFocusGain then self.currentKeyboardFocus:onFocusGain( self ) end
+end
+
+--[[ Controller ]]--
+function Stage:addToController( name, fn )
+    if type( name ) ~= "string" or type( fn ) ~= "function" then
+        return error("Expected string, function")
+    end
+    self.controller[ name ] = fn
+end
+
+function Stage:removeFromController( name )
+    self.controller[ name ] = nil
+end
+
+function Stage:getCallback( name )
+    name = sub( name, 2 )
+    return self.controller[ name ]
+end
+
+function Stage:executeCallback( name, ... )
+    local cb = self:getCallback( name )
+    if cb then
+        local args = { ... }
+        return cb( ... )
+    else
+        return error("Failed to find callback "..tostring( sub(name, 2) ).." on controller (node.stage): "..tostring( self ))
+    end
 end

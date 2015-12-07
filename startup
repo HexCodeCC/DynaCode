@@ -1,6 +1,6 @@
 local tWidth, tHeight = term.getSize()
 
-local shortBoot = false
+local shortBoot = true
 local logging = true
 local function printCentre( text, y, colour )
     if colour then term.setTextColour( colour ) end
@@ -80,15 +80,15 @@ shell.run("dobuild.lua", "/src", "bin/DynaCode.lua")
 printCentre("Booting DynaCode", 7, colors.lightBlue)
 dofile("bin/DynaCode.lua")
 
-app = Application( tWidth, tHeight )
+app = Application( term.getSize() )
 app.backgroundColour = colors.cyan
 
 stage = app + Stage({
     name = "TestStage";
     X = 5;
     Y = 5;
-    width = 30;
-    height = 10;
+    width = 15;
+    height = 7;
     textColour = colors.lightGray;
     titleTextColour = colors.white;
     titleBackgroundColour = 128;
@@ -104,7 +104,7 @@ function label:onMouseDown( event )
     log("i", "Label clicked")
 end
 
-button = stage + Button("Test Button", 3, 3, 10, 3)
+input = stage + Input( 1, 1, 5, 1 )
 
 cls( 1 )
 printCentre("Load Complete", 7, colours.lightBlue)
@@ -115,4 +115,6 @@ end
 _G.print = oPrint
 log("w", "Output total: "..a)
 sleep(0)
+
+--dofile("example/example.lua")
 app:run()

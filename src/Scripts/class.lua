@@ -301,6 +301,8 @@ end
 class.preprocess = preprocess
 function class.getClasses() return classes end
 
+function class.getClass( name ) return classes[ name ] end
+
 function class.setCustomViewer( fn )
     if type( fn ) ~= "function" then return error("Expected function") end
 

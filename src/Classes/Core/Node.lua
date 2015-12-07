@@ -2,8 +2,8 @@ abstract class "Node" alias "COLOUR_REDIRECT" {
     X = 1;
     Y = 1;
 
-    width = 1;
-    height = 1;
+    width = nil;
+    height = nil;
 
     visible = true;
     enabled = true;
@@ -24,10 +24,15 @@ abstract class "Node" alias "COLOUR_REDIRECT" {
 }
 
 function Node:initialise( ... )
-    ParseClassArguments( self, { ... }, { { "X", "number" }, { "Y", "number" }, { "width", "number" }, { "height", "number" } }, false, false )
+    local X, Y, width, height = ParseClassArguments( self, { ... }, { { "X", "number" }, { "Y", "number" }, { "width", "number" }, { "height", "number" } }, false, true )
 
     -- Creates a NodeCanvas
-    self.canvas = NodeCanvas( self, self.width, self.height )
+    self.canvas = NodeCanvas( self, width or 1, height or 1 )
+
+    self.X = X
+    self.Y = Y
+    self.width = width or 1
+    self.height = height or 1
 end
 
 function Node:draw( xO, yO )
@@ -101,13 +106,9 @@ function Node:handleEvent( event )
                 call( self, "onMouseMiss", event )
             end
         elseif event.main == "KEY" and self.acceptKeyboard then
-            if self.acceptKeyboard then -- basically focused
-                call( self, event.sub == "UP" and "onKeyUp" or "onKeyDown", event )
-            end
+            call( self, event.sub == "UP" and "onKeyUp" or "onKeyDown", event )
         elseif event.main == "CHAR" and self.acceptKeyboard then
-            if self.acceptKeyboard then
-                call( self, "onChar", event )
-            end
+            call( self, "onChar", event )
         elseif self.acceptMisc then
             -- unknown main event
             call( self, "onUnknownEvent", event )
@@ -116,4 +117,16 @@ function Node:handleEvent( event )
     else
         call( self, "onEvent", event )
     end
+end
+
+-- STATIC
+function Node.generateNodeCallback( node, a, b )
+    return (function( ... )
+        local args = { ... }
+        -- on call executes a controller callback
+        if not node.stage then
+            return error("Cannot link to node '"..node:type().."' stage.")
+        end
+        node.stage:executeCallback( b, ... )
+    end)
 end

@@ -100,6 +100,11 @@ function Application:run( thread )
             self:draw()
             local ev = { coroutine.yield() } -- more direct version of os.pullEventRaw
             local event = self.event:create( ev )
+
+            if event.main == "KEY" and ev[1] == "char" then
+                error("Application fatal exception: Invalid event created, expected char event")
+            end
+
             if debug then if ev[1] == "char" and ev[2] == "\\" then os.reboot() elseif ev[1] == "char" and ev[2] == "/" then self:finish() end end
 
             -- Pass the event to stages and process through any application daemons

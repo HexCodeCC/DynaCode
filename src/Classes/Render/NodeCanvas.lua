@@ -21,9 +21,10 @@ function NodeCanvas:drawToCanvas( canvas, xO, yO )
     local buffer = self.buffer
     --local frame = self.frame
     local stage = self.node.stage
+    local borderOffset = stage.borderless and 2 or 1
 
     local xO = type( xO ) == "number" and xO - 1 or 0
-    local yO = type( yO ) == "number" and yO - 1 or 0
+    local yO = type( yO ) == "number" and yO - borderOffset or 0
 
     local width = self.width --+ ( stage.shadow and 0 or 0 )
     local height = self.height --- ( stage.shadow and 0 or 1 )
@@ -33,12 +34,13 @@ function NodeCanvas:drawToCanvas( canvas, xO, yO )
     local cHeight = canvas.height - sOffset
     local cWidth = canvas.width - sOffset
 
+
     for y = 0, height do
         local yPos = width * y
         local yBPos = canvas.width * ( y + yO + 1 )
-        if y + yO + 1 > 0 and y + yO + 1 < cHeight then
+        if y + yO + borderOffset > 0 and y + yO + sOffset < cHeight then
             for x = 1, width do
-                if x + xO + 1 > 0 and x + xO + 1 < cWidth then
+                if x + xO + 1 > 0 and x + xO - 1 < cWidth then
                     local pos = yPos + x
                     local bPos = yBPos + (x + xO)
 
@@ -59,9 +61,9 @@ end
 
 -- BASIC SHAPES
 function NodeCanvas:drawArea( x1, y1, width, height, tc, bg )
-    for y = y1, y1 + height do
+    for y = y1, y1 + height - 1 do
         local yPos = self.width * ( y - 1 )
-        for x = x1, x1 + width do
+        for x = x1, x1 + width - 1 do
             self.buffer[ yPos + x ] = { " ", tc, bg }
         end
     end
@@ -163,7 +165,7 @@ function NodeCanvas:drawWrappedText( x1, y1, width, height, text, vAlign, hAlign
         else return error("Unknown vAlign mode") end
     else return error("Unknown vAlign mode") end
 
-    self:drawArea( x1, y1, x1 + width - 1, y1 + height - 1, tc, bgc )
+    self:drawArea( x1, y1, width - 1, height - 1, tc, bgc )
     if height < #text then
         self:drawTextLine( "...", 1, 1, tc, bgc )
         return
@@ -181,8 +183,8 @@ function NodeCanvas:drawWrappedText( x1, y1, width, height, text, vAlign, hAlign
             else return error("Unknown hAlign mode") end
         else return error("Unknown hAlign mode") end
         local y = math.ceil(drawY + lineIndex - .5)
-        if y1 + y - 1 >= y1 then
-            self:drawTextLine( line, drawX + x1 - 1, y + y1 - 1, tc, bgc )
+        if y1 + y - 2 >= y1 then
+            self:drawTextLine( line, drawX + x1 - 1, y + y1 - 2, tc, bgc )
         end
     end
 end
