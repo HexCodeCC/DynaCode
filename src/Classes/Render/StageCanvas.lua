@@ -31,7 +31,7 @@ function StageCanvas:redrawFrame()
     local height = self.height --+ ( stage.shadow and 1 or 0 )
 
     local frame = {}
-    for y = 0, height do
+    for y = 0, height - 1 do
         local yPos = width * y
         for x = 1, width do
             -- Find out what goes here (title, shadow, background)
@@ -70,32 +70,36 @@ function StageCanvas:drawToCanvas( canvas, xO, yO )
     local yO = type( yO ) == "number" and yO - 1 or 0
 
     local width = self.width --+ ( stage.shadow and 0 or 0 )
-    local height = self.height - ( stage.shadow and 0 or 1 )
+    local height = self.height -- ( stage.shadow and 1 or 1 )
 
-    for y = 0, height do
+    for y = 0, height - 1 do
         local yPos = width * y
         local yBPos = canvas.width * ( y + yO )
+        if y + yO + 1 > 0 and y + yO - 1 < canvas.height then
 
-        for x = 1, width do
-            local pos = yPos + x
-            local bPos = yBPos + (x + xO)
+            for x = 1, width do
+                if x + xO > 0 and x + xO - 1 < canvas.width then
+                    local pos = yPos + x
+                    local bPos = yBPos + (x + xO)
 
-            local pixel = buffer[ pos ]
-            if pixel then
-                if not pixel[1] then
-                    -- draw the frame
-                    local framePixel = frame[ pos ]
-                    if framePixel then
-                        local fP = framePixel[1]
-                        canvas.buffer[ bPos ] = { fP, framePixel[2] or self.textColour, framePixel[3] or self.backgroundColour }
+                    local pixel = buffer[ pos ]
+                    if pixel then
+                        if not pixel[1] then
+                            -- draw the frame
+                            local framePixel = frame[ pos ]
+                            if framePixel then
+                                local fP = framePixel[1]
+                                canvas.buffer[ bPos ] = { fP, framePixel[2] or self.textColour, framePixel[3] or self.backgroundColour }
+                            end
+                            --canvas.buffer[ bPos ] = framePixel
+                        else
+                            -- draw the node pixel
+                            canvas.buffer[ bPos ] = { pixel[1] or " ", pixel[2] or self.textColour or false, pixel[3] or self.backgroundColour or false }
+                        end
+                    else
+                        canvas.buffer[ bPos ] = { false, false, false }
                     end
-                    --canvas.buffer[ bPos ] = framePixel
-                else
-                    -- draw the node pixel
-                    canvas.buffer[ bPos ] = { pixel[1] or " ", pixel[2] or self.textColour or false, pixel[3] or self.backgroundColour or false }
                 end
-            else
-                canvas.buffer[ bPos ] = { false, false, false }
             end
         end
     end

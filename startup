@@ -1,84 +1,15 @@
 local tWidth, tHeight = term.getSize()
-
-local shortBoot = true
 local logging = true
-local function printCentre( text, y, colour )
-    if colour then term.setTextColour( colour ) end
-    term.setCursorPos( tWidth / 2 - ( text:len() / 2 ), y )
-    term.clearLine()
-    term.write( text )
-end
 
-local function title()
-    printCentre("DynaCode - ComputerCraft Graphics Framework", 6, colors.blue)
-    printCentre("Loading Class Definitions", 7, colors.lightBlue)
-    printCentre("Created by Harry Felton (hbomb79)", tHeight, colors.gray)
-end
-
-local function cls( colour )
-    term.setBackgroundColour( colour )
-    term.clear()
-    title()
-    sleep(0)
-end
-
-cls( colors.black )
-cls( colors.gray )
-cls( colors.lightGray )
-cls( colors.white )
-
---[[
-    All Logging code is temporary.
-]]--
-
-local modes = {
-    i = "Info";
-    w = "Warn";
-    e = "Error";
-    s = "Success";
-}
-
-function _G.log( mode, ... )
-    if not logging then return end
-
-    local args = { ... }
-
-    local message = ""
-    for i = 1, #args do
-        message = message .. tostring( args[i] )
-    end
-
-    local h = fs.open("DynaCode.log", "a")
-    h.write( "["..tostring( os.clock() ).."][" .. (( modes[ mode ] ) or tostring( mode )) .. "] > "..message.."\n" )
-    h.close()
-end
+shell.run("dobuild.lua", "/src", "bin/DynaCode.lua")
+dofile("bin/DynaCode.lua")
 
 if logging then
-    local h = fs.open("DynaCode.log", "w")
-    h.write("")
-    h.close()
-end
+    if not log then error("DynaCode Logger not available.", 0) end
 
-local oPrint = _G.print
-local oError = _G.error
-local a = 0
-_G.print = function( text )
-    printCentre( text, 8, colors.lightGray )
-    a = a + 1
-    if not shortBoot and a % 3 == 0 then
-        sleep()
-    end
+    log:setLoggingEnabled( true )
+    log:setLoggingPath("DynaCode.log")
 end
-
-_G.error = function( msg, level )
-    _G.print = oPrint
-    return oError( msg, level )
-end
-
-log("i", "Starting up")
-shell.run("dobuild.lua", "/src", "bin/DynaCode.lua")
-printCentre("Booting DynaCode", 7, colors.lightBlue)
-dofile("bin/DynaCode.lua")
 
 app = Application( term.getSize() )
 app.backgroundColour = colors.cyan
@@ -98,23 +29,35 @@ stage = app + Stage({
     title = "Test Window"
 })
 
+stage2 = app + Stage({
+    name = "TestStage2";
+    X = 17;
+    Y = 2;
+    width = 15;
+    height = 7;
+    textColour = colors.lightGray;
+    titleTextColour = colors.white;
+    titleBackgroundColour = 128;
+    backgroundColour = colors.white;
+    shadowColour = colors.gray;
+    shadow = true;
+    title = "Another Window"
+})
+
 label = stage + Label("Hello World!", 3, 1)
-label.acceptMouse = true
-function label:onMouseDown( event )
-    log("i", "Label clicked")
-end
+input = stage + Input( 3, 2, 11, 1 )
 
-input = stage + Input( 1, 1, 5, 1 )
 
-cls( 1 )
-printCentre("Load Complete", 7, colours.lightBlue)
-printCentre("Press any key to begin", 11, colors.lightGray)
-if not shortBoot then
-    while true do local e = { os.pullEventRaw() } if e[1] == "key" then break end end
-end
-_G.print = oPrint
-log("w", "Output total: "..a)
-sleep(0)
+app.hotkey:registerCombination("stop", "shift-ctrl-q", function()
+    app:finish()
+    print("Finished")
+end)
 
---dofile("example/example.lua")
-app:run()
+app:registerDaemon(MyDaemon("MyDaemon"))
+app:removeDaemon("MyDaemon")
+
+
+app:run( function()
+    sleep(1) -- trigger timer event
+    error("Oh snap")
+end )

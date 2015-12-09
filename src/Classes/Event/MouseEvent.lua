@@ -34,6 +34,10 @@ function MouseEvent:onPoint( x, y )
 end
 
 function MouseEvent:convertToRelative( parent )
-    self.X = self.X - parent.X + 1
-    self.Y = self.Y - parent.Y + 1
+    self.X, self.Y = self:getRelative( parent )
+end
+
+function MouseEvent:getRelative( parent )
+    -- similar to convertToRelative, however this leaves the event unchanged
+    return self.X - parent.X + 1, self.Y - parent.Y + 1
 end

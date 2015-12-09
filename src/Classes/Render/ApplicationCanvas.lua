@@ -20,6 +20,8 @@ local paint = { -- converts decimal to paint colors during draw time.
 class "ApplicationCanvas" extends "Canvas" {
     textColour = colors.red;
     backgroundColour = 1;
+
+    old = nil;
 }
 
 function ApplicationCanvas:initialise( ... )
@@ -27,6 +29,7 @@ function ApplicationCanvas:initialise( ... )
     AssertClass( self.owner, "Application", true, "Instance '"..self:type().."' requires an Application Instance as the owner" )
 
     self.super:initialise( self.width, self.height )
+    self.old = {}
 end
 
 function ApplicationCanvas:drawToScreen()
@@ -35,6 +38,7 @@ function ApplicationCanvas:drawToScreen()
 
     local width, height = self.width, self.height
     local buffer = self.buffer
+    local old = self.old
 
     local oldT, oldB = 1, 32768
     term.setBackgroundColor( 32768 )
@@ -60,10 +64,16 @@ function ApplicationCanvas:drawToScreen()
                 local pos = ( width * (y - 1 + yOffset) ) + x
 
                 term.setCursorPos( x, y )
-                if not buffer[pos] then
-                    printPixel { " ", self.textColour, self.backgroundColour }
-                else
-                    printPixel( buffer[ pos ] )
+                local lP = old[ pos ]
+                local cP = buffer[ pos ]
+                if not lP or ( lP[1] ~= cP[1] or lP[2] ~= cP[2] or lP[3] ~= cP[3] ) then
+                    if not buffer[pos] then
+                        printPixel { " ", self.textColour, self.backgroundColour }
+                        old[ pos ] = { " ", self.textColour, self.backgroundColour }
+                    else
+                        printPixel( cP )
+                        old[ pos ] = { cP[1], cP[2], cP[3] }
+                    end
                 end
             end
         end

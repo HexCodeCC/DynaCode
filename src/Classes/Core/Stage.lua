@@ -23,6 +23,9 @@ class "Stage" alias "COLOUR_REDIRECT" {
     textColour = 1;
     backgroundColour = 32768;
 
+    unfocusedTextColour = 128;
+    unfocusedBackgroundColour = 256;
+
     shadow = true;
     shadowColour = colours.grey;
 
@@ -33,6 +36,10 @@ class "Stage" alias "COLOUR_REDIRECT" {
     closeButtonBackgroundColour = colours.red;
 
     controller = nil;
+
+    mouseMode = nil;
+
+    visible = true;
 }
 
 function Stage:initialise( ... )
@@ -64,6 +71,8 @@ function Stage:initialise( ... )
 
     self.nodes = {}
     self:updateCanvasSize()
+
+    self.mouseMode = false
 end
 
 function Stage:updateCanvasSize()
@@ -114,6 +123,16 @@ function Stage:draw()
     self.canvas:drawToCanvas( self.application.canvas, self.X, self.Y )
 end
 
+function Stage:appDrawComplete()
+    if self.currentKeyboardFocus then
+        local X, Y, tc = self.currentKeyboardFocus:getCursorInformation()
+
+        term.setTextColour( tc )
+        term.setCursorPos( X, Y )
+        term.setCursorBlink( true )
+    end
+end
+
 function Stage:addNode( node )
     -- add this node
     node.stage = self
@@ -129,12 +148,31 @@ function Stage:hitTest( x, y )
     return InArea( x, y, self.X, self.Y, self.X + self.width - 1, self.Y + self.height - 1 )
 end
 
+function Stage:isPixel( x, y )
+    -- return true if the co-ords are not on the whitespace at the top right and bottom left of a shadow stage
+    local canvas = self.canvas
+
+    -- if the stage has no shadow, then return true
+    if not self.shadow then
+        return true
+    end
+
+    if not ( (x == canvas.width and y == 1) or ( x == 1 and y == canvas.height ) ) then
+        return true
+    end
+
+    return false
+end
+
 function Stage:submitEvent( event )
     local nodes = self.nodes
+    local main = event.main
 
-    if event.main == "MOUSE" then
+    local oX, oY
+    if main == "MOUSE" then
         -- convert X and Y to relative co-ords.
-        event:convertToRelative( self )
+        oX, oY = event.X, event.Y
+        event:convertToRelative( self ) -- convert to relative, but revert this later so other stages aren't using relative co-ords.
         if not self.borderless then
             event.Y = event.Y - 1
         end
@@ -143,22 +181,114 @@ function Stage:submitEvent( event )
     for i = 1, #nodes do
         nodes[ i ]:handleEvent( event )
     end
+    if main == "MOUSE" then
+        event.X, event.Y = oX, oY
+    end
 end
 
-function Stage:handleClick( event )
+function Stage:handleMouse( event )
 
+    local function move( newX, newY )
+        newX = newX or self.X
+        newY = newY or self.Y
+
+        self:removeFromMap()
+        self.X = newX
+        self.Y = newY
+        self:map()
+
+        self.lastX, self.lastY = event.X, event.Y
+    end
+
+    local function resize( nW, nH )
+        newWidth = nW or self.width
+        newHeight = nH or self.height
+
+        if self.maxWidth then
+            if newWidth > self.maxWidth then
+                newWidth = self.maxWidth
+            end
+        end
+        if self.maxHeight then
+            if newHeight > self.maxHeight then
+                newHeight = self.maxHeight
+            end
+        end
+
+        if self.minWidth then
+            if newWidth < self.minWidth then
+                newWidth = self.minWidth
+            end
+        end
+        if self.minHeight then
+            if newHeight < self.minHeight then
+                newHeight = self.minHeight
+            end
+        end
+
+        -- Hardcoded minimums. Prevents crashing when width < 0 etc...
+        newWidth = newWidth >= 1 and newWidth or 1
+        if not self.borderless then
+            newHeight = newHeight >= 2 and newHeight or 2
+        else
+            newHeight = newHeight >= 1 and newHeight or 1
+        end
+
+        self:removeFromMap()
+
+        self.width = newWidth
+        self.height = newHeight
+
+        self.canvas:redrawFrame()
+
+        self:map()
+    end
+
+    if event.sub == "CLICK" then
+        local X, Y = event:getRelative( self )
+        if Y == 1 then
+            if X == self.width and self.closeButton then
+                -- close stage
+                self:removeFromMap()
+                self.application:removeStage( self.name )
+            else
+                -- set stage moveable
+                self.mouseMode = "move"
+                self.lastX, self.lastY = event.X, event.Y
+            end
+        elseif Y == self.height and X == self.width then
+            -- resize
+            self.mouseMode = "resize"
+            self.lastX, self.lastY = event.X, event.Y
+        end
+    elseif event.sub == "UP" and self.mouseMode then
+        self.mouseMode = false
+    elseif event.sub == "DRAG" and self.mouseMode then
+        if self.mouseMode == "move" then
+            move( self.X + event.X - self.lastX, self.Y + event.Y - self.lastY )
+        elseif self.mouseMode == "resize" then
+
+        end
+    end
 end
 
 function Stage:handleEvent( event )
-    self:submitEvent( event )
-    if event:isType("MOUSE", "CLICK") and not event.handled then
-        -- is this on this stage?
+    if not event.handled then
+        if event.main == "MOUSE" then
+            -- is this on this stage?
 
-        --TODO click detection, stage focusing, stage movement and resizing. *job feature/event-detection*
-        if self:hitTest( event.X, event.Y ) then
-            -- this click was on the stages hit area (not shadow)
-            event.handled = true -- stop other stages from reacting to this event (or any other class actually)
-            self:handleClick( event )
+            --TODO click detection, stage focusing, stage movement and resizing. *job feature/event-detection*
+            if self:hitTest( event.X, event.Y ) or self.mouseMode then
+                -- this click was on the stages hit area (not shadow)
+                local X, Y = event:getRelative( self )
+                if Y == 1 or ( Y == self.height and X == self.width ) or self.mouseMode then
+                    event.handled = true -- stop other stages from reacting to this event (or any other class actually)
+                    self:handleMouse( event )
+                end
+                self:submitEvent( event ) -- submit the event even if handled, any custom handlers can choose to use the event even if handled.
+            end
+        else
+            self:submitEvent( event )
         end
     end
 end
@@ -167,10 +297,18 @@ function Stage:mapNode( x1, y1, x2, y2 )
     -- functions similarly to Application:mapWindow.
 end
 
-function Stage:mapToApp()
+function Stage:map()
     local canvas = self.canvas
 
-    self.application:mapWindow( self.X, self.Y, self.X + canvas.width, self.Y + canvas.height )
+    self.application:mapWindow( self.X, self.Y, self.X + canvas.width - 1, self.Y + canvas.height - 1 )
+end
+
+function Stage:removeFromMap()
+    local oV = self.visible
+
+    self.visible = false
+    self:map()
+    self.visible = oV
 end
 
 local function getFromDCML( path )
@@ -193,23 +331,26 @@ function Stage:replaceWithDCML( path )
 end
 
 function Stage:appendFromDCML( path )
-    -- TODO
+    local data = getFromDCML( path )
+
+    for i = 1, #data do
+        data[i].stage = self
+        table.insert( self.nodes, data[i] )
+    end
 end
 
 function Stage:removeKeyboardFocus( from )
     local current = self.currentKeyboardFocus
     if current and current == from then
-        current.acceptKeyboard = false
         if current.onFocusLost then current:onFocusLost( self, node ) end
 
         self.currentKeyboardFocus = false
     end
 end
 
-function Stage:redirectKeyboardFocusHere( node )
+function Stage:redirectKeyboardFocus( node )
     self:removeKeyboardFocus( self.currentKeyboardFocus )
-    
-    node.acceptKeyboard = true
+
     self.currentKeyboardFocus = node
     if node.onFocusGain then self.currentKeyboardFocus:onFocusGain( self ) end
 end
@@ -239,4 +380,12 @@ function Stage:executeCallback( name, ... )
     else
         return error("Failed to find callback "..tostring( sub(name, 2) ).." on controller (node.stage): "..tostring( self ))
     end
+end
+
+function Stage:onFocus()
+    -- the application has granted focus to this stage. Create a shadow if required and update colour sheet.
+end
+
+function Stage:onBlur()
+    -- the application revoked focus, remove any shadows and grey out stage
 end

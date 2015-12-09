@@ -1,7 +1,7 @@
 local running
 local debug = true -- Allows reboot and application exit using keys. (\ for reboot, / for application close)
 
-class "Application" alias "COLOUR_REDIRECT" {
+class "Application" alias "COLOUR_REDIRECT" mixin "MDaemon" {
     canvas = nil;
     hotkey = nil;
     schedule = nil;
@@ -47,6 +47,18 @@ function Application:initialise( ... )
             return error("Invalid left hand assignment (" .. tostring( a ) .. ")")
         end
     end)
+
+    self:clearLayerMap()
+    self.lastID = 0
+end
+
+function Application:clearLayerMap()
+    local layerMap = {}
+    for i = 1, self.width * self.height do
+        layerMap[ i ] = false
+    end
+
+    self.layerMap = layerMap
 end
 
 function Application:setTextColour( col )
@@ -61,9 +73,11 @@ end
 
 function Application:addStage( stage )
     stage.application = self
-    --stage.ID = (type( stage )):sub( 8 )
+    stage.mappingID = self.lastID + 1
 
     self.stages[ #self.stages + 1 ] = stage
+
+    stage:map()
     return stage
 end
 
@@ -81,7 +95,7 @@ function Application:draw()
     -- orders all stages to draw to the application canvas
     --if not self.changed then return end
 
-    for i = 1, #self.stages do
+    for i = #self.stages, 1, -1 do
         self.stages[ i ]:draw()
     end
 
@@ -90,22 +104,34 @@ function Application:draw()
     self.changed = false
 end
 
+
 function Application:run( thread )
-    -- If present, exectute the callback thread in parallel with the main event loop.
+    -- If present, execute the callback thread in parallel with the main event loop.
     running = true
 
     local function engine()
         -- DynaCode main runtime loop
+        local hk = self.hotkey
         while running do
+            term.setCursorBlink( false )
             self:draw()
+
+            for i = 1, #self.stages do --< temporary 'for' loop
+                self.stages[i]:appDrawComplete() -- stages may want to add a cursor blink on screen etc..
+            end
+
             local ev = { coroutine.yield() } -- more direct version of os.pullEventRaw
             local event = self.event:create( ev )
 
-            if event.main == "KEY" and ev[1] == "char" then
-                error("Application fatal exception: Invalid event created, expected char event")
+            if debug then if ev[1] == "char" and ev[2] == "\\" then os.reboot() elseif ev[1] == "char" and (ev[2] == "/") then self:finish() end end
+
+            self.event:shipToRegistrations( event )
+
+            if event.main == "KEY" then
+                hk:handleKey( event )
             end
 
-            if debug then if ev[1] == "char" and ev[2] == "\\" then os.reboot() elseif ev[1] == "char" and ev[2] == "/" then self:finish() end end
+            hk:checkCombinations()
 
             -- Pass the event to stages and process through any application daemons
             for i = 1, #self.stages do
@@ -113,6 +139,8 @@ function Application:run( thread )
             end
         end
     end
+
+    self:startDaemons() -- daemons started before anything else.
 
     if type(thread) == "function" then
         ok, err = pcall( function() parallel.waitForAll( engine, thread ) end )
@@ -126,11 +154,40 @@ function Application:run( thread )
         print("DynaCode has crashed")
         term.setTextColour( colours.red )
         print( err )
-        term.setTextColour( 1 )
+        print("")
+
+        local function crashProcess( preColour, pre, fn, errColour, errPre, okColour, okMessage, postColour )
+            term.setTextColour( preColour )
+            print( pre )
+
+            local ok, err = pcall( fn )
+            if err then
+                term.setTextColour( errColour )
+                print( errPre .. err )
+            else
+                term.setTextColour( okColour )
+                print( okMessage )
+            end
+
+            term.setTextColour( postColour )
+        end
+
+        local YELLOW, RED, LIME = colours.yellow, colours.red, colours.lime
+
+        crashProcess( YELLOW, "Attempting to stop daemon service and children", function() self:stopDaemons( false ) end, RED, "Failed to stop daemon service: ", LIME, "Stopped daemon service", 1 )
+        print("")
+
+        crashProcess( YELLOW, "Attempting to write crash information to log file", function()
+            log("f", "DynaCode crashed: "..err)
+        end, RED, "Failed to write crash information: ", LIME, "Wrote crash information to file", 1 )
     end
 end
 
 function Application:finish( thread )
+    log("i", "Stopping Daemons")
+    self:stopDaemons( true )
+
+    log("i", "Stopping Application")
     running = false
     os.queueEvent("stop") -- if the engine is waiting for an event give it one so it can realise 'running' is false -> while loop finished -> exit and return.
     if type( thread ) == "function" then thread() end
@@ -139,4 +196,76 @@ end
 function Application:mapWindow( x1, y1, x2, y2 )
     -- Updates drawing map for windows. Prevents windows that aren't visible from drawing themselves (if they are covered by other windows)
     -- Also clears the area used by the window if the current window is not visible.
+
+    local stages = self.stages
+
+    for i = #stages, 1, -1 do -- This loop works backwards, meaning the stage at the top of the stack is ontop during drawing and mapping also.
+        local stage = stages[ i ]
+
+        local stageX, stageY = stage.X, stage.Y
+        local stageWidth, stageHeight = stage.canvas.width, stage.canvas.height
+
+        local stageX2, stageY2
+        stageX2 = stageX + stageWidth - 1
+        stageY2 = stageY + stageHeight - 1
+
+        local stageVisible = stage.visible
+        local ID = stage.mappingID
+
+        local layers = self.layerMap
+
+        if not (stageX > x2 or stageY > y2 or x1 > stageX2 or y1 > stageY2) then
+            for y = math.max(stageY, y1), math.min(stageY2, y2) do
+                local yPos = self.width * ( y - 1 )
+
+                for x = math.max(stageX, x1), math.min(stageX2, x2) do
+                    local layer = layers[ yPos + x ]
+
+                    if layer ~= nil then
+                        if layer ~= ID and stageVisible and ( stage:isPixel( x - stageX + 1 , y - stageY + 1 ) ) then
+                            layers[ yPos + x ] = ID
+                        elseif layer == ID and not stageVisible then
+                            layers[ yPos + x ] = false
+                        end
+                    end
+                end
+            end
+            if stageVisible then
+                stage:draw()
+            end
+        end
+    end
+
+    local buffer = self.canvas.buffer
+    for y = y1, y2 do
+        -- clear the unused pixels back to background colours.
+        local yPos = self.width * ( y - 1 )
+
+        for x = x1, x2 do
+            local pos = yPos + x
+            local layer = self.layerMap[ yPos + x ]
+            if layer == false then
+                if buffer[ pos ] then buffer[ pos ] = { false, false, false } end -- bg pixel. Anything may draw in this space.
+            end
+        end
+    end
+end
+
+function Application:setStageFocus( stage )
+    if class.isInstance( stage, "Stage" ) then return error("Expected Class Instance Stage, not "..tostring( stage )) end
+
+    -- remove the current stage focus (if one)
+    self:unSetStageFocus()
+
+    stage:onFocus()
+    self.focusedStage = stage
+end
+
+function Application:unSetStageFocus( stage )
+    local stage = stage or self.focusedStage
+
+    if self.focusedStage == stage then
+        self.focusedStage:onBlur()
+        self.focusedStage = nil
+    end
 end

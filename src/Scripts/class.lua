@@ -11,8 +11,6 @@
     Refer to file '/plan.md' for info on class
 ]]
 
-local log = type(_G.log) == "function" and _G.log or (function() end)
-
 local match, gsub = string.match, string.gsub
 
 local class = {} -- Class API
@@ -370,7 +368,6 @@ function class.runClassString( str, file, ignore )
 end
 
 function class:forge( name, ... )
-    log("i", "Trying to create class '"..name.."'")
     -- Instance Local Variables --
     local isAbstract = false
     local sealed = false
@@ -381,26 +378,22 @@ function class:forge( name, ... )
 
     local function releaseClass()
         if classes[ name ] then
-            log("e", "Failed to create class '"..name.."' because the class has already been created/name in use")
             return error("Class '"..name.."' is already defined")
         end
         if ENV[ name ] and not OVERWRITE_GLOBALS then
-            log("e", "Failed to create class '"..name.."' because a variable with the same name already exists in the working class environment")
             return error("'"..name.."' already exists is the working environment")
         end
         classes[ name ] = new
         ENV[ name ] = new
-        log("s", "Class '"..name.."' created and released")
     end
 
     function new:seal()
         -- Seal the class
-        if sealed then log("e", "Class '"..name.."' already sealed, cannot seal again") return error("Class '"..name.."' has already been sealed") end
+        if sealed then return error("Class '"..name.."' has already been sealed") end
         if isAbstract then
             function self:spawn() return error("Cannot spawn instance of abstract class '"..name.."'") end
         else
             function self:spawn( ... )
-                log("i", "Spawning instance of class '"..name.."'")
                 local raw = deepCopy( self ) -- Literally copy the base class, no inheritance needed here as we do not care what happens to the base class after instantiation.
                 local instanceMT = {}
                 local instance = {}
@@ -512,7 +505,6 @@ function class:forge( name, ... )
                 -- execute constructor
                 local name = (type( instance[ "initialise" ] ) == "function" and instance.initialise or ( type( instance[ "initialize" ] ) == "function" and instance.initialize ) or false )
                 if name then
-                    log("i", "Running '"..self:type().."' instance constructor")
                     name( instance, ... )
                 end
 
@@ -581,8 +573,6 @@ function class:forge( name, ... )
     function new:setAbstract( bool )
         if sealed then return error("Cannot change class abstract type after seal") end
         isAbstract = bool
-
-        log("i", "Class '"..name.."' abstract adjusted: "..tostring( bool ))
     end
     function new:setAlias( tbl )
         if sealed then return error("Cannot set alias of class after seal") end

@@ -96,27 +96,47 @@ local clickMatrix = {
 }
 function Node:handleEvent( event )
     -- Automatically fires callbacks on the node depending on the event. For example onMouseMiss, onMouseDown, onMouseUp etc...
-    if not self.manuallyHandle then
-        local eCall = false
-        if event.main == "MOUSE" and self.acceptMouse then
-            if event:inArea( self.X, self.Y, self.X + self.width - 1, self.Y + self.height - 1 ) then
-                log("MOUSE", event.sub)
-                call( self, clickMatrix[ event.sub ] or error("No click matrix entry for "..tostring( event.sub )), event )
-            else
-                call( self, "onMouseMiss", event )
+    if not event.handled then
+        if not self.manuallyHandle then
+            local eCall = false
+            if event.main == "MOUSE" and self.acceptMouse then
+                if event:inArea( self.X, self.Y, self.X + self.width - 1, self.Y + self.height - 1 ) then
+                    log("MOUSE", event.sub)
+                    call( self, clickMatrix[ event.sub ] or error("No click matrix entry for "..tostring( event.sub )), event )
+                else
+                    call( self, "onMouseMiss", event )
+                end
+            elseif event.main == "KEY" and self.acceptKeyboard then
+                call( self, event.sub == "UP" and "onKeyUp" or "onKeyDown", event )
+            elseif event.main == "CHAR" and self.acceptKeyboard then
+                call( self, "onChar", event )
+            elseif self.acceptMisc then
+                -- unknown main event
+                call( self, "onUnknownEvent", event )
+                eCall = true
             end
-        elseif event.main == "KEY" and self.acceptKeyboard then
-            call( self, event.sub == "UP" and "onKeyUp" or "onKeyDown", event )
-        elseif event.main == "CHAR" and self.acceptKeyboard then
-            call( self, "onChar", event )
-        elseif self.acceptMisc then
-            -- unknown main event
-            call( self, "onUnknownEvent", event )
-            eCall = true
+        else
+            call( self, "onEvent", event )
         end
-    else
-        call( self, "onEvent", event )
     end
+end
+
+function Node:getTotalOffset()
+    -- goes up through every parent and returns the total X, Y offset.
+    local X, Y = 0, 0
+    if self.parent then
+        -- get the offset from the parent, add this to the total
+        local pX, pY = self.parent:getTotalOffset()
+        X = X + pX
+        Y = Y + pY
+    elseif self.stage then
+        X = X + self.stage.X
+        Y = Y + self.stage.Y
+    end
+
+    X = X + self.X
+    Y = Y + self.Y
+    return X, Y
 end
 
 -- STATIC

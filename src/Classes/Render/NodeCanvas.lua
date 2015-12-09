@@ -61,9 +61,9 @@ end
 
 -- BASIC SHAPES
 function NodeCanvas:drawArea( x1, y1, width, height, tc, bg )
-    for y = y1, y1 + height - 1 do
+    for y = y1, (y1 + height - 1) do
         local yPos = self.width * ( y - 1 )
-        for x = x1, x1 + width - 1 do
+        for x = x1, (x1 + width - 1) do
             self.buffer[ yPos + x ] = { " ", tc, bg }
         end
     end

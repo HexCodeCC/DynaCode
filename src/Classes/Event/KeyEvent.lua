@@ -14,7 +14,7 @@ function KeyEvent:initialise( raw )
     local t, m
     if u then
         t = sub( raw[1], u + 1, raw[1]:len() )
-        m = sub( raw[1], 1, u )
+        m = sub( raw[1], 1, u - 1 )
     else
         t = raw[1]
         m = t
