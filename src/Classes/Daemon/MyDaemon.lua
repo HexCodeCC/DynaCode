@@ -3,7 +3,7 @@ class "MyDaemon" extends "Daemon"
 function MyDaemon:start()
     local event = self.owner.event
 
-
+    
     event:registerEventHandler("ExampleHandler", "TIMER", "EVENT", function()
         log("dw", "Timer event found from application event handler.")
     end)

@@ -26,7 +26,8 @@ stage = app + Stage({
     backgroundColour = colors.white;
     shadowColour = colors.gray;
     shadow = true;
-    title = "Test Window"
+    title = "Test Window";
+    minHeight = 10;
 })
 
 stage2 = app + Stage({
@@ -41,7 +42,7 @@ stage2 = app + Stage({
     backgroundColour = colors.white;
     shadowColour = colors.gray;
     shadow = true;
-    title = "Another Window"
+    title = "Another Window";
 })
 
 label = stage + Label("Hello World!", 3, 1)
@@ -53,11 +54,15 @@ app.hotkey:registerCombination("stop", "shift-ctrl-q", function()
     print("Finished")
 end)
 
+local t1 = app.timer:setTimer( "first", 1, function()
+    log("i", "Hit 1")
+end)
+sleep()
+local t2 = app.timer:setTimer( "second", 0.95, function()
+    log("i", "Hit 0.95")
+end)
+
+app.timer:removeTimer( "first" ) -- "second" will still fire
+
 app:registerDaemon(MyDaemon("MyDaemon"))
-app:removeDaemon("MyDaemon")
-
-
-app:run( function()
-    sleep(1) -- trigger timer event
-    error("Oh snap")
-end )
+app:run()

@@ -61,7 +61,6 @@ end
 
 function Canvas:setWidth( width )
     if not self.buffer then log("w", "Attempted to manipulate buffer size before initialisation!") self.width = width return end
-    log("i", "setting width on Canvas")
 
 
     local height, buffer = self.height, self.buffer
@@ -83,7 +82,6 @@ end
 
 function Canvas:setHeight( height )
     if not self.buffer then log("w", "Attempted to manipulate buffer size before initialisation!") self.height = height return end
-    log("i", "setting height on Canvas")
     local width, buffer, cHeight = self.width, self.buffer, self.height
 
 	while self.height < height do
@@ -100,8 +98,4 @@ function Canvas:setHeight( height )
 		self.height = self.height - 1
 	end
     self:clear()
-end
-
-function Canvas:test()
-    print("hey from canvas")
 end

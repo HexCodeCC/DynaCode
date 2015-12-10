@@ -1,5 +1,29 @@
+local GREYSCALE_FILTER = {
+    [1] = 256;
+    [2] = 256;
+    [4] = 256;
+    [8] = 1;
+    [16] = 256;
+    [32] = 128;
+    [64] = 256;
+    [128] = 128;
+    [256] = 128;
+    [512] = 256;
+    [1024] = 128;
+    [2048] = 128;
+    [4096] = 128;
+    [8192] = 256;
+    [16384] = 128;
+    [32768] = 128;
+}
+
 class "StageCanvas" extends "Canvas" {
     frame = nil;
+
+    filter = nil;
+
+    cache = nil;
+    greyOutWhenNotFocused = true;
 }
 
 function StageCanvas:initialise( ... )
@@ -9,23 +33,47 @@ function StageCanvas:initialise( ... )
 
     self.super:initialise( width, height )
 
+    self.cache = {}
+
     self:redrawFrame()
+    self:updateFilter()
+end
+
+function StageCanvas:updateFilter()
+    if self.stage.focused or not self.greyOutWhenNotFocused then
+        self.filter = "NONE"
+    else
+        self.filter = "GREYSCALE"
+    end
+end
+
+function StageCanvas:setFilter( fil )
+    -- clear the cache
+    self.filter = fil
+    self:redrawFrame()
+end
+
+function StageCanvas:getColour( col )
+    if self.filter == "NONE" then return col end
+
+    if self.filter == "GREYSCALE" then
+        return GREYSCALE_FILTER[ col ]
+    end
 end
 
 function StageCanvas:redrawFrame()
     -- This function creates a table of pixels representing the background and shadow of the stage.
     -- Function should only be executed during full clears, not every draw.
     local stage = self.stage
+    local gc = self.getColour
 
     local hasTitleBar = not stage.borderless
-    local title = OverflowText(stage.title or "", self.width - ( stage.closeButton and 1 or 0 ) ) or ""
-    local hasShadow = stage.shadow
+    local title = OverflowText(stage.title or "", stage.width - ( stage.closeButton and 1 or 0 ) ) or ""
+    local hasShadow = stage.shadow and stage.focused
 
     local shadowColour = stage.shadowColour
     local titleColour = stage.titleTextColour
     local titleBackgroundColour = stage.titleBackgroundColour
-    local backgroundColour = self.backgroundColour
-    local textColour = self.textColour
 
     local width = self.width --+ ( stage.shadow and 0 or 0 )
     local height = self.height --+ ( stage.shadow and 1 or 0 )
@@ -65,6 +113,7 @@ function StageCanvas:drawToCanvas( canvas, xO, yO )
     local buffer = self.buffer
     local frame = self.frame
     local stage = self.stage
+    local gc = self.getColour
 
     local xO = type( xO ) == "number" and xO - 1 or 0
     local yO = type( yO ) == "number" and yO - 1 or 0
@@ -89,12 +138,15 @@ function StageCanvas:drawToCanvas( canvas, xO, yO )
                             local framePixel = frame[ pos ]
                             if framePixel then
                                 local fP = framePixel[1]
-                                canvas.buffer[ bPos ] = { fP, framePixel[2] or self.textColour, framePixel[3] or self.backgroundColour }
+                                if x == self.width and y == 0 and not stage.borderless and stage.closeButton and self.greyOutWhenNotFocused then -- keep the closeButton coloured.
+                                    canvas.buffer[ bPos ] = { fP, framePixel[2] or self.textColour, framePixel[3] or self.backgroundColour}
+                                else
+                                    canvas.buffer[ bPos ] = { fP, gc( self, framePixel[2] or self.textColour ), gc( self, framePixel[3] or self.backgroundColour ) }
+                                end
                             end
-                            --canvas.buffer[ bPos ] = framePixel
                         else
                             -- draw the node pixel
-                            canvas.buffer[ bPos ] = { pixel[1] or " ", pixel[2] or self.textColour or false, pixel[3] or self.backgroundColour or false }
+                            canvas.buffer[ bPos ] = { pixel[1] or " ", gc( self, pixel[2] or self.textColour ), gc( self, pixel[3] or self.backgroundColour ) }
                         end
                     else
                         canvas.buffer[ bPos ] = { false, false, false }

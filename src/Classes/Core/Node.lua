@@ -121,6 +121,17 @@ function Node:handleEvent( event )
     end
 end
 
+function Node:setChanged( bool )
+    self.changed = bool
+
+    if bool then
+        local parent = self.parent or self.stage
+        if parent then
+            parent.changed = true
+        end
+    end
+end
+
 function Node:getTotalOffset()
     -- goes up through every parent and returns the total X, Y offset.
     local X, Y = 0, 0

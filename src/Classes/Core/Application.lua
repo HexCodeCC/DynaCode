@@ -30,9 +30,8 @@ function Application:initialise( ... )
         ["key"] = KeyEvent;
         ["key_up"] = KeyEvent;
         ["char"] = KeyEvent;
-    })
-    --[[self.schedule = ApplicationScheduler( self )
-    self.timer = TimeManager( self )]]
+    });
+    self.timer = TimerManager( self )
 
     self.stages = {}
     self:__overrideMetaMethod( "__add", function( a, b ) -- only allows overriding certain metamethods.
@@ -85,13 +84,13 @@ function Application:removeStage( stageOrName )
     local isStage = class.typeOf( stageOrName, "Stage", true )
     for i = 1, #self.stages do
         local stage = self.stages[ i ]
-        if ( isStage and stage == stageOrName ) or ( not isStage and stage.name and stage.name == stageOrName ) then
+        if ( isStage and stage == stageOrName ) or ( not isStage and stage.name == stageOrName ) then
             table.remove( self.stages, i )
         end
     end
 end
 
-function Application:draw()
+function Application:draw( force )
     -- orders all stages to draw to the application canvas
     --if not self.changed then return end
 
@@ -100,7 +99,7 @@ function Application:draw()
     end
 
     -- Then draw the application to screen
-    self.canvas:drawToScreen()
+    self.canvas:drawToScreen( force )
     self.changed = false
 end
 
@@ -108,34 +107,52 @@ end
 function Application:run( thread )
     -- If present, execute the callback thread in parallel with the main event loop.
     running = true
+    self.hotkey:reset()
 
     local function engine()
         -- DynaCode main runtime loop
         local hk = self.hotkey
+        local tm = self.timer
+        local drawNow
+
+        self:draw( true )
         while running do
             term.setCursorBlink( false )
-            self:draw()
+            if drawNow then self:draw() else drawNow = true end
 
             for i = 1, #self.stages do --< temporary 'for' loop
                 self.stages[i]:appDrawComplete() -- stages may want to add a cursor blink on screen etc..
             end
 
-            local ev = { coroutine.yield() } -- more direct version of os.pullEventRaw
-            local event = self.event:create( ev )
-
-            if debug then if ev[1] == "char" and ev[2] == "\\" then os.reboot() elseif ev[1] == "char" and (ev[2] == "/") then self:finish() end end
-
+            local event = self.event:create( { coroutine.yield() } )
             self.event:shipToRegistrations( event )
 
             if event.main == "KEY" then
                 hk:handleKey( event )
+            elseif event.main == "TIMER" then
+                tm:update( event.raw[2] )
             end
-
             hk:checkCombinations()
 
-            -- Pass the event to stages and process through any application daemons
             for i = 1, #self.stages do
-                self.stages[i]:handleEvent( event )
+                if self.stages[i] then
+                    self.stages[i]:handleEvent( event )
+                end
+            end
+
+            -- If there is an outstanding stage re-order request then handle this now (move the new stage to the top of the stage table)
+            if self.reorderRequest then
+                log("i", "Reordering stage list")
+                -- remove this stage from the table and re-insert it at the beggining.
+                local stage = self.reorderRequest
+                for i = 1, #self.stages do
+                    if self.stages[i] == stage then
+                        table.insert( self.stages, 1, table.remove( self.stages, i ) )
+                        self:setStageFocus( stage )
+                        break
+                    end
+                end
+                self.reorderRequest = nil
             end
         end
     end
@@ -251,8 +268,13 @@ function Application:mapWindow( x1, y1, x2, y2 )
     end
 end
 
+function Application:requestStageFocus( stage )
+    -- queue a re-order of the stages.
+    self.reorderRequest = stage
+end
+
 function Application:setStageFocus( stage )
-    if class.isInstance( stage, "Stage" ) then return error("Expected Class Instance Stage, not "..tostring( stage )) end
+    if not class.isInstance( stage, "Stage" ) then return error("Expected Class Instance Stage, not "..tostring( stage )) end
 
     -- remove the current stage focus (if one)
     self:unSetStageFocus()
@@ -264,7 +286,7 @@ end
 function Application:unSetStageFocus( stage )
     local stage = stage or self.focusedStage
 
-    if self.focusedStage == stage then
+    if self.focusedStage and self.focusedStage == stage then
         self.focusedStage:onBlur()
         self.focusedStage = nil
     end

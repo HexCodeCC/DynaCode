@@ -78,7 +78,7 @@ end
 function Stage:updateCanvasSize()
     if not self.canvas then return end
     local offset = 0
-    if self.shadow then offset = 1 end
+    if self.shadow and self.focused then offset = 1 end
 
     self.canvas.width = self.width + offset
     self.canvas.height = self.height + offset + ( not self.borderless and 1 or 0 )
@@ -140,12 +140,8 @@ function Stage:addNode( node )
     return node
 end
 
-function Stage:setFocused( bool )
-
-end
-
 function Stage:hitTest( x, y )
-    return InArea( x, y, self.X, self.Y, self.X + self.width - 1, self.Y + self.height - 1 )
+    return InArea( x, y, self.X, self.Y, self.X + self.width - 1, self.Y + self.height - ( self.borderless and 1 or 0 ) )
 end
 
 function Stage:isPixel( x, y )
@@ -204,35 +200,16 @@ function Stage:handleMouse( event )
         newWidth = nW or self.width
         newHeight = nH or self.height
 
-        if self.maxWidth then
-            if newWidth > self.maxWidth then
-                newWidth = self.maxWidth
-            end
-        end
-        if self.maxHeight then
-            if newHeight > self.maxHeight then
-                newHeight = self.maxHeight
-            end
-        end
+        local maxWidth, maxHeight, minWidth, minHeight = self.maxWidth, self.maxHeight, self.minWidth, self.minHeight
 
-        if self.minWidth then
-            if newWidth < self.minWidth then
-                newWidth = self.minWidth
-            end
-        end
-        if self.minHeight then
-            if newHeight < self.minHeight then
-                newHeight = self.minHeight
-            end
-        end
+        newWidth = maxWidth and newWidth > maxWidth and maxWidth or newWidth
+        newHeight = maxHeight and newHeight > maxHeight and maxHeight or newHeight
+        newWidth = minWidth and newWidth < minWidth and minWidth or newWidth
+        newHeight = minHeight and newHeight < minHeight and minHeight or newHeight
 
         -- Hardcoded minimums. Prevents crashing when width < 0 etc...
         newWidth = newWidth >= 1 and newWidth or 1
-        if not self.borderless then
-            newHeight = newHeight >= 2 and newHeight or 2
-        else
-            newHeight = newHeight >= 1 and newHeight or 1
-        end
+        newHeight = newHeight >= 1 and newHeight or 1
 
         self:removeFromMap()
 
@@ -243,23 +220,21 @@ function Stage:handleMouse( event )
 
         self:map()
     end
-
     if event.sub == "CLICK" then
         local X, Y = event:getRelative( self )
         if Y == 1 then
-            if X == self.width and self.closeButton then
+            if X == self.width and self.closeButton and not self.borderless then
                 -- close stage
                 self:removeFromMap()
-                self.application:removeStage( self.name )
+                self.application:removeStage( self )
             else
                 -- set stage moveable
                 self.mouseMode = "move"
                 self.lastX, self.lastY = event.X, event.Y
             end
-        elseif Y == self.height and X == self.width then
+        elseif Y == self.height + ( not self.borderless and 1 or 0 ) and X == self.width then
             -- resize
             self.mouseMode = "resize"
-            self.lastX, self.lastY = event.X, event.Y
         end
     elseif event.sub == "UP" and self.mouseMode then
         self.mouseMode = false
@@ -267,7 +242,7 @@ function Stage:handleMouse( event )
         if self.mouseMode == "move" then
             move( self.X + event.X - self.lastX, self.Y + event.Y - self.lastY )
         elseif self.mouseMode == "resize" then
-
+            resize( event.X - self.X + 1, event.Y - self.Y + 1 )
         end
     end
 end
@@ -275,20 +250,24 @@ end
 function Stage:handleEvent( event )
     if not event.handled then
         if event.main == "MOUSE" then
-            -- is this on this stage?
-
-            --TODO click detection, stage focusing, stage movement and resizing. *job feature/event-detection*
             if self:hitTest( event.X, event.Y ) or self.mouseMode then
                 -- this click was on the stages hit area (not shadow)
+                if not self.focused and event.sub == "CLICK" then
+                    -- focus this stage if it was clicked.
+                    self.application:requestStageFocus( self )
+                end
+
                 local X, Y = event:getRelative( self )
-                if Y == 1 or ( Y == self.height and X == self.width ) or self.mouseMode then
-                    event.handled = true -- stop other stages from reacting to this event (or any other class actually)
+                if Y == 1 or ( Y == self.height + 1 ) or self.mouseMode then
+                    -- if the mouse event was in the bottom right or on the top bar submit it to the stage handler.
                     self:handleMouse( event )
                 end
-                self:submitEvent( event ) -- submit the event even if handled, any custom handlers can choose to use the event even if handled.
+                self:submitEvent( event )
+                event.handled = true
             end
         else
             self:submitEvent( event )
+            event.handled = true
         end
     end
 end
@@ -384,8 +363,27 @@ end
 
 function Stage:onFocus()
     -- the application has granted focus to this stage. Create a shadow if required and update colour sheet.
+    self.focused = true
+
+    self:removeFromMap()
+    self:updateCanvasSize()
+
+    --self:map()
+    self.canvas:updateFilter()
 end
 
 function Stage:onBlur()
     -- the application revoked focus, remove any shadows and grey out stage
+    self.focused = false
+
+    self:removeFromMap()
+    self:updateCanvasSize()
+
+    --self:map()
+    self.canvas:updateFilter()
+end
+
+function Stage:setChanged( bool )
+    self.changed = bool
+    if bool then self.application.changed = true end
 end

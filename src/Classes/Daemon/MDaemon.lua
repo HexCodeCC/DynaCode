@@ -27,12 +27,6 @@ function MDaemon:removeDaemon( name )
     end
 end
 
-function MDaemon:shipToDaemons( event )
-    for i = 1, #self.__daemons do
-        self.__daemons[i]:handleEvent( event )
-    end
-end
-
 function MDaemon:get__daemons()
     if type( self.__daemons ) ~= "table" then
         self.__daemons = {}

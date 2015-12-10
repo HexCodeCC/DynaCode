@@ -32,7 +32,7 @@ function ApplicationCanvas:initialise( ... )
     self.old = {}
 end
 
-function ApplicationCanvas:drawToScreen()
+function ApplicationCanvas:drawToScreen( force )
     local xOffset = tonumber( xOffset ) and xOffset or 0
     local yOffset = tonumber( yOffset ) and yOffset or 0
 
@@ -66,7 +66,7 @@ function ApplicationCanvas:drawToScreen()
                 term.setCursorPos( x, y )
                 local lP = old[ pos ]
                 local cP = buffer[ pos ]
-                if not lP or ( lP[1] ~= cP[1] or lP[2] ~= cP[2] or lP[3] ~= cP[3] ) then
+                if force or not lP or ( lP[1] ~= cP[1] or lP[2] ~= cP[2] or lP[3] ~= cP[3] ) then
                     if not buffer[pos] then
                         printPixel { " ", self.textColour, self.backgroundColour }
                         old[ pos ] = { " ", self.textColour, self.backgroundColour }

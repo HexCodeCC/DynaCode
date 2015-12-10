@@ -130,3 +130,8 @@ function HotkeyManager:checkCombinations()
         end
     end
 end
+
+function HotkeyManager:reset()
+    -- if the app is restarted clear the currently held keys
+    self.keys = {}
+end
