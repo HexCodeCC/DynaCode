@@ -28,9 +28,44 @@ function Input:initialise( ... )
     self.selected = 0 -- from the cursor ( negative <, positive > )
 end
 
+
 function Input:preDraw()
-    --self.canvas:drawArea( 1, 1, self.width, self.height, self.backgroundColour, self.textColour )
-    self.canvas:drawTextLine( self.content, 1, 1, self.focused and self.activeTextColour or self.textColour, self.focused and self.activeBackgroundColour or self.backgroundColour, self.width )
+    if not self.changed then return end
+    local content, text = self.content, ""
+    local canvas = self.canvas
+
+    -- cache anything we will need to use/calculate often
+    local offset, width, content, contentLength, selected, selectionStart, selectionStop, selectionOffset = 0, self.width, self.content, len( self.content ), self.selected, 0, false, false
+    local isCursorGreater = self.cursorPosition >= width
+    local o = 0
+
+    if isCursorGreater then
+        offset = self.cursorPosition - contentLength - width -- drawing offset
+        o = contentLength - width + ( self.cursorPosition - contentLength ) -- selection offset (used for selection highlighting)
+    end
+
+    selectionStart = math.min( self.cursorPosition + selected, self.cursorPosition ) - o + ( isCursorGreater and 0 or 1 )
+    selectionStop = math.max( self.cursorPosition + selected, self.cursorPosition ) - o - ( isCursorGreater and 1 or 0 )
+
+    local buffer = self.canvas.buffer
+    local hasSelection = selected ~= 0
+
+    -- take manual control of the buffer to draw the way we want to with minimal performance hits
+    for w = 1, self.width do
+        -- our drawing space, from here we figure out any offsets needed when drawing text
+        local index = w + offset
+        local isSelected = hasSelection and w >= selectionStart and w <= selectionStop
+
+        local char = sub( content, index, index )
+        char = char ~= "" and char or " "
+
+        if isSelected then
+            buffer[ w ] = { char, 1, colours.blue }
+        else
+            buffer[ w ] = { char, colours.red, 1 }
+        end
+    end
+    self.canvas.buffer = buffer
 end
 
 function Input:onMouseDown()
@@ -41,18 +76,19 @@ local function checkSelection( self )
     local selected = self.selected
     if selected < 0 then
         -- check if the selection goes back too far
-        local limit = -(self.cursorPosition + 1)
+        local limit = -len(self.content) + ( self.cursorPosition - len( self.content ) )
         if selected < limit then
-            selected = limit + 1
+            self.selected = limit
         end
     elseif selected > 0 then
         local limit = len( self.content ) - self.cursorPosition
-        if selected > limit then selected = limit end
+        if selected > limit then self.selected = limit end
     end
 end
 
 local function checkPosition( self )
     if self.cursorPosition < 0 then self.cursorPosition = 0 elseif self.cursorPosition > len( self.content ) then self.cursorPosition = len( self.content ) end
+    self.selected = 0
 end
 
 local function adjustContent( self, content, offsetPre, offsetPost, cursorAdjust )
@@ -68,46 +104,71 @@ end
 function Input:onKeyDown( event )
     -- check what key was pressed and act accordingly
     local key = keys.getName( event.key )
-    local app = self.stage.application
-    local hk = app.hotkey
+    local hk = self.stage.application.hotkey
 
-    if hk:matches "shift-left" then
-        -- expand selection
-        self.selected = self.selected - 1
-        checkSelection( self )
-    elseif hk:matches "shift-right" then
-        -- expand selection
-        self.selected = self.selected + 1
-        checkSelection( self )
-    elseif key == "left" then
-        -- move position
-        self.cursorPosition = self.cursorPosition - 1
-        checkPosition( self )
-    elseif key == "right" then
-        -- move position
-        self.cursorPosition = self.cursorPosition + 1
-        checkPosition( self )
-    elseif key == "home" then
-        -- move position to start
-        self.cursorPosition = 0
-        checkPosition( self )
-    elseif key == "end" then
-        -- move position to end
-        self.cursorPosition = #self.content
-        checkPosition( self )
-    elseif key == "backspace" then
-        if self.cursorPosition == 0 then return end
-        adjustContent( self, "", -1, 1, -1 )
-    elseif key == "delete" then
-        if self.cursorPosition == #self.content then return end
-        adjustContent( self, "", 0, 2, 0 )
-    elseif key == "enter" then
-        error("submitted")
+    local cursorPos, selection = self.cursorPosition, self.selected
+
+    if hk.keys.shift then
+        -- the shift key is being pressed
+        -- adjust selection
+        if key == "left" then
+            selection = selection - 1
+        elseif key == "right" then
+            selection = selection + 1
+        end
+    elseif hk.keys.ctrl then
+        -- move selection/cursor
+        if key == "left" then
+            cursorPos = cursorPos - 1
+        elseif key == "right" then
+            cursorPos = cursorPos + 1
+        end
+    else
+        if key == "left" then
+            cursorPos = cursorPos - 1
+            selection = 0
+        elseif key == "right" then
+            cursorPos = cursorPos + 1
+            selection = 0
+        elseif key == "home" then
+            cursorPos = 1
+            selection = 0
+        elseif key == "end" then
+            cursorPos = len( self.content )
+            selection = 0
+        elseif key == "backspace" then
+            if self.cursorPosition == 0 then return end
+            adjustContent( self, "", -1, 1, -1 )
+        elseif key == "delete" then
+            if self.cursorPosition == #self.content then return end
+            adjustContent( self, "", 0, 2, 0 )
+        elseif key == "enter" then
+            if self.onTrigger then self:onTrigger( event ) end
+        end
     end
+    self.cursorPosition = cursorPos
+    self.selected = selection
+end
+
+function Input:setContent( content )
+    self.content = content
+    self.changed = true
+end
+
+function Input:setCursorPosition( pos )
+    self.cursorPosition = pos
+    checkPosition( self )
+    self.changed = true
+end
+
+function Input:setSelected( s )
+    self.selected = s
+    checkSelection( self )
+    self.changed = true
 end
 
 function Input:onChar( event )
-    adjustContent( self, event.key, 0, 1, 1)
+    adjustContent( self, event.key, 0, 1, 1 )
 end
 
 function Input:onMouseMiss( event )
@@ -117,8 +178,15 @@ end
 
 function Input:getCursorInformation()
     local x, y = self:getTotalOffset()
-    
-    return x + self.cursorPosition - 1, y, self.activeTextColour
+
+    local cursorPos
+    if self.cursorPosition < self.width then
+        cursorPos = self.cursorPosition
+    else
+        cursorPos = self.width - 1
+    end
+
+    return x + cursorPos - 1, y, self.activeTextColour
 end
 
 function Input:onFocusLost() self.focused = false; self.acceptKeyboard = false end

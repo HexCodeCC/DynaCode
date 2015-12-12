@@ -71,9 +71,9 @@ end
 
 
 -- TEXT
-function NodeCanvas:drawTextLine( text, x, y, tc, bg, width )
+function NodeCanvas:drawTextLine( text, x, y, tc, bg, width, overflow )
     -- draws a text line at the co-ordinates.
-    if width then text = OverflowText( text, width ) end
+    if width and overflow then text = OverflowText( text, width ) end
 
     local yPos = self.width * (y - 1)
     for i = 1, width or len( text ) do

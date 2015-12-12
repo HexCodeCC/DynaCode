@@ -62,7 +62,11 @@ local t2 = app.timer:setTimer( "second", 0.95, function()
     log("i", "Hit 0.95")
 end)
 
-app.timer:removeTimer( "first" ) -- "second" will still fire
+app:registerDaemon( MyDaemon("application_example_dameon_service") )
 
-app:registerDaemon(MyDaemon("MyDaemon"))
+function app:onRun()
+    -- will be called _every_ time the application is executed.
+    log("i", "Application executed.")
+end
+
 app:run()

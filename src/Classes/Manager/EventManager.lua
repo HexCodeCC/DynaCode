@@ -32,10 +32,12 @@ function EventManager:removeEventHandler( eventMain, eventSub, ID )
     local cat = eventMain .. "_" .. eventSub
     local register = self.register[ cat ]
 
+    if not register then return false end
+
     for i = 1, #register do
         if register[i][1] == ID then
             table.remove( self.register[ cat ], i )
-            break
+            return true
         end
     end
 end

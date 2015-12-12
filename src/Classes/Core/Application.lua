@@ -10,7 +10,7 @@ class "Application" alias "COLOUR_REDIRECT" mixin "MDaemon" {
 
     stages = nil;
 
-    changed = true
+    changed = true;
 }
 
 function Application:initialise( ... )
@@ -113,12 +113,13 @@ function Application:run( thread )
         -- DynaCode main runtime loop
         local hk = self.hotkey
         local tm = self.timer
-        local drawNow
+
+        if self.onRun then self:onRun() end
 
         self:draw( true )
         while running do
             term.setCursorBlink( false )
-            if drawNow then self:draw() else drawNow = true end
+            self:draw()
 
             for i = 1, #self.stages do --< temporary 'for' loop
                 self.stages[i]:appDrawComplete() -- stages may want to add a cursor blink on screen etc..
@@ -157,46 +158,54 @@ function Application:run( thread )
         end
     end
 
-    self:startDaemons() -- daemons started before anything else.
-
-    if type(thread) == "function" then
-        ok, err = pcall( function() parallel.waitForAll( engine, thread ) end )
-    else
-        ok, err = pcall( engine )
+    local _, err = pcall( function() self:startDaemons() end ) -- daemons started before anything else.
+    if err then
+        if self.errorHandler then
+            self:errorHandler( err, false )
+        else
+            if self.onError then self:onError( err ) end
+            error("Failed to start daemon service: "..err)
+        end
     end
 
+    local ok, err = pcall( engine )
     if not ok and err then
-        -- crashed
-        term.setTextColour( colours.yellow )
-        print("DynaCode has crashed")
-        term.setTextColour( colours.red )
-        print( err )
-        print("")
+        if self.errorHandler then
+            self:errorHandler( err )
+        else
+            -- crashed
+            term.setTextColour( colours.yellow )
+            print("DynaCode has crashed")
+            term.setTextColour( colours.red )
+            print( err )
+            print("")
 
-        local function crashProcess( preColour, pre, fn, errColour, errPre, okColour, okMessage, postColour )
-            term.setTextColour( preColour )
-            print( pre )
+            local function crashProcess( preColour, pre, fn, errColour, errPre, okColour, okMessage, postColour )
+                term.setTextColour( preColour )
+                print( pre )
 
-            local ok, err = pcall( fn )
-            if err then
-                term.setTextColour( errColour )
-                print( errPre .. err )
-            else
-                term.setTextColour( okColour )
-                print( okMessage )
+                local ok, err = pcall( fn )
+                if err then
+                    term.setTextColour( errColour )
+                    print( errPre .. err )
+                else
+                    term.setTextColour( okColour )
+                    print( okMessage )
+                end
+
+                term.setTextColour( postColour )
             end
 
-            term.setTextColour( postColour )
+            local YELLOW, RED, LIME = colours.yellow, colours.red, colours.lime
+
+            crashProcess( YELLOW, "Attempting to stop daemon service and children", function() self:stopDaemons( false ) end, RED, "Failed to stop daemon service: ", LIME, "Stopped daemon service", 1 )
+            print("")
+
+            crashProcess( YELLOW, "Attempting to write crash information to log file", function()
+                log("f", "DynaCode crashed: "..err)
+            end, RED, "Failed to write crash information: ", LIME, "Wrote crash information to file", 1 )
+            if self.onError then self:onError( err ) end
         end
-
-        local YELLOW, RED, LIME = colours.yellow, colours.red, colours.lime
-
-        crashProcess( YELLOW, "Attempting to stop daemon service and children", function() self:stopDaemons( false ) end, RED, "Failed to stop daemon service: ", LIME, "Stopped daemon service", 1 )
-        print("")
-
-        crashProcess( YELLOW, "Attempting to write crash information to log file", function()
-            log("f", "DynaCode crashed: "..err)
-        end, RED, "Failed to write crash information: ", LIME, "Wrote crash information to file", 1 )
     end
 end
 

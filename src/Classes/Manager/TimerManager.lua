@@ -12,7 +12,7 @@ function TimerManager:initialise( app )
     self.timers = {}
 end
 
-function TimerManager:setTimer( name, secs, callback )
+function TimerManager:setTimer( name, secs, callback, repeatAmount ) -- repeatAmount can be "inf" or a number. Once reached will stop.
     if not ( type( name ) == "string" and type( secs ) == "number" and type( callback ) == "function" ) then
         return error("Expected string, number, function")
     end
@@ -24,6 +24,10 @@ function TimerManager:setTimer( name, secs, callback )
     local timers = self.timers
     for i = 1, #timers do
         local timer = timers[i]
+        if timer[1] == name then
+            return error("Timer name '"..name.."' is already in use.")
+        end
+
         if timer[3] == completeTime then
             -- this timer will finish at the same time, use its ID as ours (instead of a new os.startTimer() ID)
             timerID = timer[2]
@@ -31,7 +35,7 @@ function TimerManager:setTimer( name, secs, callback )
     end
 
     timerID = timerID or os.startTimer( secs )
-    timers[ #timers + 1 ] = { name, timerID, completeTime, callback }
+    timers[ #timers + 1 ] = { name, timerID, completeTime, callback, secs, repeatAmount }
 
     return timerID
 end
@@ -84,7 +88,13 @@ function TimerManager:update( rawID ) -- rawID is from the second parameter of t
     for i = #timers, 1, -1 do -- reverse so we can remove timers
         if timers[i][2] == rawID then
             local current = table.remove( self.timers, i )
-            current[4]( rawID )
+            current[4]( rawID, current )
+
+            local rep = current[6]
+            local repT = type( rep )
+            if rep and (repT == "string" and rep == "inf" or ( repT == "number" and rep > 1 )) then
+                self:setTimer( current[1], current[5], current[4], repT == "number" and rep - 1 or "inf") -- name, secs, callback, repeating
+            end
         end
     end
 end

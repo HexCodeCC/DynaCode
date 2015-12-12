@@ -51,10 +51,10 @@ function ApplicationCanvas:drawToScreen( force )
         end
     else
         printPixel = function( pixel )
-            local tc, bg = pixel[2], pixel[3]
+            local tc, bg = pixel[2] or self.textColour, pixel[3] or self.backgroundColour
             if oldT ~= tc then term.setTextColor( tc ) oldT = tc end
             if oldB ~= bg then term.setBackgroundColor( bg ) oldB = bg end
-            term.write( pixel[1] )
+            term.write( pixel[1] or " " )
         end
     end
 
