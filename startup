@@ -4,6 +4,8 @@ local logging = true
 shell.run("dobuild.lua", "/src", "bin/DynaCode.lua")
 dofile("bin/DynaCode.lua")
 
+--if true then dofile("example/example.lua") return end
+
 if logging then
     if not log then error("DynaCode Logger not available.", 0) end
 
@@ -19,7 +21,7 @@ stage = app + Stage({
     X = 5;
     Y = 5;
     width = 15;
-    height = 7;
+    height = 8;
     textColour = colors.lightGray;
     titleTextColour = colors.white;
     titleBackgroundColour = 128;
@@ -47,6 +49,7 @@ stage2 = app + Stage({
 
 label = stage + Label("Hello World!", 3, 1)
 input = stage + Input( 3, 2, 11, 1 )
+button = stage + Button( "Hello world", 4, 6, 11, 3 )
 
 
 app.hotkey:registerCombination("stop", "shift-ctrl-q", function()

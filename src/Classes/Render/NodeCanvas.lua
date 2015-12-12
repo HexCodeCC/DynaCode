@@ -165,7 +165,7 @@ function NodeCanvas:drawWrappedText( x1, y1, width, height, text, vAlign, hAlign
         else return error("Unknown vAlign mode") end
     else return error("Unknown vAlign mode") end
 
-    self:drawArea( x1, y1, width - 1, height - 1, tc, bgc )
+    self:drawArea( x1, y1, width, height, tc, bgc )
     if height < #text then
         self:drawTextLine( "...", 1, 1, tc, bgc )
         return
