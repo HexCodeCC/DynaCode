@@ -1,7 +1,7 @@
 local len = string.len
 local sub = string.sub
 
-class "Input" extends "Node" implements "ICursorInteractable" {
+class "Input" extends "Node" {
     acceptMouse = true;
     acceptKeyboard = false;
 
@@ -35,17 +35,25 @@ function Input:preDraw()
     local canvas = self.canvas
 
     -- cache anything we will need to use/calculate often
-    local offset, width, content, contentLength, selected, selectionStart, selectionStop, selectionOffset = 0, self.width, self.content, len( self.content ), self.selected, 0, false, false
-    local isCursorGreater = self.cursorPosition >= width
+    local offset, width, content, contentLength, selected, selectionStart, selectionStop, selectionOffset, cursorPos = 0, self.width, self.content, len( self.content ), self.selected, 0, false, false, self.cursorPosition
+    local isCursorGreater = cursorPos >= width
     local o = 0
 
-    if isCursorGreater then
-        offset = self.cursorPosition - contentLength - width -- drawing offset
-        o = contentLength - width + ( self.cursorPosition - contentLength ) -- selection offset (used for selection highlighting)
+    local selectionUsedAsStart = false
+
+    if contentLength >= width then
+        if selected <= 0 and isCursorGreater then
+            offset = math.min(cursorPos - width, cursorPos + selected - 1) - contentLength
+            o = contentLength - width + ( cursorPos - contentLength )
+
+            if offset + contentLength == cursorPos + selected - 1 and math.abs( offset ) > width + ( contentLength - cursorPos ) then selectionUsedAsStart = true end
+        elseif selected > 0 and cursorPos + selected > width then
+            offset = ( math.max( cursorPos, cursorPos + selected - 1 ) ) - contentLength - self.width
+        end
     end
 
-    selectionStart = math.min( self.cursorPosition + selected, self.cursorPosition ) - o + ( isCursorGreater and 0 or 1 )
-    selectionStop = math.max( self.cursorPosition + selected, self.cursorPosition ) - o - ( isCursorGreater and 1 or 0 )
+    selectionStart = math.min( cursorPos + selected, cursorPos ) - o + ( isCursorGreater and 0 or 1 )
+    selectionStop = math.max( cursorPos + selected, cursorPos ) - o - ( (isCursorGreater and not selectionUsedAsStart) and 1 or 0 )
 
     local buffer = self.canvas.buffer
     local hasSelection = selected ~= 0
@@ -115,6 +123,12 @@ function Input:onKeyDown( event )
             selection = selection - 1
         elseif key == "right" then
             selection = selection + 1
+        elseif key == "home" then
+            -- select from cursor to start
+            selection = -(self.cursorPosition)
+        elseif key == "end" then
+            -- select from cursor to end
+            selection = len( self.content ) - self.cursorPosition
         end
     elseif hk.keys.ctrl then
         -- move selection/cursor
@@ -131,7 +145,7 @@ function Input:onKeyDown( event )
             cursorPos = cursorPos + 1
             selection = 0
         elseif key == "home" then
-            cursorPos = 1
+            cursorPos = 0
             selection = 0
         elseif key == "end" then
             cursorPos = len( self.content )
@@ -186,7 +200,7 @@ function Input:getCursorInformation()
         cursorPos = self.width - 1
     end
 
-    return x + cursorPos - 1, y, self.activeTextColour
+    return self.selected == 0, x + cursorPos - 1, y, self.activeTextColour
 end
 
 function Input:onFocusLost() self.focused = false; self.acceptKeyboard = false end

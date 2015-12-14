@@ -10,8 +10,8 @@ end
 function EventManager:create( raw )
     local name = raw[1]
 
-    local m  = self.matrix[ name ]
-    if not class.isClass( m ) or not m.__event then
+    local m = self.matrix[ name ]
+    if not m then
         return UnknownEvent( raw ) -- create a basic event structure. For events like timer, terminate and monitor events. Dev's can use the event name in caps with a sub of EVENT: {"timer", ID} -> Event.main == "SLEEP", Event.sub == "EVENT", Event.raw -> {"timer", ID}
     else
         return m( raw )

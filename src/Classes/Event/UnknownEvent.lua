@@ -1,10 +1,10 @@
-class "UnknownEvent" extends "Event" {
+class "UnknownEvent" mixin "Event" {
     main = false;
     sub = "EVENT";
 }
 
 function UnknownEvent:initialise( raw )
-    self.super:initialise( raw )
+    self.raw = raw
 
     self.main = raw[1]:upper()
 end

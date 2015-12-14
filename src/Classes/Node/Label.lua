@@ -7,10 +7,10 @@ class "Label" extends "Node" {
 function Label:initialise( ... )
     ParseClassArguments( self, { ... }, { {"text", "string"}, {"X", "number"}, {"Y", "number"} }, true, false )
 
-    if not self.__defined.width then -- only checks this instance, ignores the width set by any supers (self.width).
+    if not self.__defined.width then
         self.width = "auto"
     end
-    self.super:initialise( self.X, self.Y, self.width, 1 )
+    self.super( self.X, self.Y, self.width, 1 )
 end
 
 function Label:preDraw()

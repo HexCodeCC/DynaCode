@@ -16,7 +16,7 @@ _G.ParseClassArguments = function( instance, args, order, require, raw )
 
         if _type and type( value ) ~= _type then
             if not class.typeOf( value, _type, true ) then
-                return error("Expected type '".._type.."' for argument '"..key.."', got '"..type( value ).."' instead.")
+                return error("Expected type '".._type.."' for argument '"..key.."', got '"..type( value ).."' instead.", 2)
             end
         end
         return value

@@ -1,6 +1,6 @@
 local sub = string.sub
 
-class "KeyEvent" extends "Event" {
+class "KeyEvent" mixin "Event" {
     main = nil;
     sub = nil;
     key = nil;
@@ -8,7 +8,7 @@ class "KeyEvent" extends "Event" {
 }
 
 function KeyEvent:initialise( raw )
-    self.super:initialise( raw )
+    self.raw = raw
     local u = string.find( raw[1], "_" )
 
     local t, m

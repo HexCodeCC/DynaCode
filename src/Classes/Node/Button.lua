@@ -59,6 +59,7 @@ function Button:preDraw()
 end
 
 function Button:onMouseDown( event ) -- initial click, set focus to this button and highlight it.
+    if event.misc ~= 1 then return end
     self.focused = true
     self.active = true
 end

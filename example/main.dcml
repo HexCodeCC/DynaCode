@@ -1,1 +1,1 @@
-<Button X="2" Y="2" width="9" height="2" onTrigger="#submit">Hello World</Button>
+<Button X="2" Y="2" width="9" height="4" onTrigger="#submit">Hello World</Button>

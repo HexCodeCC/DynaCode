@@ -130,10 +130,10 @@ function Application:run( thread )
 
             if event.main == "KEY" then
                 hk:handleKey( event )
+                hk:checkCombinations()
             elseif event.main == "TIMER" then
                 tm:update( event.raw[2] )
             end
-            hk:checkCombinations()
 
             for i = 1, #self.stages do
                 if self.stages[i] then

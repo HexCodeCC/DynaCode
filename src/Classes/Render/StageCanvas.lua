@@ -158,6 +158,8 @@ function StageCanvas:drawToCanvas( canvas, xO, yO )
 end
 
 function StageCanvas:clear()
+    self.stage.forceRedraw = true
+    
     local width = self.width
     local height = self.height
     local buffer = {}

@@ -22,9 +22,12 @@ function Canvas:initialise( ... )
     log("i", "setting canvas width, height")
     self.width = width
     self.height = height
+
+    self:clear()
 end
 
 function Canvas:clear( w, h )
+    log("w", "Canvas cleared")
     local width = w or self.width
     local height = h or self.height
 
@@ -62,8 +65,8 @@ end
 function Canvas:setWidth( width )
     if not self.buffer then log("w", "Attempted to manipulate buffer size before initialisation!") self.width = width return end
 
-
     local height, buffer = self.height, self.buffer
+    if not self.width then error("found on "..tostring( self )..". Current width: "..tostring( self.width )..", new width: "..tostring( width )) end
     while self.width < width do
         -- Insert pixels at the end of each line to make up for the increase in width
         for i = 1, height do
@@ -77,7 +80,7 @@ function Canvas:setWidth( width )
         end
         self.width = self.width - 1
     end
-    self:clear()
+    --self:clear()
 end
 
 function Canvas:setHeight( height )
@@ -97,5 +100,5 @@ function Canvas:setHeight( height )
 		end
 		self.height = self.height - 1
 	end
-    self:clear()
+    --self:clear()
 end

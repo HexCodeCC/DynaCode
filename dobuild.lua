@@ -79,7 +79,7 @@ final = final .. [==[
 ]]
 
 local ignore = {
-    ["class.lua"] = true
+    ["Class.lua"] = true
 }
 local loaded = {}
 
@@ -98,11 +98,11 @@ local function executeString( name )
 end
 
 -- Load the class library now!
-if files[ "class.lua" ] then
-    executeString( "class.lua" )
-    loaded[ "class.lua" ] = true
+if files[ "Class.lua" ] then
+    executeString( "Class.lua" )
+    loaded[ "Class.lua" ] = true
 else
-    return error("Cannot unpack DynaCode because the class library is missing (class.lua)")
+    return error("Cannot unpack DynaCode because the class library is missing (Class.lua)")
 end
 
 local function getHandleFromPack( file )
