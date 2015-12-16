@@ -2,8 +2,8 @@ abstract class "Node" alias "COLOUR_REDIRECT" {
     X = 1;
     Y = 1;
 
-    width = nil;
-    height = nil;
+    width = 0;
+    height = 0;
 
     visible = true;
     enabled = true;
@@ -27,7 +27,7 @@ function Node:initialise( ... )
     local X, Y, width, height = ParseClassArguments( self, { ... }, { { "X", "number" }, { "Y", "number" }, { "width", "number" }, { "height", "number" } }, false, true )
 
     -- Creates a NodeCanvas
-    self.canvas = NodeCanvas( self, width or 1, height or 1 )
+    self.canvas = NodeCanvas( self, width or 1, height - 1 or 0 )
 
     self.X = X
     self.Y = Y
@@ -96,28 +96,28 @@ local clickMatrix = {
 }
 function Node:handleEvent( event )
     -- Automatically fires callbacks on the node depending on the event. For example onMouseMiss, onMouseDown, onMouseUp etc...
-    if not event.handled then
-        if not self.manuallyHandle then
-            local eCall = false
-            if event.main == "MOUSE" and self.acceptMouse then
-                if event:inArea( self.X, self.Y, self.X + self.width - 1, self.Y + self.height - 1 ) then
-                    log("MOUSE", event.sub)
-                    call( self, clickMatrix[ event.sub ] or error("No click matrix entry for "..tostring( event.sub )), event )
-                else
-                    call( self, "onMouseMiss", event )
-                end
-            elseif event.main == "KEY" and self.acceptKeyboard then
-                call( self, event.sub == "UP" and "onKeyUp" or "onKeyDown", event )
-            elseif event.main == "CHAR" and self.acceptKeyboard then
-                call( self, "onChar", event )
-            elseif self.acceptMisc then
-                -- unknown main event
-                call( self, "onUnknownEvent", event )
-                eCall = true
+    if event.handled then return end
+
+    if not self.manuallyHandle then
+        local eCall = false
+        if event.main == "MOUSE" and self.acceptMouse then
+            if event:inArea( self.X, self.Y, self.X + self.width - 1, self.Y + self.height - 1 ) then
+                event.handled = true
+                call( self, clickMatrix[ event.sub ] or error("No click matrix entry for "..tostring( event.sub )), event )
+            else
+                call( self, "onMouseMiss", event )
             end
-        else
-            call( self, "onEvent", event )
+        elseif event.main == "KEY" and self.acceptKeyboard then
+            call( self, event.sub == "UP" and "onKeyUp" or "onKeyDown", event )
+        elseif event.main == "CHAR" and self.acceptKeyboard then
+            call( self, "onChar", event )
+        elseif self.acceptMisc then
+            -- unknown main event
+            call( self, "onUnknownEvent", event )
+            eCall = true
         end
+    else
+        call( self, "onEvent", event )
     end
 end
 

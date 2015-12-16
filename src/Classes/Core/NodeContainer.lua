@@ -1,4 +1,13 @@
-abstract class "NodeContainer" extends "Node"
+abstract class "NodeContainer" extends "Node" {
+    manuallyHandle = true;
+
+    acceptMouse = true;
+    acceptKeyboard = true;
+    acceptMisc = true;
+
+    nodes = {};
+    cache = {};
+}
 
 function NodeContainer:getNodeByType( _type )
     local results, nodes = {}, self.nodes
@@ -37,4 +46,8 @@ function NodeContainer:removeNode( nodeOrName )
             return table.remove( self.nodes, i )
         end
     end
+end
+
+function NodeContainer:isInView( node, xO, yO )
+    return true --TODO
 end

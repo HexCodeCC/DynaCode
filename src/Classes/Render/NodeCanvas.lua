@@ -34,20 +34,25 @@ function NodeCanvas:drawToCanvas( canvas, xO, yO )
     local cHeight = canvas.height - sOffset
     local cWidth = canvas.width - sOffset
 
+    local yPos, yBPos, pos, bPos, pixel
+
+    local yOO = yO + borderOffset
+    local yOS = yO + sOffset
+
 
     for y = 0, height do
-        local yPos = width * y
-        local yBPos = canvas.width * ( y + yO + 1 )
-        if y + yO + borderOffset > 0 and y + yO + sOffset < cHeight then
+        yPos = width * y
+        yBPos = canvas.width * ( y + yO + 1 )
+        if y + yOO > 0 and y + yOS < cHeight then
             for x = 1, width do
                 if x + xO + 1 > 0 and x + xO - 1 < cWidth then
-                    local pos = yPos + x
-                    local bPos = yBPos + (x + xO)
+                    pos = yPos + x
+                    bPos = yBPos + (x + xO)
 
-                    local pixel = buffer[ pos ]
+                    pixel = buffer[ pos ]
                     if pixel then
                         -- draw the node pixel
-                        canvas.buffer[ bPos ] = { pixel[1] or " ", pixel[2] or self.textColour or false, pixel[3] or self.backgroundColour or false }
+                        canvas.buffer[ bPos ] = { pixel[1] or " ", pixel[2] or self.textColour, pixel[3] or self.backgroundColour }
                     else
                         canvas.buffer[ bPos ] = { false, false, false }
                     end

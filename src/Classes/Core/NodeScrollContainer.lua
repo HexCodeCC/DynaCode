@@ -36,3 +36,27 @@ function NodeScrollContainer:removeNode( node )
     self:updateScrollSizes()
     self:updateScrollPositions()
 end
+
+function NodeScrollContainer:draw( xO, yO )
+    local nodes = self.nodes
+    local manDraw = self.changed
+    local inView = self.isInView
+
+    if self.preDraw then
+        self:preDraw( xO, yO )
+    end
+
+    -- Draw to the stageCanvas
+    self.canvas:drawToCanvas( self.stage.canvas, self.X, self.Y )
+
+    if self.postDraw then
+        self:postDraw( xO, yO )
+    end
+
+    for i = #nodes, 1, -1 do
+        local node = nodes[i]
+        if inView( node ) and ( manDraw or node.changed ) then
+            node:draw()
+        end
+    end
+end

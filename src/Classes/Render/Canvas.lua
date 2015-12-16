@@ -45,19 +45,20 @@ function Canvas:drawToCanvas( canvas, xO, yO )
     if not canvas then return error("Requires canvas to draw to") end
     local buffer = self.buffer
 
-    local xO = type( xO ) == "number" and xO or 0
-    local yO = type( yO ) == "number" and yO or 0
+    local xO = xO or 0
+    local yO = yO or 0
 
+    local pos, yPos, yBPos, bPos, pixel
 
     for y = 0, self.height - 1 do
-        local yPos = self.width * y
-        local yBPos = canvas.width * ( y + yO )
+        yPos = self.width * y
+        yBPos = canvas.width * ( y + yO )
         for x = 1, self.width do
-            local pos = yPos + x
-            local bPos = yBPos + (x + xO)
+            pos = yPos + x
+            bPos = yBPos + (x + xO)
 
-            local pixel = buffer[ pos ]
-            canvas.buffer[ bPos ] = { pixel[1] or " ", pixel[2] or self.textColour or false, pixel[3] or self.backgroundColour or false }
+            pixel = buffer[ pos ]
+            canvas.buffer[ bPos ] = { pixel[1] or " ", pixel[2] or self.textColour, pixel[3] or self.backgroundColour }
         end
     end
 end

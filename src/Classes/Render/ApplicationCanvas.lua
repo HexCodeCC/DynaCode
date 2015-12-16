@@ -17,11 +17,15 @@ local paint = { -- converts decimal to paint colors during draw time.
     [32768] = "f";
 }
 
+local concat = table.concat
+
+local setTextColour, setBackgroundColour = term.setTextColour, term.setBackgroundColour
+
 class "ApplicationCanvas" extends "Canvas" {
     textColour = colors.red;
     backgroundColour = 1;
 
-    old = nil;
+    old = {};
 }
 
 function ApplicationCanvas:initialise( ... )
@@ -29,51 +33,70 @@ function ApplicationCanvas:initialise( ... )
     AssertClass( self.owner, "Application", true, "Instance '"..self:type().."' requires an Application Instance as the owner" )
 
     self.super:initialise( self.width, self.height )
-    self.old = {}
 end
 
+
 function ApplicationCanvas:drawToScreen( force )
-    local xOffset = tonumber( xOffset ) and xOffset or 0
-    local yOffset = tonumber( yOffset ) and yOffset or 0
+    -- MUCH faster drawing! Tearing almost completely eliminated
 
-    local width, height = self.width, self.height
     local buffer = self.buffer
-    local old = self.old
+    local width, height = self.width, self.height
 
-    local oldT, oldB = 1, 32768
-    term.setBackgroundColor( 32768 )
-    term.setTextColor( 1 )
+    -- local definitions (faster than repeatedly defining the local inside the loop )
+    local yPos
+    local pos
+    local tT, tC, tB
+    local pixel
 
-    local printPixel
-    if term.blit then
-        printPixel = function( pixel )
-            term.blit( pixel[1] or " ", paint[ pixel[2] or self.textColour ], paint[ pixel[3] or self.backgroundColour ] )
+    local tc, bg = self.textColour or 1, self.backgroundColour or 1
+    if type(term.blit) == "function" then
+        for y = 1, height do
+            tT, tC, tB = {}, {}, {} -- text, textColour, textBackground
+            yPos = width * (y - 1)
+
+            for x = 1, width do
+                pos = yPos + x
+                -- get the pixel content, add it to the text buffers
+                pixel = buffer[ pos ]
+
+                tT[ #tT + 1 ] = pixel[1] or " "
+                tC[ #tC + 1 ] = paint[ pixel[2] or tc ]
+                tB[ #tB + 1 ] = paint[ pixel[3] or bg ]
+
+                --old[ pos ] = { pixel[1], pixel[2], pixel[3] } -- kinda can't do this because every line is updated as a whole, therefore every pixel needs to be passed anyway.
+            end
+            term.setCursorPos( 1, y )
+            term.blit( concat( tT, "" ), concat( tC, "" ), concat( tB, "" ) ) -- table.concat comes with a major speed advantage compared to tT = tT .. pixel[1] or " ". Same goes for term.blit
         end
     else
-        printPixel = function( pixel )
-            local tc, bg = pixel[2] or self.textColour, pixel[3] or self.backgroundColour
-            if oldT ~= tc then term.setTextColor( tc ) oldT = tc end
-            if oldB ~= bg then term.setBackgroundColor( bg ) oldB = bg end
-            term.write( pixel[1] or " " )
-        end
-    end
+        local oldPixel
+        local old = self.old
 
-    for y = 1, height do
-        for x = 1, width do
-            if x + xOffset > 0 and x - xOffset <= width then
-                local pos = ( width * (y - 1 + yOffset) ) + x
+        local oldTc, oldBg = 1, 32768
+        setTextColour( oldTc )
+        setBackgroundColour( oldBg )
 
-                term.setCursorPos( x, y )
-                local lP = old[ pos ]
-                local cP = buffer[ pos ]
-                if force or not lP or ( lP[1] ~= cP[1] or lP[2] ~= cP[2] or lP[3] ~= cP[3] ) then
-                    if not buffer[pos] then
-                        printPixel { " ", self.textColour, self.backgroundColour }
-                        old[ pos ] = { " ", self.textColour, self.backgroundColour }
-                    else
-                        printPixel( cP )
-                        old[ pos ] = { cP[1], cP[2], cP[3] }
-                    end
+        for y = 1, height do
+            yPos = width * ( y - 1 )
+
+            for x = 1, width do
+                pos = yPos + x
+                pixel = buffer[ pos ]
+                oldPixel = old[ pos ]
+
+                if force or not oldPixel or not ( oldPixel[1] == pixel[1] and oldPixel[2] == pixel[2] and oldPixel[3] == pixel[3] ) then
+
+                    term.setCursorPos( x, y )
+
+                    local t = pixel[2] or tc
+                    if t ~= oldTc then setTextColour( t ) oldTc = t end
+
+                    local b = pixel[3] or bg
+                    if b ~= oldBg then setBackgroundColour( b ) oldBg = b end
+
+                    term.write( pixel[1] or " " )
+
+                    old[ pos ] = { pixel[1], pixel[2], pixel[3] }
                 end
             end
         end

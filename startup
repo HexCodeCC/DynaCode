@@ -50,7 +50,7 @@ stage2 = app + Stage({
 
 label = stage + Label("Hello World!", 3, 1)
 input = stage + Input( 3, 2, 11, 1 )
-button = stage + Button( "Hello world", 4, 4, 9, 4 )
+button = stage + Button( "Hello world", 4, 3, 9, 4 )
 
 
 app.hotkey:registerCombination("stop", "shift-ctrl-q", function()
@@ -74,7 +74,6 @@ function app:onRun()
 end
 
 
-p = Panel( 2, 2, 5, 10 )
-shell.run("lua")
+panel = stage + Panel( 2, 2, stage.width - 2, stage.height - 2 )
 
---app:run()
+app:run()

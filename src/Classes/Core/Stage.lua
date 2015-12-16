@@ -16,7 +16,7 @@ class "Stage" alias "COLOUR_REDIRECT" {
 
     application = nil;
 
-    nodes = nil;
+    nodes = {};
 
     name = nil;
 
@@ -35,7 +35,7 @@ class "Stage" alias "COLOUR_REDIRECT" {
     closeButtonTextColour = 1;
     closeButtonBackgroundColour = colours.red;
 
-    controller = nil;
+    controller = {};
 
     mouseMode = nil;
 
@@ -48,7 +48,6 @@ function Stage:initialise( ... )
 
     self.canvas = StageCanvas( {width = width; height = height; textColour = self.textColour; backgroundColour = self.backgroundColour, stage = self} )
 
-    self.controller = {}
     self.X = X
     self.Y = Y
     self.name = name
@@ -69,7 +68,6 @@ function Stage:initialise( ... )
         end
     end)
 
-    self.nodes = {}
     self:updateCanvasSize()
     self.canvas:redrawFrame()
 
@@ -125,23 +123,28 @@ end
 
 function Stage:draw( force )
     -- Firstly, clear the stage buffer and re-draw it.
-    if self.forceRedraw then --[[self.canvas:clear()]] self.canvas:redrawFrame() end
-    local force = force or self.forceRedraw
+    if self.forceRedraw or force then self.changed = true self.canvas:clear() self.canvas:redrawFrame() self.forceRedraw = false end
+    local changed = self.changed or force
     -- order all nodes to re-draw themselves
-    local nodes = self.nodes
-    for i = 1, #nodes do
-        local node = nodes[i]
-        if force or node.changed then
-            node:draw()
+
+    if changed then
+        local nodes = self.nodes
+        for i = #nodes, 1, -1 do
+            local node = nodes[i]
+            if changed or node.changed then
+                node:draw()
+                node.changed = false
+            end
         end
+        self.changed = false
     end
 
     -- draw this stages contents to the application canvas
-    self.canvas:drawToCanvas( self.application.canvas, self.X, self.Y )
+    if self.visible then self.canvas:drawToCanvas( self.application.canvas, self.X, self.Y ) end
 end
 
 function Stage:appDrawComplete()
-    if self.currentKeyboardFocus then
+    if self.currentKeyboardFocus and self.focused then
         local enabled, X, Y, tc = self.currentKeyboardFocus:getCursorInformation()
         if not enabled then return end
 
@@ -166,14 +169,16 @@ function Stage:isPixel( x, y )
     -- return true if the co-ords are not on the whitespace at the top right and bottom left of a shadow stage
     local canvas = self.canvas
 
-    -- if the stage has no shadow, then return true
-    if not self.shadow then
+    if self.shadow and self.focused then
+        if ( x == self.width + 1 and y == 1 ) or ( x == 1 and y == self.height + ( self.borderless and 0 or 1 ) + 1 ) then
+            return false -- pixel on corner of shadow
+        end
         return true
-    end
+    elseif self.shadow and not self.focused then
+        if ( x == self.width + 1 ) or ( y == self.height + ( self.borderless and 0 or 1 ) + 1 ) then return false end
 
-    if not ( (x == canvas.width and y == 1) or ( x == 1 and y == canvas.height ) ) then
         return true
-    end
+    elseif not self.shadow then return true end
 
     return false
 end
@@ -208,6 +213,8 @@ function Stage:move( newX, newY )
     self.X = newX
     self.Y = newY
     self:map()
+
+    self.changed = true
 end
 
 function Stage:resize( nW, nH )
@@ -221,6 +228,8 @@ function Stage:resize( nW, nH )
     self.canvas:redrawFrame()
 
     self:map()
+
+    self.changed = true
 end
 
 function Stage:handleMouse( event )
@@ -265,16 +274,16 @@ function Stage:handleEvent( event )
             if not self.focused and event.sub == "CLICK" then
                 -- focus this stage if it was clicked.
                 return self.application:requestStageFocus( self )
+            elseif self.focused then
+                local X, Y = event:getRelative( self )
+                if Y == 1 or ( Y == self.height + 1 ) or self.mouseMode then
+                    -- if the mouse event was in the bottom right or on the top bar submit it to the stage handler.
+                    self:handleMouse( event )
+                else
+                    self:submitEvent( event )
+                end
+                event.handled = true
             end
-
-            local X, Y = event:getRelative( self )
-            if Y == 1 or ( Y == self.height + 1 ) or self.mouseMode then
-                -- if the mouse event was in the bottom right or on the top bar submit it to the stage handler.
-                self:handleMouse( event )
-            else
-                self:submitEvent( event )
-            end
-            event.handled = true
         end
     else
         self:submitEvent( event )
@@ -372,24 +381,28 @@ function Stage:executeCallback( name, ... )
 end
 
 function Stage:onFocus()
+    --self.forceRedraw = true
     -- the application has granted focus to this stage. Create a shadow if required and update colour sheet.
     self.focused = true
+    self.changed = true
 
     self:removeFromMap()
     self:updateCanvasSize()
 
-    --self:map()
+    self:map()
     self.canvas:updateFilter()
 end
 
 function Stage:onBlur()
+    --self.forceRedraw = true
     -- the application revoked focus, remove any shadows and grey out stage
     self.focused = false
+    self.changed = true
 
     self:removeFromMap()
     self:updateCanvasSize()
 
-    --self:map()
+    self:map()
     self.canvas:updateFilter()
 end
 

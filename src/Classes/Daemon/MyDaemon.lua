@@ -13,9 +13,9 @@ function MyDaemon:start()
         end
     end)
 
-    self.owner.timer:setTimer("MyDaemonTimer", 2, function( raw, timerEvent )
+    --[[self.owner.timer:setTimer("MyDaemonTimer", 2, function( raw, timerEvent )
         log("di", "example check complete.")
-    end, 5) -- set this timer a total of 5 times. ( the callback will be run 5 times over 10 seconds )
+    end, 5) -- set this timer a total of 5 times. ( the callback will be run 5 times over 10 seconds )]]
 end
 
 function MyDaemon:stop( graceful )

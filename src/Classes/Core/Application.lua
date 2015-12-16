@@ -1,5 +1,4 @@
 local running
-local debug = true -- Allows reboot and application exit using keys. (\ for reboot, / for application close)
 
 class "Application" alias "COLOUR_REDIRECT" mixin "MDaemon" {
     canvas = nil;
@@ -8,7 +7,7 @@ class "Application" alias "COLOUR_REDIRECT" mixin "MDaemon" {
     timer = nil;
     event = nil;
 
-    stages = nil;
+    stages = {};
 
     changed = true;
 }
@@ -33,7 +32,7 @@ function Application:initialise( ... )
     });
     self.timer = TimerManager( self )
 
-    self.stages = {}
+    --self.stages = {}
     self:__overrideMetaMethod( "__add", function( a, b ) -- only allows overriding certain metamethods.
         if class.typeOf( a, "Application", true ) then
             -- allows stages to be added into the instance via the sugar of (app + stage)
@@ -74,6 +73,8 @@ function Application:addStage( stage )
     stage.application = self
     stage.mappingID = self.lastID + 1
 
+    self.lastID = self.lastID + 1
+
     self.stages[ #self.stages + 1 ] = stage
 
     stage:map()
@@ -92,10 +93,10 @@ end
 
 function Application:draw( force )
     -- orders all stages to draw to the application canvas
-    --if not self.changed then return end
+    if not self.changed then return end
 
     for i = #self.stages, 1, -1 do
-        self.stages[ i ]:draw()
+        self.stages[ i ]:draw( true )
     end
 
     -- Then draw the application to screen
@@ -223,7 +224,9 @@ function Application:mapWindow( x1, y1, x2, y2 )
     -- Updates drawing map for windows. Prevents windows that aren't visible from drawing themselves (if they are covered by other windows)
     -- Also clears the area used by the window if the current window is not visible.
 
+
     local stages = self.stages
+    local layers = self.layerMap
 
     for i = #stages, 1, -1 do -- This loop works backwards, meaning the stage at the top of the stack is ontop during drawing and mapping also.
         local stage = stages[ i ]
@@ -232,13 +235,11 @@ function Application:mapWindow( x1, y1, x2, y2 )
         local stageWidth, stageHeight = stage.canvas.width, stage.canvas.height
 
         local stageX2, stageY2
-        stageX2 = stageX + stageWidth - 1
-        stageY2 = stageY + stageHeight - 1
+        stageX2 = stageX + stageWidth
+        stageY2 = stageY + stageHeight
 
         local stageVisible = stage.visible
         local ID = stage.mappingID
-
-        local layers = self.layerMap
 
         if not (stageX > x2 or stageY > y2 or x1 > stageX2 or y1 > stageY2) then
             for y = math.max(stageY, y1), math.min(stageY2, y2) do
@@ -247,29 +248,26 @@ function Application:mapWindow( x1, y1, x2, y2 )
                 for x = math.max(stageX, x1), math.min(stageX2, x2) do
                     local layer = layers[ yPos + x ]
 
-                    if layer ~= nil then
-                        if layer ~= ID and stageVisible and ( stage:isPixel( x - stageX + 1 , y - stageY + 1 ) ) then
-                            layers[ yPos + x ] = ID
-                        elseif layer == ID and not stageVisible then
-                            layers[ yPos + x ] = false
-                        end
+                    if layer ~= ID and stageVisible and ( stage:isPixel( x - stageX + 1 , y - stageY + 1 ) ) then
+                        layers[ yPos + x ] = ID
+                    elseif layer == ID and not stageVisible then
+                        layers[ yPos + x ] = false
                     end
                 end
-            end
-            if stageVisible then
-                stage:draw()
             end
         end
     end
 
     local buffer = self.canvas.buffer
+    local width = self.width
+    local layers = self.layerMap
     for y = y1, y2 do
         -- clear the unused pixels back to background colours.
-        local yPos = self.width * ( y - 1 )
+        local yPos = width * ( y - 1 )
 
         for x = x1, x2 do
             local pos = yPos + x
-            local layer = self.layerMap[ yPos + x ]
+            local layer = layers[ yPos + x ]
             if layer == false then
                 if buffer[ pos ] then buffer[ pos ] = { false, false, false } end -- bg pixel. Anything may draw in this space.
             end

@@ -88,3 +88,13 @@ function Button:onMouseUp( event ) -- mouse up on node, trigger callback and res
         self.focused = false
     end
 end
+
+function Button:setActive( active )
+    self.active = active
+    self.changed = true
+end
+
+function Button:setFocused( focus )
+    self.focused = focus
+    self.changed = true
+end

@@ -11,6 +11,8 @@ function Label:initialise( ... )
         self.width = "auto"
     end
     self.super( self.X, self.Y, self.width, 1 )
+
+    self.canvas.width = self.width
 end
 
 function Label:preDraw()
@@ -22,4 +24,18 @@ end
 
 function Label:getWidth()
     return self.width == "auto" and len( self.text ) or self.width
+end
+
+function Label:setWidth( width )
+    self.width = width
+
+    if not self.canvas then return end
+    self.canvas.width = self.width
+end
+
+function Label:setText( text )
+    self.text = text
+
+    if not self.canvas then return end
+    self.canvas.width = self.width
 end
