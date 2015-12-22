@@ -45,29 +45,38 @@ function ApplicationCanvas:drawToScreen( force )
     local pos = 1
     local buffer = self.buffer
     local width, height = self.width, self.height
+    local old = self.old
 
     -- local definitions (faster than repeatedly defining the local inside the loop )
-    local tT, tC, tB
-    local pixel
+    local tT, tC, tB, tChanged
+    local pixel, oPixel
 
     local tc, bg = self.textColour or 1, self.backgroundColour or 1
     if blit then
         for y = 1, height do
-            tT, tC, tB = {}, {}, {} -- text, textColour, textBackground
+            tT, tC, tB, tChanged = {}, {}, {}, false -- text, textColour, textBackground
 
             for x = 1, width do
                 -- get the pixel content, add it to the text buffers
                 pixel = buffer[ pos ]
+                oPixel = old[ pos ]
 
                 tT[ #tT + 1 ] = pixel[1] or " "
                 tC[ #tC + 1 ] = paint[ pixel[2] or tc ]
                 tB[ #tB + 1 ] = paint[ pixel[3] or bg ]
 
-                --old[ pos ] = { pixel[1], pixel[2], pixel[3] } -- kinda can't do this because every line is updated as a whole, therefore every pixel needs to be passed to blit.
+                -- Set tChanged to true if this pixel is different to the last.
+                if not oPixel or pixel[1] ~= oPixel[1] or pixel[2] ~= oPixel[2] or pixel[3] ~= oPixel[3] then
+                    tChanged = true
+                    old[ pos ] = { pixel[1], pixel[2], pixel[3] }
+                end
+
                 pos = pos + 1
             end
-            setCursorPos( 1, y )
-            blit( concat( tT, "" ), concat( tC, "" ), concat( tB, "" ) ) -- table.concat comes with a major speed advantage compared to tT = tT .. pixel[1] or " ". Same goes for term.blit
+            if tChanged then
+                setCursorPos( 1, y )
+                blit( concat( tT, "" ), concat( tC, "" ), concat( tB, "" ) ) -- table.concat comes with a major speed advantage compared to tT = tT .. pixel[1] or " ". Same goes for term.blit
+            end
         end
     else
         local oldPixel

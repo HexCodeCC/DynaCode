@@ -1,15 +1,11 @@
 class "TimerManager" {
-    timers = nil;
-
-    delta = nil;
+    timers = {};
 }
 
 -- Timers have an ID created by combining the current system time and the timer wait ( os.clock() + time ). This allows timers to be re-used rather than having multiple timer events for the same time.
 
 function TimerManager:initialise( app )
     self.application = AssertClass( app, "Application", true, "TimerManager requires an application instance as its constructor argument. Not '"..tostring( app ).."'" )
-
-    self.timers = {}
 end
 
 function TimerManager:setTimer( name, secs, callback, repeatAmount ) -- repeatAmount can be "inf" or a number. Once reached will stop.
@@ -62,7 +58,7 @@ function TimerManager:removeTimer( name )
         elseif foundTimer and timer[2] == foundTimerID then
             amount = amount + 1
         else
-            -- these timers weren't checked, we will check these afterwards
+            -- these timers weren't checked, we will check these afterwards incase they use the same ID.
             extra[ #extra + 1 ] = timer
         end
     end

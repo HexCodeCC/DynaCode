@@ -76,7 +76,6 @@ app:registerDaemon( MyDaemon("application_example_daemon_service") )
 function app:onRun()
     -- will be called _every_ time the application is executed.
     log("i", "Application starting")
-    app:requestStageFocus( stage2 )
 end
 
 local BLUE, GREY, LIGHT_GREY, WHITE = colours.blue, colours.grey, colours.lightGrey, 1
@@ -129,4 +128,6 @@ panel2 = Panel( 2, 2, 15, 15 )
 panel2.backgroundColour = colours.green
 
 panel:addNode( button2 )
+
+app:requestStageFocus( stage2 ) -- The event eating issue is fixed so this can be here now.
 app:run()
