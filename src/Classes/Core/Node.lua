@@ -41,10 +41,6 @@ function Node:draw( xO, yO )
         self:preDraw( xO, yO )
     end
 
-    -- Draw to the stageCanvas
-    self.canvas:drawToCanvas( self.stage.canvas, self.X, self.Y )
-    self.changed = false
-
     if self.postDraw then
         self:postDraw( xO, yO )
     end
@@ -99,10 +95,8 @@ function Node:handleEvent( event )
     if event.handled then return end
 
     if not self.manuallyHandle then
-        local eCall = false
         if event.main == "MOUSE" and self.acceptMouse then
             if event:inArea( self.X, self.Y, self.X + self.width - 1, self.Y + self.height - 1 ) then
-                event.handled = true
                 call( self, clickMatrix[ event.sub ] or error("No click matrix entry for "..tostring( event.sub )), event )
             else
                 call( self, "onMouseMiss", event )
@@ -114,8 +108,9 @@ function Node:handleEvent( event )
         elseif self.acceptMisc then
             -- unknown main event
             call( self, "onUnknownEvent", event )
-            eCall = true
         end
+
+        call( self, "onAnyEvent", event )
     else
         call( self, "onEvent", event )
     end
@@ -138,8 +133,8 @@ function Node:getTotalOffset()
     if self.parent then
         -- get the offset from the parent, add this to the total
         local pX, pY = self.parent:getTotalOffset()
-        X = X + pX
-        Y = Y + pY
+        X = X + pX - 1
+        Y = Y + pY - 1
     elseif self.stage then
         X = X + self.stage.X
         Y = Y + self.stage.Y

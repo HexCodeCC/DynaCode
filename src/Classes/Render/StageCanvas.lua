@@ -22,20 +22,16 @@ class "StageCanvas" extends "Canvas" {
 
     filter = nil;
 
-    cache = nil;
+    cache = {};
     greyOutWhenNotFocused = true;
 }
 
 function StageCanvas:initialise( ... )
-    --self.super:initialise( ... )
     local width, height = ParseClassArguments( self, { ... }, { {"width", "number"}, {"height", "number"} }, true, true )
     AssertClass( self.stage, "Stage", true, "StageCanvas requires stage to be a Stage instance, not: "..tostring( self.stage ) )
 
-    self.super:initialise( width, height )
+    self.super( width, height )
 
-    self.cache = {}
-
-    self:redrawFrame()
     self:updateFilter()
 end
 
@@ -50,7 +46,7 @@ end
 function StageCanvas:setFilter( fil )
     -- clear the cache
     self.filter = fil
-    self:redrawFrame()
+    --self:redrawFrame()
 end
 
 function StageCanvas:getColour( col )
@@ -125,13 +121,17 @@ function StageCanvas:drawToCanvas( canvas, xO, yO, ignoreMap )
 
     local map = self.stage.application.layerMap
 
+    local cHeight, cWidth = canvas.height, canvas.width
+    local cBuffer = canvas.buffer
+    local tc, bg = self.textColour, self.backgroundColour
+
     for y = 0, height - 1 do
         local yPos = width * y
         local yBPos = canvas.width * ( y + yO )
-        if y + yO + 1 > 0 and y + yO - 1 < canvas.height then
+        if y + yO + 1 > 0 and y + yO - 1 < cHeight then
 
             for x = 1, width do
-                if x + xO > 0 and x + xO - 1 < canvas.width then
+                if x + xO > 0 and x + xO - 1 < cWidth then
 
                     local bPos = yBPos + (x + xO)
 
@@ -145,35 +145,22 @@ function StageCanvas:drawToCanvas( canvas, xO, yO, ignoreMap )
                                 local framePixel = frame[ pos ]
                                 if framePixel then
                                     local fP = framePixel[1]
-                                    if x == self.width and y == 0 and not stage.borderless and stage.closeButton and self.greyOutWhenNotFocused then -- keep the closeButton coloured.
-                                        canvas.buffer[ bPos ] = { fP, framePixel[2] or self.textColour, framePixel[3] or self.backgroundColour}
+                                    if x == width and y == 0 and not stage.borderless and stage.closeButton and self.greyOutWhenNotFocused then -- keep the closeButton coloured.
+                                        cBuffer[ bPos ] = { fP, framePixel[2] or tc, framePixel[3] or bg}
                                     else
-                                        canvas.buffer[ bPos ] = { fP, gc( self, framePixel[2] or self.textColour ), gc( self, framePixel[3] or self.backgroundColour ) }
+                                        cBuffer[ bPos ] = { fP, gc( self, framePixel[2] or tc ), gc( self, framePixel[3] or bg ) }
                                     end
                                 end
                             else
                                 -- draw the node pixel
-                                canvas.buffer[ bPos ] = { pixel[1] or " ", gc( self, pixel[2] or self.textColour ), gc( self, pixel[3] or self.backgroundColour ) }
+                                cBuffer[ bPos ] = { pixel[1] or " ", gc( self, pixel[2] or tc ), gc( self, pixel[3] or bg ) }
                             end
                         else
-                            canvas.buffer[ bPos ] = { false, false, false }
+                            cBuffer[ bPos ] = { false, false, false }
                         end
                     end
                 end
             end
         end
     end
-end
-
-function StageCanvas:clear()
-    --self.stage.forceRedraw = true
-
-    local width = self.width
-    local height = self.height
-    local buffer = {}
-    for i = 1, width * height do
-        buffer[ i ] = { false, false, false }
-    end
-
-    self.buffer = buffer
 end

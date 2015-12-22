@@ -13,7 +13,3 @@ function Panel:initialise( ... )
 
     self.super( X, Y, width or self.width, height or self.height ) -- this will call the Node.initialise because the super inherits that from the other super and so on...
 end
-
-function Panel:preDraw()
-    self.canvas:drawArea( 1, 1, self.width, self.height, self.textColour, self.backgroundColour )
-end

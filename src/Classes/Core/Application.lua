@@ -1,5 +1,3 @@
-local running
-
 class "Application" alias "COLOUR_REDIRECT" mixin "MDaemon" {
     canvas = nil;
     hotkey = nil;
@@ -10,6 +8,9 @@ class "Application" alias "COLOUR_REDIRECT" mixin "MDaemon" {
     stages = {};
 
     changed = true;
+    running = false;
+
+    lastID = 0;
 }
 
 function Application:initialise( ... )
@@ -47,7 +48,6 @@ function Application:initialise( ... )
     end)
 
     self:clearLayerMap()
-    self.lastID = 0
 end
 
 function Application:clearLayerMap()
@@ -87,6 +87,7 @@ function Application:removeStage( stageOrName )
         local stage = self.stages[ i ]
         if ( isStage and stage == stageOrName ) or ( not isStage and stage.name == stageOrName ) then
             table.remove( self.stages, i )
+            self.changed = true
         end
     end
 end
@@ -96,7 +97,7 @@ function Application:draw( force )
     if not self.changed then return end
 
     for i = #self.stages, 1, -1 do
-        self.stages[ i ]:draw( true )
+        self.stages[ i ]:draw( force )
     end
 
     -- Then draw the application to screen
@@ -107,7 +108,8 @@ end
 
 function Application:run( thread )
     -- If present, execute the callback thread in parallel with the main event loop.
-    running = true
+    log("i", "Attempting to start application")
+    self.running = true
     self.hotkey:reset()
 
     local function engine()
@@ -118,7 +120,25 @@ function Application:run( thread )
         if self.onRun then self:onRun() end
 
         self:draw( true )
-        while running do
+        log("s", "Engine start successful. Running in protected mode")
+        while self.running do
+
+            -- If there is an outstanding stage re-order request then handle this now (move the new stage to the top of the stage table)
+            if self.reorderRequest then
+                log("i", "Reordering stage list")
+                -- remove this stage from the table and re-insert it at the beggining.
+                local stage = self.reorderRequest
+                for i = 1, #self.stages do
+                    if self.stages[i] == stage then
+                        table.insert( self.stages, 1, table.remove( self.stages, i ) )
+                        self:setStageFocus( stage )
+                        break
+                    end
+                end
+                self.reorderRequest = nil
+            end
+
+
             term.setCursorBlink( false )
             self:draw()
 
@@ -141,38 +161,29 @@ function Application:run( thread )
                     self.stages[i]:handleEvent( event )
                 end
             end
-
-            -- If there is an outstanding stage re-order request then handle this now (move the new stage to the top of the stage table)
-            if self.reorderRequest then
-                log("i", "Reordering stage list")
-                -- remove this stage from the table and re-insert it at the beggining.
-                local stage = self.reorderRequest
-                for i = 1, #self.stages do
-                    if self.stages[i] == stage then
-                        table.insert( self.stages, 1, table.remove( self.stages, i ) )
-                        self:setStageFocus( stage )
-                        break
-                    end
-                end
-                self.reorderRequest = nil
-            end
         end
     end
 
+    log("i", "Trying to start daemon services")
     local _, err = pcall( function() self:startDaemons() end ) -- daemons started before anything else.
     if err then
+        log("f", "Failed to start daemon services. Reason '" .. tostring( err ) .. "'")
         if self.errorHandler then
             self:errorHandler( err, false )
         else
             if self.onError then self:onError( err ) end
             error("Failed to start daemon service: "..err)
         end
+    elseif ok then
+        log("s", "Daemon service started")
     end
 
+    log("i", "Starting engine")
     local ok, err = pcall( engine )
     if not ok and err then
+        log("f", "Engine error: '"..tostring( err ).."'")
         if self.errorHandler then
-            self:errorHandler( err )
+            self:errorHandler( err, true )
         else
             -- crashed
             term.setTextColour( colours.yellow )
@@ -215,7 +226,7 @@ function Application:finish( thread )
     self:stopDaemons( true )
 
     log("i", "Stopping Application")
-    running = false
+    self.running = false
     os.queueEvent("stop") -- if the engine is waiting for an event give it one so it can realise 'running' is false -> while loop finished -> exit and return.
     if type( thread ) == "function" then thread() end
 end

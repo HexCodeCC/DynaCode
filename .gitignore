@@ -1,4 +1,5 @@
-/bin
+/bin/
+/test_code/
 *.out
 *.crash
 *.log

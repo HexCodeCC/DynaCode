@@ -16,8 +16,11 @@ local paint = { -- converts decimal to paint colors during draw time.
     [16384] = "e";
     [32768] = "f";
 }
-
+local blit = type( term.blit ) == "function" and term.blit or nil
+local write = term.write
+local setCursorPos = term.setCursorPos
 local concat = table.concat
+
 
 local setTextColour, setBackgroundColour = term.setTextColour, term.setBackgroundColour
 
@@ -32,30 +35,27 @@ function ApplicationCanvas:initialise( ... )
     ParseClassArguments( self, { ... }, { {"owner", "Application"}, {"width", "number"}, {"height", "number"} }, true )
     AssertClass( self.owner, "Application", true, "Instance '"..self:type().."' requires an Application Instance as the owner" )
 
-    self.super:initialise( self.width, self.height )
+    self.super( self.width, self.height )
 end
 
 
 function ApplicationCanvas:drawToScreen( force )
     -- MUCH faster drawing! Tearing almost completely eliminated
 
+    local pos = 1
     local buffer = self.buffer
     local width, height = self.width, self.height
 
     -- local definitions (faster than repeatedly defining the local inside the loop )
-    local yPos
-    local pos
     local tT, tC, tB
     local pixel
 
     local tc, bg = self.textColour or 1, self.backgroundColour or 1
-    if type(term.blit) == "function" then
+    if blit then
         for y = 1, height do
             tT, tC, tB = {}, {}, {} -- text, textColour, textBackground
-            yPos = width * (y - 1)
 
             for x = 1, width do
-                pos = yPos + x
                 -- get the pixel content, add it to the text buffers
                 pixel = buffer[ pos ]
 
@@ -63,10 +63,11 @@ function ApplicationCanvas:drawToScreen( force )
                 tC[ #tC + 1 ] = paint[ pixel[2] or tc ]
                 tB[ #tB + 1 ] = paint[ pixel[3] or bg ]
 
-                --old[ pos ] = { pixel[1], pixel[2], pixel[3] } -- kinda can't do this because every line is updated as a whole, therefore every pixel needs to be passed anyway.
+                --old[ pos ] = { pixel[1], pixel[2], pixel[3] } -- kinda can't do this because every line is updated as a whole, therefore every pixel needs to be passed to blit.
+                pos = pos + 1
             end
-            term.setCursorPos( 1, y )
-            term.blit( concat( tT, "" ), concat( tC, "" ), concat( tB, "" ) ) -- table.concat comes with a major speed advantage compared to tT = tT .. pixel[1] or " ". Same goes for term.blit
+            setCursorPos( 1, y )
+            blit( concat( tT, "" ), concat( tC, "" ), concat( tB, "" ) ) -- table.concat comes with a major speed advantage compared to tT = tT .. pixel[1] or " ". Same goes for term.blit
         end
     else
         local oldPixel
@@ -77,16 +78,13 @@ function ApplicationCanvas:drawToScreen( force )
         setBackgroundColour( oldBg )
 
         for y = 1, height do
-            yPos = width * ( y - 1 )
-
             for x = 1, width do
-                pos = yPos + x
                 pixel = buffer[ pos ]
                 oldPixel = old[ pos ]
 
                 if force or not oldPixel or not ( oldPixel[1] == pixel[1] and oldPixel[2] == pixel[2] and oldPixel[3] == pixel[3] ) then
 
-                    term.setCursorPos( x, y )
+                    setCursorPos( x, y )
 
                     local t = pixel[2] or tc
                     if t ~= oldTc then setTextColour( t ) oldTc = t end
@@ -94,10 +92,11 @@ function ApplicationCanvas:drawToScreen( force )
                     local b = pixel[3] or bg
                     if b ~= oldBg then setBackgroundColour( b ) oldBg = b end
 
-                    term.write( pixel[1] or " " )
+                    write( pixel[1] or " " )
 
                     old[ pos ] = { pixel[1], pixel[2], pixel[3] }
                 end
+                pos = pos + 1
             end
         end
     end

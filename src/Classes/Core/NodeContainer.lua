@@ -1,12 +1,10 @@
 abstract class "NodeContainer" extends "Node" {
-    manuallyHandle = true;
-
     acceptMouse = true;
     acceptKeyboard = true;
     acceptMisc = true;
 
     nodes = {};
-    cache = {};
+    forceRedraw = true;
 }
 
 function NodeContainer:getNodeByType( _type )
@@ -30,7 +28,9 @@ function NodeContainer:getNodeByName( name )
 end
 
 function NodeContainer:addNode( node )
-    node.parent = node
+    node.parent = self
+    node.stage = self.stage
+
     self.nodes[ #self.nodes + 1 ] = node
 end
 
@@ -46,8 +46,4 @@ function NodeContainer:removeNode( nodeOrName )
             return table.remove( self.nodes, i )
         end
     end
-end
-
-function NodeContainer:isInView( node, xO, yO )
-    return true --TODO
 end

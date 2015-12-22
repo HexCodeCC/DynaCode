@@ -9,17 +9,8 @@ abstract class "Canvas" alias "COLOUR_REDIRECT" {
 }
 
 function Canvas:initialise( ... )
-    log("i", "initialise canvas")
     local width, height = ParseClassArguments( self, { ... }, { {"width", "number"}, {"height", "number"} }, true, true )
 
-    local buffer = {}
-    for i = 1, width * height do
-        buffer[ i ] = { false, false, false }
-    end
-
-    self.buffer = buffer
-
-    log("i", "setting canvas width, height")
     self.width = width
     self.height = height
 
@@ -27,7 +18,6 @@ function Canvas:initialise( ... )
 end
 
 function Canvas:clear( w, h )
-    log("w", "Canvas cleared")
     local width = w or self.width
     local height = h or self.height
 
@@ -64,7 +54,7 @@ function Canvas:drawToCanvas( canvas, xO, yO )
 end
 
 function Canvas:setWidth( width )
-    if not self.buffer then log("w", "Attempted to manipulate buffer size before initialisation!") self.width = width return end
+    if not self.buffer then self.width = width return end
 
     local height, buffer = self.height, self.buffer
     if not self.width then error("found on "..tostring( self )..". Current width: "..tostring( self.width )..", new width: "..tostring( width )) end
@@ -85,7 +75,7 @@ function Canvas:setWidth( width )
 end
 
 function Canvas:setHeight( height )
-    if not self.buffer then log("w", "Attempted to manipulate buffer size before initialisation!") self.height = height return end
+    if not self.buffer then self.height = height return end
     local width, buffer, cHeight = self.width, self.buffer, self.height
 
 	while self.height < height do

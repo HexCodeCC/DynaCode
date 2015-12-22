@@ -10,16 +10,14 @@ local redirects = {
 }
 
 class "HotkeyManager" {
-    keys = nil;
-    combinations = nil;
+    keys = {};
+    combinations = {};
 
     application = nil;
 }
 
 function HotkeyManager:initialise( application )
     self.application = AssertClass( application, "Application", true, "HotkeyManager requires an Application Instance as its constructor argument, not '"..tostring( application ).."'")
-
-    self.keys, self.combinations = {}, {}
 end
 
 local function matchCombination( self, combination, pressOnly )

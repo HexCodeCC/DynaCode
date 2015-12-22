@@ -22,7 +22,7 @@ class "Input" extends "Node" {
 }
 
 function Input:initialise( ... )
-    self.super:initialise( ... )
+    self.super( ... )
 
     self.content = ""
     self.selected = 0 -- from the cursor ( negative <, positive > )

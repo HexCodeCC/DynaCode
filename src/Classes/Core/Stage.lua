@@ -1,8 +1,6 @@
 local insert = table.insert
 local sub = string.sub
--- Stages have shadows when focused, these shadows are stored in the same buffer as the window. Because of this when a stage gains/looses a buffer the buffer should be resized accordingly.
 
-local shadowB = false
 class "Stage" alias "COLOUR_REDIRECT" {
     X = 1;
     Y = 1;
@@ -46,11 +44,11 @@ function Stage:initialise( ... )
     -- Every stage has a unique ID used to find it afterwards, this removes the need to loop every stage looking for the correct object.
     local name, X, Y, width, height = ParseClassArguments( self, { ... }, { {"name", "string"}, {"X", "number"}, {"Y", "number"}, {"width", "number"}, {"height", "number"} }, true, true )
 
-    self.canvas = StageCanvas( {width = width; height = height; textColour = self.textColour; backgroundColour = self.backgroundColour, stage = self} )
-
     self.X = X
     self.Y = Y
     self.name = name
+
+    self.canvas = StageCanvas( {width = width; height = height; textColour = self.textColour; backgroundColour = self.backgroundColour, stage = self} )
 
     self.width = width
     self.height = height
@@ -69,7 +67,7 @@ function Stage:initialise( ... )
     end)
 
     self:updateCanvasSize()
-    self.canvas:redrawFrame()
+    --self.canvas:redrawFrame()
 
     self.mouseMode = false
 end
@@ -121,18 +119,32 @@ function Stage:setApplication( app )
     self.application = app
 end
 
-function Stage:draw( force )
+function Stage:draw( _force )
     -- Firstly, clear the stage buffer and re-draw it.
-    if self.forceRedraw or force then self.changed = true self.canvas:clear() self.canvas:redrawFrame() self.forceRedraw = false end
-    local changed = self.changed or force
+    local changed = self.changed
+    local force = _force or self.forceRedraw
+
+    if self.forceRedraw or force then
+        log("i", "Stage is being forced to redraw!")
+
+        self.canvas:clear()
+        self.canvas:redrawFrame()
+        self.forceRedraw = false
+    end
+
+    log("i", "Drawing stage "..tostring( name )..". Force: "..tostring( changed )..". Changed: "..tostring( self.changed ) )
+
+    local canvas = self.canvas
     -- order all nodes to re-draw themselves
 
-    if changed then
+    if changed or force then
         local nodes = self.nodes
         for i = #nodes, 1, -1 do
             local node = nodes[i]
-            if changed or node.changed then
-                node:draw()
+            if changed and node.changed or force then
+                node:draw( 0, 0, changed or force )
+                node.canvas:drawToCanvas( canvas, node.X, node.Y )
+
                 node.changed = false
             end
         end
@@ -166,18 +178,19 @@ function Stage:hitTest( x, y )
 end
 
 function Stage:isPixel( x, y )
-    -- return true if the co-ords are not on the whitespace at the top right and bottom left of a shadow stage
     local canvas = self.canvas
 
-    if self.shadow and self.focused then
-        if ( x == self.width + 1 and y == 1 ) or ( x == 1 and y == self.height + ( self.borderless and 0 or 1 ) + 1 ) then
-            return false -- pixel on corner of shadow
-        end
-        return true
-    elseif self.shadow and not self.focused then
-        if ( x == self.width + 1 ) or ( y == self.height + ( self.borderless and 0 or 1 ) + 1 ) then return false end
+    if self.shadow then
+        if self.focused then
+            if ( x == self.width + 1 and y == 1 ) or ( x == 1 and y == self.height + ( self.borderless and 0 or 1 ) + 1 ) then
+                return false -- pixel on corner of shadow
+            end
+            return true
+        else
+            if ( x == self.width + 1 ) or ( y == self.height + ( self.borderless and 0 or 1 ) + 1 ) then return false end
 
-        return true
+            return true
+        end
     elseif not self.shadow then return true end
 
     return false
@@ -201,7 +214,7 @@ function Stage:submitEvent( event )
         nodes[ i ]:handleEvent( event )
     end
     if main == "MOUSE" then
-        event.X, event.Y = oX, oY
+        event.X, event.Y = oX, oY -- convert back to global because other stages may need to use this event.
     end
 end
 
@@ -214,7 +227,7 @@ function Stage:move( newX, newY )
     self.Y = newY
     self:map()
 
-    self.changed = true
+    self.application.changed = true
 end
 
 function Stage:resize( nW, nH )
@@ -229,7 +242,8 @@ function Stage:resize( nW, nH )
 
     self:map()
 
-    self.changed = true
+    self.forceRedraw = true
+    self.application.changed = true
 end
 
 function Stage:handleMouse( event )
@@ -381,7 +395,7 @@ function Stage:executeCallback( name, ... )
 end
 
 function Stage:onFocus()
-    --self.forceRedraw = true
+    self.forceRedraw = true
     -- the application has granted focus to this stage. Create a shadow if required and update colour sheet.
     self.focused = true
     self.changed = true
@@ -391,10 +405,11 @@ function Stage:onFocus()
 
     self:map()
     self.canvas:updateFilter()
+    self.canvas:redrawFrame()
 end
 
 function Stage:onBlur()
-    --self.forceRedraw = true
+    self.forceRedraw = true
     -- the application revoked focus, remove any shadows and grey out stage
     self.focused = false
     self.changed = true
@@ -404,6 +419,7 @@ function Stage:onBlur()
 
     self:map()
     self.canvas:updateFilter()
+    self.canvas:redrawFrame()
 end
 
 function Stage:setChanged( bool )

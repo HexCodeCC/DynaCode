@@ -14,30 +14,34 @@ function NodeCanvas:initialise( ... )
     end
     self.node = node
 
-    self.super:initialise( width, height )
+    self.super( width, height )
 end
 
 function NodeCanvas:drawToCanvas( canvas, xO, yO )
     local buffer = self.buffer
     --local frame = self.frame
     local stage = self.node.stage
-    local borderOffset = stage.borderless and 2 or 1
+    local hasNodeParent = self.node.parent and true or false
+
+    local borderOffset = stage.borderless and not hasNodeParent and 2 or 1
 
     local xO = type( xO ) == "number" and xO - 1 or 0
-    local yO = type( yO ) == "number" and yO - borderOffset or 0
+    local yO = type( yO ) == "number" and yO - (not hasNodeParent and borderOffset or 2) or 0
 
-    local width = self.width --+ ( stage.shadow and 0 or 0 )
-    local height = self.height --- ( stage.shadow and 0 or 1 )
+    local width = self.width
+    local height = self.height
 
-    local sOffset = stage.shadow and 1 or 0
+    local sOffset = (stage.shadow and not hasNodeParent and 1) or 0
 
     local cHeight = canvas.height - sOffset
     local cWidth = canvas.width - sOffset
 
     local yPos, yBPos, pos, bPos, pixel
 
-    local yOO = yO + borderOffset
+    local yOO = yO + (hasNodeParent and 2 or borderOffset)
     local yOS = yO + sOffset
+
+    local tc, bg = self.node.textColour, self.node.backgroundColour
 
 
     for y = 0, height do
@@ -52,9 +56,9 @@ function NodeCanvas:drawToCanvas( canvas, xO, yO )
                     pixel = buffer[ pos ]
                     if pixel then
                         -- draw the node pixel
-                        canvas.buffer[ bPos ] = { pixel[1] or " ", pixel[2] or self.textColour, pixel[3] or self.backgroundColour }
+                        canvas.buffer[ bPos ] = { pixel[1] or " ", pixel[2] or tc, pixel[3] or bg }
                     else
-                        canvas.buffer[ bPos ] = { false, false, false }
+                        canvas.buffer[ bPos ] = { " ", tc, bg }
                     end
                 end
             end

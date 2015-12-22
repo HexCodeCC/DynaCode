@@ -34,7 +34,7 @@ class "Button" extends "Node" {
 function Button:initialise( ... )
     local text, X, Y, width, height = ParseClassArguments( self, { ... }, { {"text", "string"}, {"X", "number"}, {"Y", "number"}, {"width", "number"}, {"height", "number"} }, true, true )
 
-    self.super:initialise( X, Y, width, height )
+    self.super( X, Y, width, height )
     self.text = text
 end
 
