@@ -1,6 +1,25 @@
 local insert = table.insert
 local sub = string.sub
 
+local function childHandler( self, element ) -- self = instance (new)
+    -- the stage has children, create them using the DCML parser and add them to the instance.
+    local children = DCML.parse( {element.content} )
+
+    for i = 1, #children do
+        self:addNode( children[i] )
+    end
+end
+
+DCML.registerTag("Stage", {
+    childHandler = childHandler;
+    argumentType = {
+        X = "number";
+        Y = "number";
+        width = "number";
+        height = "number";
+    },
+})
+
 class "Stage" alias "COLOUR_REDIRECT" {
     X = 1;
     Y = 1;
@@ -18,8 +37,8 @@ class "Stage" alias "COLOUR_REDIRECT" {
 
     name = nil;
 
-    textColour = 1;
-    backgroundColour = 32768;
+    textColour = 32768;
+    backgroundColour = 1;
 
     unfocusedTextColour = 128;
     unfocusedBackgroundColour = 256;
@@ -32,6 +51,9 @@ class "Stage" alias "COLOUR_REDIRECT" {
     closeButton = true;
     closeButtonTextColour = 1;
     closeButtonBackgroundColour = colours.red;
+
+    titleBackgroundColour = 128;
+    titleTextColour = 1;
 
     controller = {};
 

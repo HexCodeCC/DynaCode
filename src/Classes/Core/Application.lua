@@ -309,3 +309,19 @@ function Application:unSetStageFocus( stage )
         self.focusedStage = nil
     end
 end
+
+local function getFromDCML( path )
+    return DCML.parse( DCML.loadFile( path ) )
+end
+function Application:appendStagesFromDCML( path )
+    local data = getFromDCML( path )
+
+    for i = 1, #data do
+        local stage = data[i]
+        if class.typeOf( stage, "Stage", true ) then
+            self:addStage( stage )
+        else
+            return error("The DCML parser has created a "..tostring( stage )..". This is not a stage and cannot be added as such. Please ensure the DCML file '"..tostring( path ).."' only creates stages with nodes inside of them, not nodes by themselves. Refer to the wiki for more information")
+        end
+    end
+end

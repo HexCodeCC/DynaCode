@@ -130,4 +130,6 @@ panel2.backgroundColour = colours.green
 panel:addNode( button2 )
 
 app:requestStageFocus( stage2 ) -- The event eating issue is fixed so this can be here now.
+
+app:appendStagesFromDCML( "stages.dcml" )
 app:run()
