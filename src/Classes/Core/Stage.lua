@@ -1,17 +1,15 @@
 local insert = table.insert
 local sub = string.sub
 
-local function childHandler( self, element ) -- self = instance (new)
-    -- the stage has children, create them using the DCML parser and add them to the instance.
-    local children = DCML.parse( {element.content} )
-
-    for i = 1, #children do
-        self:addNode( children[i] )
-    end
-end
-
 DCML.registerTag("Stage", {
-    childHandler = childHandler;
+    childHandler = function( self, element ) -- self = instance (new)
+        -- the stage has children, create them using the DCML parser and add them to the instance.
+        local children = DCML.parse( {element.content} )
+
+        for i = 1, #children do
+            self:addNode( children[i] )
+        end
+    end;
     argumentType = {
         X = "number";
         Y = "number";

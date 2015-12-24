@@ -1,7 +1,6 @@
 class "Application" alias "COLOUR_REDIRECT" mixin "MDaemon" {
     canvas = nil;
     hotkey = nil;
-    schedule = nil;
     timer = nil;
     event = nil;
 
