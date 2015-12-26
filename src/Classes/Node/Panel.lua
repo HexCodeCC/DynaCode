@@ -1,8 +1,6 @@
 class "Panel" extends "NodeScrollContainer" {
-    height = 15;
-    width = 10;
-
-    nodes = nil;
+    width = 2;
+    height = 2;
 }
 
 function Panel:initialise( ... )
@@ -11,12 +9,7 @@ function Panel:initialise( ... )
         { "Y", "number" },
         { "width", "number" },
         { "height", "number" }
-    }, true, true )
+    }, false, true )
 
-    self.super( X, Y, width, height ) -- this will call the Node.initialise because the super inherits that from the other super and so on...
-    self.nodes = {}
-end
-
-function Panel:preDraw()
-
+    self.super( X, Y, width or self.width, height or self.height ) -- this will call the Node.initialise because the super inherits that from the other super and so on...
 end

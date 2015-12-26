@@ -1,4 +1,11 @@
-abstract class "NodeContainer" extends "Node"
+abstract class "NodeContainer" extends "Node" {
+    acceptMouse = true;
+    acceptKeyboard = true;
+    acceptMisc = true;
+
+    nodes = {};
+    forceRedraw = true;
+}
 
 function NodeContainer:getNodeByType( _type )
     local results, nodes = {}, self.nodes
@@ -21,7 +28,9 @@ function NodeContainer:getNodeByName( name )
 end
 
 function NodeContainer:addNode( node )
-    node.parent = node
+    node.parent = self
+    node.stage = self.stage
+
     self.nodes[ #self.nodes + 1 ] = node
 end
 

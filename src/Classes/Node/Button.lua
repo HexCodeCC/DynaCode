@@ -34,7 +34,7 @@ class "Button" extends "Node" {
 function Button:initialise( ... )
     local text, X, Y, width, height = ParseClassArguments( self, { ... }, { {"text", "string"}, {"X", "number"}, {"Y", "number"}, {"width", "number"}, {"height", "number"} }, true, true )
 
-    self.super:initialise( X, Y, width, height )
+    self.super( X, Y, width, height )
     self.text = text
 end
 
@@ -87,4 +87,14 @@ function Button:onMouseUp( event ) -- mouse up on node, trigger callback and res
         self.active = false
         self.focused = false
     end
+end
+
+function Button:setActive( active )
+    self.active = active
+    self.changed = true
+end
+
+function Button:setFocused( focus )
+    self.focused = focus
+    self.changed = true
 end

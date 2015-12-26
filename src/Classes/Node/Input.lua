@@ -22,7 +22,7 @@ class "Input" extends "Node" {
 }
 
 function Input:initialise( ... )
-    self.super:initialise( ... )
+    self.super( ... )
 
     self.content = ""
     self.selected = 0 -- from the cursor ( negative <, positive > )
@@ -30,7 +30,6 @@ end
 
 
 function Input:preDraw()
-    if not self.changed then return end
     local content, text = self.content, ""
     local canvas = self.canvas
 
@@ -70,7 +69,7 @@ function Input:preDraw()
         if isSelected then
             buffer[ w ] = { char, 1, colours.blue }
         else
-            buffer[ w ] = { char, colours.red, 1 }
+            buffer[ w ] = { char, colours.red, colors.lightGray }
         end
     end
     self.canvas.buffer = buffer
@@ -186,6 +185,7 @@ function Input:onChar( event )
 end
 
 function Input:onMouseMiss( event )
+    if event.sub == "UP" then return end
     -- if a mouse event occurs off of the input, remove focus from the input.
     self.stage:removeKeyboardFocus( self )
 end
@@ -203,5 +203,5 @@ function Input:getCursorInformation()
     return self.selected == 0, x + cursorPos - 1, y, self.activeTextColour
 end
 
-function Input:onFocusLost() self.focused = false; self.acceptKeyboard = false end
-function Input:onFocusGain() self.focused = true; self.acceptKeyboard = true end
+function Input:onFocusLost() self.focused = false; self.acceptKeyboard = false; self.changed = true end
+function Input:onFocusGain() self.focused = true; self.acceptKeyboard = true; self.changed = true end

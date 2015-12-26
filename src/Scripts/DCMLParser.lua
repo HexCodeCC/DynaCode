@@ -159,6 +159,8 @@ function Parser.parse( data )
     for i = 1, #data do
         local element = data[i]
 
+        print("trying to parse "..tostring(textutils.serialise( element )))
+
         local matrix = DCMLMatrix[ element.label ]
         if type( matrix ) ~= "table" then
             return error("No DCMLMatrix for tag with label '"..tostring(element.label).."'")
@@ -166,7 +168,7 @@ function Parser.parse( data )
 
         local custom = getFunction( false, matrix.customHandler )
         if custom then
-            table.insert( parsed, custom( element ) )
+            table.insert( parsed, custom( element, DCMLMatrix ) )
         else
             -- Compile arguments to be passed to the instance constructor.
             local args = {}
@@ -204,7 +206,7 @@ function Parser.parse( data )
             if element.hasChildren and matrix.childHandler then
                 local childHandler = getFunction( instance, matrix.childHandler )
                 if childHandler then
-                    childHandler( element )
+                    childHandler( instance, element )
                 end
             end
 

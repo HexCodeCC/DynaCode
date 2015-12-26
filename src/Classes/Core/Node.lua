@@ -2,8 +2,8 @@ abstract class "Node" alias "COLOUR_REDIRECT" {
     X = 1;
     Y = 1;
 
-    width = nil;
-    height = nil;
+    width = 0;
+    height = 0;
 
     visible = true;
     enabled = true;
@@ -27,7 +27,7 @@ function Node:initialise( ... )
     local X, Y, width, height = ParseClassArguments( self, { ... }, { { "X", "number" }, { "Y", "number" }, { "width", "number" }, { "height", "number" } }, false, true )
 
     -- Creates a NodeCanvas
-    self.canvas = NodeCanvas( self, width or 1, height or 1 )
+    self.canvas = NodeCanvas( self, width or 1, height - 1 or 0 )
 
     self.X = X
     self.Y = Y
@@ -40,10 +40,6 @@ function Node:draw( xO, yO )
     if self.preDraw then
         self:preDraw( xO, yO )
     end
-
-    -- Draw to the stageCanvas
-    self.canvas:drawToCanvas( self.stage.canvas, self.X, self.Y )
-    self.changed = false
 
     if self.postDraw then
         self:postDraw( xO, yO )
@@ -96,28 +92,27 @@ local clickMatrix = {
 }
 function Node:handleEvent( event )
     -- Automatically fires callbacks on the node depending on the event. For example onMouseMiss, onMouseDown, onMouseUp etc...
-    if not event.handled then
-        if not self.manuallyHandle then
-            local eCall = false
-            if event.main == "MOUSE" and self.acceptMouse then
-                if event:inArea( self.X, self.Y, self.X + self.width - 1, self.Y + self.height - 1 ) then
-                    log("MOUSE", event.sub)
-                    call( self, clickMatrix[ event.sub ] or error("No click matrix entry for "..tostring( event.sub )), event )
-                else
-                    call( self, "onMouseMiss", event )
-                end
-            elseif event.main == "KEY" and self.acceptKeyboard then
-                call( self, event.sub == "UP" and "onKeyUp" or "onKeyDown", event )
-            elseif event.main == "CHAR" and self.acceptKeyboard then
-                call( self, "onChar", event )
-            elseif self.acceptMisc then
-                -- unknown main event
-                call( self, "onUnknownEvent", event )
-                eCall = true
+    if event.handled then return end
+
+    if not self.manuallyHandle then
+        if event.main == "MOUSE" and self.acceptMouse then
+            if event:inArea( self.X, self.Y, self.X + self.width - 1, self.Y + self.height - 1 ) then
+                call( self, clickMatrix[ event.sub ] or error("No click matrix entry for "..tostring( event.sub )), event )
+            else
+                call( self, "onMouseMiss", event )
             end
-        else
-            call( self, "onEvent", event )
+        elseif event.main == "KEY" and self.acceptKeyboard then
+            call( self, event.sub == "UP" and "onKeyUp" or "onKeyDown", event )
+        elseif event.main == "CHAR" and self.acceptKeyboard then
+            call( self, "onChar", event )
+        elseif self.acceptMisc then
+            -- unknown main event
+            call( self, "onUnknownEvent", event )
         end
+
+        call( self, "onAnyEvent", event )
+    else
+        call( self, "onEvent", event )
     end
 end
 
@@ -138,8 +133,8 @@ function Node:getTotalOffset()
     if self.parent then
         -- get the offset from the parent, add this to the total
         local pX, pY = self.parent:getTotalOffset()
-        X = X + pX
-        Y = Y + pY
+        X = X + pX - 1
+        Y = Y + pY - 1
     elseif self.stage then
         X = X + self.stage.X
         Y = Y + self.stage.Y

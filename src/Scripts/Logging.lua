@@ -5,12 +5,14 @@ local loggingModes = {
     w = "Warning";
     e = "Error";
     f = "FATAL";
+    s = "Success";
 
 
     di = "Daemon Information";
     dw = "Daemon Warning";
     de = "Daemon Error";
     df = "Daemon Fatal";
+    ds = "Daemon Success";
 }
 local clearWhenLow = true
 local clearWhen = 50000
@@ -53,6 +55,8 @@ end
 function log:setLoggingEnabled( bool )
     loggingEnabled = bool
 end
+
+function log:getEnabled() return loggingEnabled end
 
 function log:setLoggingPath( path )
     -- clear the path

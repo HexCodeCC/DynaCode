@@ -1,0 +1,3 @@
+<Stage X="2" Y="7" height="3" width="10" name="someStage" title="DCML window">
+    <Button X="1" Y="1" width="5" height="1">Hey</Button>
+</Stage>
