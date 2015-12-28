@@ -31,13 +31,13 @@ function NodeScrollContainer:calculateContentSize()
 end
 
 function NodeScrollContainer:getScrollPositions( contentWidth, contentHeight, dWidth, dHeight, hSize, vSize )
-    local h, v = math.floor( self.horizontalScroll / contentWidth * dWidth + .5 ), math.floor( self.verticalScroll / contentHeight * dHeight + .5 )
+    local h, v = math.floor( self.horizontalScroll / contentWidth * dWidth - .5 ), math.floor( self.verticalScroll / contentHeight * dHeight + .5 )
 
-    return h, v <= 1 and ( self.verticalScroll ~= 0 and 2 or 1 ) or v
+    return h <= 1 and ( self.horizontalScroll ~= 0 and 2 or 1 ) or h, v <= 1 and ( self.verticalScroll ~= 0 and 2 or 1 ) or v
 end
 
 function NodeScrollContainer:getScrollSizes( contentWidth, contentHeight, dWidth, dHeight )
-    return math.floor( dWidth / contentWidth * dWidth + .5 ), math.floor( dHeight / contentHeight * self.height + .5 )
+    return math.floor( dWidth / contentWidth * self.width - .5 ), math.floor( dHeight / contentHeight * self.height + .5 )
 end
 
 function NodeScrollContainer:addNode( node )
@@ -165,8 +165,6 @@ function NodeScrollContainer:postDraw()
 
         local hSize, vSize = self:getScrollSizes( contentWidth, contentHeight, dWidth, dHeight )
         local hPos, vPos = self:getScrollPositions( contentWidth, contentHeight, dWidth, dHeight, hSize, vSize )
-
-        log("i", "Vertical Scroll Size: "..tostring( vSize )..". Position: "..tostring( vPos ))
 
         local canvas = self.canvas
 

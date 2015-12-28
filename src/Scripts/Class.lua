@@ -125,6 +125,7 @@ local blacklist = {
     __definedProperty = true;
     __definedFunction = true;
     __type = true;
+    __class = true;
 
     spawn = true;
 }
@@ -321,6 +322,7 @@ function class.forge( name )
                 local sym = false
                 local instanceRaw = deepCopy( raw )
                 instanceRaw.__instance = true
+                instanceRaw.__class = true
 
                 local instance, instanceMt = {}, {}
 

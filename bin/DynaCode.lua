@@ -115,6 +115,18 @@ function Panel:initialise( ... )\
         { \"height\", \"number\" }\
     }, false, true )\
 \
+    self:__overrideMetaMethod(\"__add\", function( a, b )\
+        if class.typeOf(a, \"Panel\", true) then\
+            if class.isInstance( b ) and b.__node then\
+                return self:addNode( b )\
+            else\
+                return error(\"Invalid right hand assignment. Should be instance of DynaCode node. \"..tostring( b ))\
+            end\
+        else\
+            _G.invalid = a\
+            return error(\"Invalid left hand assignment. Should be instance of Panel. \"..tostring( a ))\
+        end\
+    end)\
     self.super( X, Y, width or self.width, height or self.height ) -- this will call the Node.initialise because the super inherits that from the other super and so on...\
 end",
   [ "NodeScrollContainer.lua" ] = "abstract class \"NodeScrollContainer\" extends \"NodeContainer\" {\
@@ -150,13 +162,13 @@ function NodeScrollContainer:calculateContentSize()\
 end\
 \
 function NodeScrollContainer:getScrollPositions( contentWidth, contentHeight, dWidth, dHeight, hSize, vSize )\
-    local h, v = math.floor( self.horizontalScroll / contentWidth * dWidth + .5 ), math.floor( self.verticalScroll / contentHeight * dHeight + .5 )\
+    local h, v = math.floor( self.horizontalScroll / contentWidth * dWidth - .5 ), math.floor( self.verticalScroll / contentHeight * dHeight + .5 )\
 \
-    return h, v <= 1 and ( self.verticalScroll ~= 0 and 2 or 1 ) or v\
+    return h <= 1 and ( self.horizontalScroll ~= 0 and 2 or 1 ) or h, v <= 1 and ( self.verticalScroll ~= 0 and 2 or 1 ) or v\
 end\
 \
 function NodeScrollContainer:getScrollSizes( contentWidth, contentHeight, dWidth, dHeight )\
-    return math.floor( dWidth / contentWidth * dWidth + .5 ), math.floor( dHeight / contentHeight * self.height + .5 )\
+    return math.floor( dWidth / contentWidth * self.width - .5 ), math.floor( dHeight / contentHeight * self.height + .5 )\
 end\
 \
 function NodeScrollContainer:addNode( node )\
@@ -219,14 +231,14 @@ function NodeScrollContainer:onMouseScroll( event )\
     local dWidth, dHeight = self:calculateDisplaySize( h, v )\
 \
     if v then\
-		self.verticalScroll = math.max( math.min( self.verticalScroll + event.misc, contentHeight - dHeight ), 0 )\
+\009\009self.verticalScroll = math.max( math.min( self.verticalScroll + event.misc, contentHeight - dHeight ), 0 )\
         self.forceRedraw = true\
         self.changed = true\
-	elseif h then\
-		self.horizontalScroll = math.max( math.min( self.horizontalScroll + event.misc, contentWidth - dWidth ), 0 )\
+\009elseif h then\
+\009\009self.horizontalScroll = math.max( math.min( self.horizontalScroll + event.misc, contentWidth - dWidth ), 0 )\
         self.forceRedraw = true\
         self.changed = true\
-	end\
+\009end\
 end\
 \
 function NodeScrollContainer:getActiveScrollbars( contentWidth, contentHeight )\
@@ -284,8 +296,6 @@ function NodeScrollContainer:postDraw()\
 \
         local hSize, vSize = self:getScrollSizes( contentWidth, contentHeight, dWidth, dHeight )\
         local hPos, vPos = self:getScrollPositions( contentWidth, contentHeight, dWidth, dHeight, hSize, vSize )\
-\
-        log(\"i\", \"Vertical Scroll Size: \"..tostring( vSize )..\". Position: \"..tostring( vPos ))\
 \
         local canvas = self.canvas\
 \
@@ -1083,19 +1093,19 @@ function Canvas:setHeight( height )\
     if not self.buffer then self.height = height return end\
     local width, buffer, cHeight = self.width, self.buffer, self.height\
 \
-	while self.height < height do\
-		for i = 1, width do\
-			buffer[#buffer + 1] = px\
-		end\
-		self.height = self.height + 1\
-	end\
+\009while self.height < height do\
+\009\009for i = 1, width do\
+\009\009\009buffer[#buffer + 1] = px\
+\009\009end\
+\009\009self.height = self.height + 1\
+\009end\
 \
-	while self.height > height do\
-		for i = 1, width do\
-			remove( buffer, #buffer )\
-		end\
-		self.height = self.height - 1\
-	end\
+\009while self.height > height do\
+\009\009for i = 1, width do\
+\009\009\009remove( buffer, #buffer )\
+\009\009end\
+\009\009self.height = self.height - 1\
+\009end\
     --self:clear()\
 end",
   [ "DCMLParser.lua" ] = "local sub = string.sub\
@@ -2145,6 +2155,7 @@ local blacklist = {\
     __definedProperty = true;\
     __definedFunction = true;\
     __type = true;\
+    __class = true;\
 \
     spawn = true;\
 }\
@@ -2341,6 +2352,7 @@ function class.forge( name )\
                 local sym = false\
                 local instanceRaw = deepCopy( raw )\
                 instanceRaw.__instance = true\
+                instanceRaw.__class = true\
 \
                 local instance, instanceMt = {}, {}\
 \
@@ -2939,7 +2951,7 @@ function NodeCanvas:drawToCanvas( canvas, xO, yO )\
         yBPos = canvas.width * ( y + yO + 1 )\
         if y + yOO > 0 and y + yOS < cHeight then\
             for x = 1, width do\
-                if x + xO + 1 > 0 and x + xO - 1 < cWidth then\
+                if x + xO > 0 and x + xO - 1 < cWidth then\
                     pos = yPos + x\
                     bPos = yBPos + (x + xO)\
 \
@@ -3820,3 +3832,17 @@ class.setCustomViewer(function(_class)
         end
     else return error("Unknown object to anaylyse '" .. tostring( _class ) .. "'") end
 end)
+
+local path = shell.getRunningProgram() or DYNACODE_PATH
+_G.DynaCode = {}
+function DynaCode.checkForUpdate()
+
+end
+
+function DynaCode.installUpdateData()
+
+end
+
+function DynaCode.checkForAndInstallUpdate()
+
+end
