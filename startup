@@ -1,7 +1,6 @@
 local tWidth, tHeight = term.getSize()
 local logging = true
 
---if true then return end
 
 local function drawCentre( text, y, colour )
     if colour then term.setTextColour( colour ) end

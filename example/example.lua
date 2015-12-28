@@ -5,20 +5,27 @@ local stage = app + Stage({
     name = "TestStage";
     X = 5;
     Y = 5;
-    width = 15;
+    width = 20;
     height = 7;
-    textColour = colors.lightGray;
-    titleTextColour = colors.white;
-    titleBackgroundColour = 128;
-    backgroundColour = colors.white;
     title = "Test Window";
 })
 
-stage:replaceWithDCML( "example/main.dcml" )
+-- this or
 
-stage:addToController("submit", function( self, event )
-    event:convertToRelative( self )
-    error("Button '"..tostring( self ) .. "' has been clicked. Position: "..event.X..", "..event.Y)
-end)
+--[[local myPanel = stage + Panel( 2, 2, 16, 5 )
+myPanel.backgroundColour = colours.grey]]
+
+
+-- this code could be used
+local myPanel = stage + Panel({
+    Y = 2, -- any order of arguments
+    X = 2,
+    height = 5,
+    width = 16,
+    backgroundColour = colours.red
+})
+
+local myButton = myPanel + Button( "Hello World", 3, 1, 9, 4 )
+local myButton2 = myPanel + Button( "Hello Again", 3, 10, 9, 4 )
 
 app:run()
