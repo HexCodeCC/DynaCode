@@ -1,7 +1,27 @@
+DCML.registerTag("Input", {
+    argumentType = {
+        X = "number";
+        Y = "number";
+        width = "number";
+        height = "number";
+        backgroundColour = "colour";
+        textColour = "colour";
+        selectedTextColour = "colour";
+        selectedBackgroundColour = "colour";
+        activeTextColour = "colour";
+        activeBackgroundColour = "colour";
+    };
+    callbacks = {
+        onSubmit = "onSubmit"
+    };
+    callbackGenerator = "#generateNodeCallback"; -- "#" signifies relative function (on the instance.) @ Node.generateNodeCallback
+    aliasHandler = true
+})
+
 local len = string.len
 local sub = string.sub
 
-class "Input" extends "Node" {
+class "Input" extends "Node" alias "COLOUR_REDIRECT" {
     acceptMouse = true;
     acceptKeyboard = false;
 

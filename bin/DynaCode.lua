@@ -9,14 +9,19 @@ local files = {
         Y = \"number\";\
         width = \"number\";\
         height = \"number\";\
+        backgroundColour = \"colour\";\
+        textColour = \"colour\";\
+        activeTextColour = \"colour\";\
+        activeBackgroundColour = \"colour\";\
     };\
     callbacks = {\
         onTrigger = \"onTrigger\" -- called after moused down and up again on the button.\
     };\
     callbackGenerator = \"#generateNodeCallback\"; -- \"#\" signifies relative function (on the instance.) @ Node.generateNodeCallback\
+    aliasHandler = true\
 })\
 \
-class \"Button\" extends \"Node\" {\
+class \"Button\" extends \"Node\" alias \"COLOUR_REDIRECT\" {\
     text = nil;\
 \
     yCenter = false;\
@@ -102,7 +107,22 @@ function Button:setFocused( focus )\
     self.focused = focus\
     self.changed = true\
 end",
-  [ "Panel.lua" ] = "class \"Panel\" extends \"NodeScrollContainer\" {\
+  [ "Panel.lua" ] = "DCML.registerTag(\"Panel\", {\
+    childHandler = function( self, element )\
+        self.nodesToAdd = DCML.parse( element.content )\
+    end;\
+    argumentType = {\
+        X = \"number\";\
+        Y = \"number\";\
+        width = \"number\";\
+        height = \"number\";\
+        backgroundColour = \"colour\";\
+        textColour = \"colour\";\
+    },\
+    callbackGenerator = \"#generateNodeCallback\";\
+})\
+\
+class \"Panel\" extends \"NodeScrollContainer\" {\
     width = 2;\
     height = 2;\
 }\
@@ -115,6 +135,8 @@ function Panel:initialise( ... )\
         { \"height\", \"number\" }\
     }, false, true )\
 \
+    self.super( X, Y, width or self.width, height or self.height ) -- this will call the Node.initialise because the super inherits that from the other super and so on...\
+\
     self:__overrideMetaMethod(\"__add\", function( a, b )\
         if class.typeOf(a, \"Panel\", true) then\
             if class.isInstance( b ) and b.__node then\
@@ -123,11 +145,9 @@ function Panel:initialise( ... )\
                 return error(\"Invalid right hand assignment. Should be instance of DynaCode node. \"..tostring( b ))\
             end\
         else\
-            _G.invalid = a\
             return error(\"Invalid left hand assignment. Should be instance of Panel. \"..tostring( a ))\
         end\
     end)\
-    self.super( X, Y, width or self.width, height or self.height ) -- this will call the Node.initialise because the super inherits that from the other super and so on...\
 end",
   [ "NodeScrollContainer.lua" ] = "abstract class \"NodeScrollContainer\" extends \"NodeContainer\" {\
     verticalScroll = 0;\
@@ -162,13 +182,23 @@ function NodeScrollContainer:calculateContentSize()\
 end\
 \
 function NodeScrollContainer:getScrollPositions( contentWidth, contentHeight, dWidth, dHeight, hSize, vSize )\
-    local h, v = math.floor( self.horizontalScroll / contentWidth * dWidth - .5 ), math.floor( self.verticalScroll / contentHeight * dHeight + .5 )\
+    local h, v = math.floor( self.horizontalScroll / contentWidth * dWidth - .5 ), math.ceil( self.verticalScroll / contentHeight * dHeight + .5 )\
 \
-    return h <= 1 and ( self.horizontalScroll ~= 0 and 2 or 1 ) or h, v <= 1 and ( self.verticalScroll ~= 0 and 2 or 1 ) or v\
+    --return (h <= 1 and ( self.horizontalScroll ~= 0 and 2 or 1 ) or h), (v <= 1 and ( self.verticalScroll ~= 0 and 2 or 1 ) or v)\
+    if h + hSize - 1 >= dWidth or self.horizontalScroll == contentWidth then\
+        -- should be or is at the end of the run\
+        if self.horizontalScroll == contentWidth - dWidth then h = dWidth - hSize + 1 else h = dWidth - hSize end\
+    end\
+\
+    if v + vSize - 1 >= dHeight or self.verticalScroll == contentHeight then\
+        -- should be or is at the end of the run\
+        if self.verticalScroll == contentHeight - dHeight then v = dHeight - vSize + 1 else v = dHeight - vSize end\
+    end\
+    return h, v\
 end\
 \
 function NodeScrollContainer:getScrollSizes( contentWidth, contentHeight, dWidth, dHeight )\
-    return math.floor( dWidth / contentWidth * self.width - .5 ), math.floor( dHeight / contentHeight * self.height + .5 )\
+    return math.ceil( dWidth / contentWidth * self.width - .5 ), math.ceil( dHeight / contentHeight * self.height - .5 )\
 end\
 \
 function NodeScrollContainer:addNode( node )\
@@ -306,11 +336,11 @@ function NodeScrollContainer:postDraw()\
         if isH then\
             -- draw the scroll bar background mixed in with the actual bar.\
             canvas:drawArea( 1, self.height, dWidth, 1, colours.red, colours.green )\
-            canvas:drawArea( hPos, self.height, (hPos + hSize - 2) - bothOffset, 1, colours.black, colours.grey )\
+            canvas:drawArea( hPos, self.height, hSize - bothOffset, 1, colours.black, colours.grey )\
         end\
         if isV then\
             canvas:drawArea( self.width, 1, 1, dHeight, colours.red, colours.green )\
-            canvas:drawArea( self.width, vPos, 1, (vPos + vSize - 2) - bothOffset, colours.black, colours.grey )\
+            canvas:drawArea( self.width, vPos, 1, vSize - bothOffset, colours.black, colours.grey )\
         end\
 \
         if bothActive then canvas:drawArea( self.width, self.height, 1, 1, colours.lightGrey, colours.lightGrey ) end\
@@ -499,6 +529,21 @@ function NodeContainer:removeNode( nodeOrName )\
             return table.remove( self.nodes, i )\
         end\
     end\
+end\
+\
+function NodeContainer:resolveDCMLChildren()\
+    -- If this was defined using DCML then any children will be placed in a table ready to be added to the actual 'nodes' table. This is because the parent node is not properly configured right away.\
+\
+    local nodes = self.nodesToAdd\
+    for i = 1, #nodes do\
+        local node = nodes[i]\
+\
+        self:addNode( node )\
+        if node.nodesToAdd and type( node.resolveDCMLChildren ) == \"function\" then\
+            node:resolveDCMLChildren()\
+        end\
+    end\
+    self.nodesToAdd = {}\
 end",
   [ "ClassUtil.lua" ] = "local insert = table.insert\
 local len, sub, rep = string.len, string.sub, string.rep\
@@ -806,9 +851,20 @@ function UnknownEvent:initialise( raw )\
 \
     self.main = raw[1]:upper()\
 end",
-  [ "Label.lua" ] = "local len = string.len\
+  [ "Label.lua" ] = "DCML.registerTag(\"Label\", {\
+    contentCanBe = \"text\";\
+    argumentType = {\
+        X = \"number\";\
+        Y = \"number\";\
+        backgroundColour = \"colour\";\
+        textColour = \"colour\";\
+    };\
+    aliasHandler = true\
+})\
 \
-class \"Label\" extends \"Node\" {\
+local len = string.len\
+\
+class \"Label\" extends \"Node\" alias \"COLOUR_REDIRECT\" {\
     text = \"Label\";\
 }\
 \
@@ -1147,7 +1203,16 @@ local function readData( data )\
                     error(\"trying to close \"..toclose.label..\" with \"..label)\
                 end\
                 --table.insert(top, toclose)\
-                if #stack > 1 then top.content = toclose; top.hasChildren = true else table.insert(top, toclose) end\
+                if #stack > 1 then\
+                    if type(top.content) ~= \"table\" then\
+                        top.content = {}\
+                    end\
+\
+                    top.content[ #top.content + 1 ] = toclose\
+                    top.hasChildren = true\
+                else\
+                    table.insert(top, toclose)\
+                end\
             end\
             i = j+1\
         end\
@@ -1210,8 +1275,11 @@ local function getFunction( instance, f )\
     end\
 end\
 \
-local function convertToType( value, key, matrix )\
+local function convertToType( alias, value, key, matrix )\
     if type( matrix.argumentType ) ~= \"table\" then matrix.argumentType = {} end\
+\
+    key = alias and alias[ key ] or key\
+    -- if the target classes re-directes this key elsewhere then use that key in the argumentType table\
     local toType = matrix.argumentType[ key ]\
     local fromType = type( value )\
 \
@@ -1233,7 +1301,7 @@ local function convertToType( value, key, matrix )\
             rValue = value:lower() == \"true\"\
         elseif toType == \"color\" or toType == \"colour\" then\
             -- convert to a decimal colour\
-            local temp = colours[ key ] or colors[ key ]\
+            local temp = colours[ value ] or colors[ value ]\
             if not temp then\
                 return error(\"Failed to convert '\"..tostring( value )..\"' from type '\"..fromType..\"' to colour when parsing DCML\")\
             end\
@@ -1269,8 +1337,6 @@ function Parser.parse( data )\
     for i = 1, #data do\
         local element = data[i]\
 \
-        print(\"trying to parse \"..tostring(textutils.serialise( element )))\
-\
         local matrix = DCMLMatrix[ element.label ]\
         if type( matrix ) ~= \"table\" then\
             return error(\"No DCMLMatrix for tag with label '\"..tostring(element.label)..\"'\")\
@@ -1280,6 +1346,24 @@ function Parser.parse( data )\
         if custom then\
             table.insert( parsed, custom( element, DCMLMatrix ) )\
         else\
+            local alias = {}\
+            local handle = matrix.aliasHandler\
+\
+            if type( handle ) == \"table\" then\
+                alias = handle\
+            elseif type( handle ) == \"function\" then\
+                alias = handle()\
+            elseif handle == true then\
+                -- simply use the tag name as the class and fetch from that\
+                log(\"i\", \"DCMLMatrix for \"..element.label..\" has instructed that DCML parsing should alias with the class '\"..element.label..\"'.__alias\")\
+\
+                local c = class.getClass( element.label )\
+                if not c then\
+                    error(\"Failed to fetch class for '\"..element.label..\"' while fetching alias information\")\
+                end\
+\
+                alias = c.__alias\
+            end\
             -- Compile arguments to be passed to the instance constructor.\
             local args = {}\
             local handler = getFunction( false, matrix.argumentHandler )\
@@ -1291,12 +1375,12 @@ function Parser.parse( data )\
                 for key, value in pairs( element.xarg ) do\
                     if not callbacks[ key ] then\
                         -- convert argument to correct type.\
-                        args[ key ] = convertToType( value, key, matrix )\
+                        args[ key ] = convertToType( alias, value, key, matrix )\
                     end\
                 end\
 \
                 if element.content and not element.hasChildren and matrix.contentCanBe then\
-                    args[ matrix.contentCanBe ] = convertToType( element.content, matrix.contentCanBe, matrix )\
+                    args[ matrix.contentCanBe ] = convertToType( alias, element.content, matrix.contentCanBe, matrix )\
                 end\
             end\
 \
@@ -1322,7 +1406,7 @@ function Parser.parse( data )\
 \
             -- Handle callbacks here.\
             local generate = getFunction( instance, matrix.callbackGenerator )\
-            if generate then\
+            if generate and type( matrix.callbacks ) == \"table\" then\
                 for key, value in pairs( matrix.callbacks ) do\
                     if element.xarg[ key ] then\
                         instance[ value ] = generate( instance, key, element.xarg[ key ] ) -- name, callback link (#<callback>)\
@@ -1330,6 +1414,10 @@ function Parser.parse( data )\
                 end\
             elseif matrix.callbacks then\
                 log(\"w\", \"Couldn't generate callbacks for '\"..element.label..\"' during DCML parse. Callback generator not defined\")\
+            end\
+\
+            if matrix.onDCMLParseComplete then\
+                matrix.onDCMLParseComplete( instance )\
             end\
 \
             table.insert( parsed, instance )\
@@ -1491,10 +1579,30 @@ end\
 \
 setmetatable( log, {__call = log.log})\
 _G.log = log",
-  [ "Input.lua" ] = "local len = string.len\
+  [ "Input.lua" ] = "DCML.registerTag(\"Input\", {\
+    argumentType = {\
+        X = \"number\";\
+        Y = \"number\";\
+        width = \"number\";\
+        height = \"number\";\
+        backgroundColour = \"colour\";\
+        textColour = \"colour\";\
+        selectedTextColour = \"colour\";\
+        selectedBackgroundColour = \"colour\";\
+        activeTextColour = \"colour\";\
+        activeBackgroundColour = \"colour\";\
+    };\
+    callbacks = {\
+        onSubmit = \"onSubmit\"\
+    };\
+    callbackGenerator = \"#generateNodeCallback\"; -- \"#\" signifies relative function (on the instance.) @ Node.generateNodeCallback\
+    aliasHandler = true\
+})\
+\
+local len = string.len\
 local sub = string.sub\
 \
-class \"Input\" extends \"Node\" {\
+class \"Input\" extends \"Node\" alias \"COLOUR_REDIRECT\" {\
     acceptMouse = true;\
     acceptKeyboard = false;\
 \
@@ -2010,6 +2118,16 @@ function Application:unSetStageFocus( stage )\
     if self.focusedStage and self.focusedStage == stage then\
         self.focusedStage:onBlur()\
         self.focusedStage = nil\
+    end\
+end\
+\
+function Application:getStageByName( name )\
+    local stages = self.stages\
+\
+    for i = 1, #stages do\
+        local stage = stages[i]\
+\
+        if stage.name == name then return stage end\
     end\
 end\
 \
@@ -2837,12 +2955,11 @@ end\
 -- STATIC\
 function Node.generateNodeCallback( node, a, b )\
     return (function( ... )\
-        local args = { ... }\
-        -- on call executes a controller callback\
-        if not node.stage then\
+        local stage = node.stage\
+        if not stage then\
             return error(\"Cannot link to node '\"..node:type()..\"' stage.\")\
         end\
-        node.stage:executeCallback( b, ... )\
+        stage:executeCallback( b, ... )\
     end)\
 end",
   [ "EventManager.lua" ] = "class \"EventManager\"\
@@ -3105,10 +3222,22 @@ local sub = string.sub\
 DCML.registerTag(\"Stage\", {\
     childHandler = function( self, element ) -- self = instance (new)\
         -- the stage has children, create them using the DCML parser and add them to the instance.\
-        local children = DCML.parse( {element.content} )\
+        self.nodesToAdd = DCML.parse(element.content)\
+    end;\
+    onDCMLParseComplete = function( self )\
+        local nodes = self.nodesToAdd\
 \
-        for i = 1, #children do\
-            self:addNode( children[i] )\
+        if nodes then\
+            for i = 1, #nodes do\
+                local node = nodes[i]\
+\
+                self:addNode( node )\
+                if node.nodesToAdd and type( node.resolveDCMLChildren ) == \"function\" then\
+                    node:resolveDCMLChildren()\
+                end\
+            end\
+\
+            self.nodesToAdd = nil\
         end\
     end;\
     argumentType = {\

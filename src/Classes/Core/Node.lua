@@ -148,11 +148,10 @@ end
 -- STATIC
 function Node.generateNodeCallback( node, a, b )
     return (function( ... )
-        local args = { ... }
-        -- on call executes a controller callback
-        if not node.stage then
+        local stage = node.stage
+        if not stage then
             return error("Cannot link to node '"..node:type().."' stage.")
         end
-        node.stage:executeCallback( b, ... )
+        stage:executeCallback( b, ... )
     end)
 end
