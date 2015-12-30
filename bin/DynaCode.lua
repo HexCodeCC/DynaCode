@@ -2211,6 +2211,7 @@ local function preprocess( data )\
     if name then\
         data = gsub( data, \"abstract class \"..name, \"class \"..name..\" abstract()\")\
     end\
+\
     return data\
 end\
 \
@@ -3889,12 +3890,14 @@ local function executeString( name )
 end
 
 -- Load the class library now!
-if files[ "Class.lua" ] then
+--[[if files[ "Class.lua" ] then
     executeString( "Class.lua" )
     loaded[ "Class.lua" ] = true
 else
     return error("Cannot unpack DynaCode because the class library is missing (Class.lua)")
-end
+end]]
+loaded[ "Class.lua" ] = true
+dofile("test_code/Class.lua")
 
 local function getHandleFromPack( file )
     if not files[ file ] then return false, 404 end
@@ -3916,7 +3919,7 @@ local function loadFromPack( name )
     loaded[ name ] = true
 end
 
-class.setCustomLoader( function( _c )
+class.setClassLoader( function( _c )
     loadFromPack( _c..".lua" )
 end )
 
