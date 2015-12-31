@@ -4,10 +4,22 @@ local sub = string.sub
 DCML.registerTag("Stage", {
     childHandler = function( self, element ) -- self = instance (new)
         -- the stage has children, create them using the DCML parser and add them to the instance.
-        local children = DCML.parse( {element.content} )
+        self.nodesToAdd = DCML.parse(element.content)
+    end;
+    onDCMLParseComplete = function( self )
+        local nodes = self.nodesToAdd
 
-        for i = 1, #children do
-            self:addNode( children[i] )
+        if nodes then
+            for i = 1, #nodes do
+                local node = nodes[i]
+
+                self:addNode( node )
+                if node.nodesToAdd and type( node.resolveDCMLChildren ) == "function" then
+                    node:resolveDCMLChildren()
+                end
+            end
+
+            self.nodesToAdd = nil
         end
     end;
     argumentType = {

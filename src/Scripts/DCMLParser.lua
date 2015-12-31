@@ -37,7 +37,16 @@ local function readData( data )
                     error("trying to close "..toclose.label.." with "..label)
                 end
                 --table.insert(top, toclose)
-                if #stack > 1 then top.content = toclose; top.hasChildren = true else table.insert(top, toclose) end
+                if #stack > 1 then
+                    if type(top.content) ~= "table" then
+                        top.content = {}
+                    end
+
+                    top.content[ #top.content + 1 ] = toclose
+                    top.hasChildren = true
+                else
+                    table.insert(top, toclose)
+                end
             end
             i = j+1
         end
@@ -100,8 +109,11 @@ local function getFunction( instance, f )
     end
 end
 
-local function convertToType( value, key, matrix )
+local function convertToType( alias, value, key, matrix )
     if type( matrix.argumentType ) ~= "table" then matrix.argumentType = {} end
+
+    key = alias and alias[ key ] or key
+    -- if the target classes re-directes this key elsewhere then use that key in the argumentType table
     local toType = matrix.argumentType[ key ]
     local fromType = type( value )
 
@@ -123,7 +135,7 @@ local function convertToType( value, key, matrix )
             rValue = value:lower() == "true"
         elseif toType == "color" or toType == "colour" then
             -- convert to a decimal colour
-            local temp = colours[ key ] or colors[ key ]
+            local temp = colours[ value ] or colors[ value ]
             if not temp then
                 return error("Failed to convert '"..tostring( value ).."' from type '"..fromType.."' to colour when parsing DCML")
             end
@@ -137,6 +149,7 @@ local function convertToType( value, key, matrix )
     return rValue
 end
 
+local aliasCache = {}
 function Parser.parse( data )
     -- Loop the data, create instances of any tags (default class name is the tag name) OR use the XML handler (function)
     --[[
@@ -158,18 +171,39 @@ function Parser.parse( data )
     local parsed = {}
     for i = 1, #data do
         local element = data[i]
+        local label = element.label
 
-        print("trying to parse "..tostring(textutils.serialise( element )))
-
-        local matrix = DCMLMatrix[ element.label ]
+        local matrix = DCMLMatrix[ label ]
         if type( matrix ) ~= "table" then
-            return error("No DCMLMatrix for tag with label '"..tostring(element.label).."'")
+            return error("No DCMLMatrix for tag with label '"..tostring(label).."'")
         end
 
         local custom = getFunction( false, matrix.customHandler )
         if custom then
             table.insert( parsed, custom( element, DCMLMatrix ) )
         else
+            local alias = {}
+            local handle = matrix.aliasHandler
+
+            if type( handle ) == "table" then
+                alias = handle
+            elseif type( handle ) == "function" then
+                alias = handle()
+            elseif handle == true then
+                -- simply use the tag name as the class and fetch from that
+                if not aliasCache[ label ] then
+                    log("i", "DCMLMatrix for "..label.." has instructed that DCML parsing should alias with the class '"..label.."'.__alias")
+
+                    local c = class.getClass( label )
+                    if not c then
+                        error("Failed to fetch class for '"..label.."' while fetching alias information")
+                    end
+
+                    aliasCache[ label ] = c.__alias
+                end
+
+                alias = aliasCache[ label ]
+            end
             -- Compile arguments to be passed to the instance constructor.
             local args = {}
             local handler = getFunction( false, matrix.argumentHandler )
@@ -181,18 +215,18 @@ function Parser.parse( data )
                 for key, value in pairs( element.xarg ) do
                     if not callbacks[ key ] then
                         -- convert argument to correct type.
-                        args[ key ] = convertToType( value, key, matrix )
+                        args[ key ] = convertToType( alias, value, key, matrix )
                     end
                 end
 
                 if element.content and not element.hasChildren and matrix.contentCanBe then
-                    args[ matrix.contentCanBe ] = convertToType( element.content, matrix.contentCanBe, matrix )
+                    args[ matrix.contentCanBe ] = convertToType( alias, element.content, matrix.contentCanBe, matrix )
                 end
             end
 
 
             -- Create an instance of the tag
-            local instanceFn = getFunction( false, matrix.instanceHandler ) or class.getClass(element.label)
+            local instanceFn = getFunction( false, matrix.instanceHandler ) or class.getClass(label)
 
             local instance
             if instanceFn then
@@ -200,7 +234,7 @@ function Parser.parse( data )
             end
 
             if not instance then
-                return error("Failed to generate instance for DCML tag '"..element.label.."'")
+                return error("Failed to generate instance for DCML tag '"..label.."'")
             end
 
             if element.hasChildren and matrix.childHandler then
@@ -212,14 +246,18 @@ function Parser.parse( data )
 
             -- Handle callbacks here.
             local generate = getFunction( instance, matrix.callbackGenerator )
-            if generate then
+            if generate and type( matrix.callbacks ) == "table" then
                 for key, value in pairs( matrix.callbacks ) do
                     if element.xarg[ key ] then
                         instance[ value ] = generate( instance, key, element.xarg[ key ] ) -- name, callback link (#<callback>)
                     end
                 end
             elseif matrix.callbacks then
-                log("w", "Couldn't generate callbacks for '"..element.label.."' during DCML parse. Callback generator not defined")
+                log("w", "Couldn't generate callbacks for '"..label.."' during DCML parse. Callback generator not defined")
+            end
+
+            if matrix.onDCMLParseComplete then
+                matrix.onDCMLParseComplete( instance )
             end
 
             table.insert( parsed, instance )

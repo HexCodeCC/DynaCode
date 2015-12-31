@@ -1,7 +1,6 @@
 local tWidth, tHeight = term.getSize()
 local logging = true
 
-if true then return end
 
 local function drawCentre( text, y, colour )
     if colour then term.setTextColour( colour ) end
@@ -15,6 +14,8 @@ end
 
 shell.run("dobuild.lua", "/src", "bin/DynaCode.lua")
 dofile("bin/DynaCode.lua")
+
+if true then dofile("example/example.lua") return end
 
 
 if logging then
@@ -120,17 +121,10 @@ function app:errorHandler( err, daemon )
 end
 
 
-panel = stage2 + Panel( 2, 2, 20, 8 )
+panel = stage2 + Panel( 2, 2, 20, 10 )
 panel.backgroundColour = colours.red
 
-button2 = Button("Hello Again", 2, 5, 15, 5)
-input2 = Input( 1, 1, 10, 1 )
-
-panel2 = Panel( 2, 2, 15, 15 )
-panel2.backgroundColour = colours.green
-
-panel:addNode( button2 )
-
+button2 = panel + Button("Hello Again", 2, 3, 30, 5)
 app:requestStageFocus( stage2 ) -- The event eating issue is fixed so this can be here now.
 
 app:appendStagesFromDCML( "stages.dcml" )

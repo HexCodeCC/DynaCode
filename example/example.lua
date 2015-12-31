@@ -1,24 +1,41 @@
+log:setLoggingEnabled( true )
+log:setLoggingPath("DynaCode.log")
+
 local app = Application( term.getSize() ) -- Application requires width, height
 app.backgroundColour = colors.cyan
 
-local stage = app + Stage({
-    name = "TestStage";
-    X = 5;
-    Y = 5;
-    width = 15;
-    height = 7;
-    textColour = colors.lightGray;
-    titleTextColour = colors.white;
-    titleBackgroundColour = 128;
-    backgroundColour = colors.white;
-    title = "Test Window";
-})
+app:appendStagesFromDCML("example/main.dcml")
 
-stage:replaceWithDCML( "example/main.dcml" )
+local mainStage = app:getStageByName( "TestStage" )
 
-stage:addToController("submit", function( self, event )
-    event:convertToRelative( self )
-    error("Button '"..tostring( self ) .. "' has been clicked. Position: "..event.X..", "..event.Y)
+mainStage:addToController("close_app", function()
+    app:finish()
+
+    term.setBackgroundColour( 32768 )
+    term.clear()
+    term.setCursorPos(1, 1)
+    print("Finished")
 end)
 
 app:run()
+
+--[[class "Main" abstract() alias {
+    X = "redirected"
+} {
+    X = 1;
+    redirected = "You have been redirected here"
+}
+Main:seal()
+
+class "Parent" extends "Main" alias {
+    Y = "redirected"
+} {
+    Y = 1;
+}
+Parent:seal()
+
+class "Child" extends "Parent" {
+    Z = 1;
+}
+Child:seal()
+c = Child()]]

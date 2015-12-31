@@ -49,7 +49,7 @@ function NodeCanvas:drawToCanvas( canvas, xO, yO )
         yBPos = canvas.width * ( y + yO + 1 )
         if y + yOO > 0 and y + yOS < cHeight then
             for x = 1, width do
-                if x + xO + 1 > 0 and x + xO - 1 < cWidth then
+                if x + xO > 0 and x + xO - 1 < cWidth then
                     pos = yPos + x
                     bPos = yBPos + (x + xO)
 

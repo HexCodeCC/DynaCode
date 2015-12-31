@@ -309,6 +309,16 @@ function Application:unSetStageFocus( stage )
     end
 end
 
+function Application:getStageByName( name )
+    local stages = self.stages
+
+    for i = 1, #stages do
+        local stage = stages[i]
+
+        if stage.name == name then return stage end
+    end
+end
+
 local function getFromDCML( path )
     return DCML.parse( DCML.loadFile( path ) )
 end

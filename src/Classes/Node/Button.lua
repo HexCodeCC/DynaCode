@@ -5,14 +5,19 @@ DCML.registerTag("Button", {
         Y = "number";
         width = "number";
         height = "number";
+        backgroundColour = "colour";
+        textColour = "colour";
+        activeTextColour = "colour";
+        activeBackgroundColour = "colour";
     };
     callbacks = {
         onTrigger = "onTrigger" -- called after moused down and up again on the button.
     };
     callbackGenerator = "#generateNodeCallback"; -- "#" signifies relative function (on the instance.) @ Node.generateNodeCallback
+    aliasHandler = true
 })
 
-class "Button" extends "Node" {
+class "Button" extends "Node" alias "ACTIVATABLE" {
     text = nil;
 
     yCenter = false;

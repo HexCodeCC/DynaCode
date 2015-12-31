@@ -31,13 +31,23 @@ function NodeScrollContainer:calculateContentSize()
 end
 
 function NodeScrollContainer:getScrollPositions( contentWidth, contentHeight, dWidth, dHeight, hSize, vSize )
-    local h, v = math.floor( self.horizontalScroll / contentWidth * dWidth + .5 ), math.floor( self.verticalScroll / contentHeight * dHeight + .5 )
+    local h, v = math.floor( self.horizontalScroll / contentWidth * dWidth - .5 ), math.ceil( self.verticalScroll / contentHeight * dHeight + .5 )
 
-    return h, v <= 1 and ( self.verticalScroll ~= 0 and 2 or 1 ) or v
+    --return (h <= 1 and ( self.horizontalScroll ~= 0 and 2 or 1 ) or h), (v <= 1 and ( self.verticalScroll ~= 0 and 2 or 1 ) or v)
+    if h + hSize - 1 >= dWidth or self.horizontalScroll == contentWidth then
+        -- should be or is at the end of the run
+        if self.horizontalScroll == contentWidth - dWidth then h = dWidth - hSize + 1 else h = dWidth - hSize end
+    end
+
+    if v + vSize - 1 >= dHeight or self.verticalScroll == contentHeight then
+        -- should be or is at the end of the run
+        if self.verticalScroll == contentHeight - dHeight then v = dHeight - vSize + 1 else v = dHeight - vSize end
+    end
+    return h, v
 end
 
 function NodeScrollContainer:getScrollSizes( contentWidth, contentHeight, dWidth, dHeight )
-    return math.floor( dWidth / contentWidth * dWidth + .5 ), math.floor( dHeight / contentHeight * self.height + .5 )
+    return math.ceil( dWidth / contentWidth * self.width - .5 ), math.ceil( dHeight / contentHeight * self.height - .5 )
 end
 
 function NodeScrollContainer:addNode( node )
@@ -166,8 +176,6 @@ function NodeScrollContainer:postDraw()
         local hSize, vSize = self:getScrollSizes( contentWidth, contentHeight, dWidth, dHeight )
         local hPos, vPos = self:getScrollPositions( contentWidth, contentHeight, dWidth, dHeight, hSize, vSize )
 
-        log("i", "Vertical Scroll Size: "..tostring( vSize )..". Position: "..tostring( vPos ))
-
         local canvas = self.canvas
 
         -- draw the scroll bars now. If both are active at the same time adjust the size slightly and fill the gap at the intersect
@@ -177,11 +185,11 @@ function NodeScrollContainer:postDraw()
         if isH then
             -- draw the scroll bar background mixed in with the actual bar.
             canvas:drawArea( 1, self.height, dWidth, 1, colours.red, colours.green )
-            canvas:drawArea( hPos, self.height, (hPos + hSize - 2) - bothOffset, 1, colours.black, colours.grey )
+            canvas:drawArea( hPos, self.height, hSize - bothOffset, 1, colours.black, colours.grey )
         end
         if isV then
             canvas:drawArea( self.width, 1, 1, dHeight, colours.red, colours.green )
-            canvas:drawArea( self.width, vPos, 1, (vPos + vSize - 2) - bothOffset, colours.black, colours.grey )
+            canvas:drawArea( self.width, vPos, 1, vSize - bothOffset, colours.black, colours.grey )
         end
 
         if bothActive then canvas:drawArea( self.width, self.height, 1, 1, colours.lightGrey, colours.lightGrey ) end

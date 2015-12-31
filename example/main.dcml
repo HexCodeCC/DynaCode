@@ -1,1 +1,10 @@
-<Button X="2" Y="2" width="9" height="4" onTrigger="#submit">Hello World</Button>
+<Stage X="5" Y="5" name="TestStage" width="28" height="10">
+    <Label X="3" Y="2" backgroundColour="yellow">Control Panel</Label>
+    <Panel X="2" Y="3" height="7" width="26" backgroundColour="lightGray">
+        <Button X="20" Y="3" backgroundColor="yellow" width="7" height="3" onTrigger="#close_app">Close</Button>
+        <Panel X="2" Y="2" height="5" width="16" backgroundColour="red">
+            <Button X="3" Y="1" width="9" height="4">Hello World</Button>
+            <Button X="3" Y="10" width="9" height="4">Hello Again</Button>
+        </Panel>
+    </Panel>
+</Stage>
