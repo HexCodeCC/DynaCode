@@ -21,7 +21,7 @@ local files = {
     aliasHandler = true\
 })\
 \
-class \"Button\" extends \"Node\" alias \"COLOUR_REDIRECT\" {\
+class \"Button\" extends \"Node\" alias \"ACTIVATABLE\" {\
     text = nil;\
 \
     yCenter = false;\
@@ -666,6 +666,16 @@ _G.COLOUR_REDIRECT = {\
     disabledBackgroundColor = \"disabledBackgroundColour\"\
 }\
 \
+_G.ACTIVATABLE = {\
+    activeTextColor = \"activeTextColour\";\
+    activeBackgroundColor = \"activeBackgroundColour\"\
+}\
+\
+_G.SELECTABLE = {\
+    selectedTextColor = \"selectedTextColour\";\
+    selectedBackgroundColor = \"selectedBackgroundColour\"\
+}\
+\
 _G.OverflowText = function( text, max )\
     if len( text ) > max then\
         local diff = len( text ) - max\
@@ -864,7 +874,7 @@ end",
 \
 local len = string.len\
 \
-class \"Label\" extends \"Node\" alias \"COLOUR_REDIRECT\" {\
+class \"Label\" extends \"Node\" {\
     text = \"Label\";\
 }\
 \
@@ -1315,6 +1325,7 @@ local function convertToType( alias, value, key, matrix )\
     return rValue\
 end\
 \
+local aliasCache = {}\
 function Parser.parse( data )\
     -- Loop the data, create instances of any tags (default class name is the tag name) OR use the XML handler (function)\
     --[[\
@@ -1336,10 +1347,11 @@ function Parser.parse( data )\
     local parsed = {}\
     for i = 1, #data do\
         local element = data[i]\
+        local label = element.label\
 \
-        local matrix = DCMLMatrix[ element.label ]\
+        local matrix = DCMLMatrix[ label ]\
         if type( matrix ) ~= \"table\" then\
-            return error(\"No DCMLMatrix for tag with label '\"..tostring(element.label)..\"'\")\
+            return error(\"No DCMLMatrix for tag with label '\"..tostring(label)..\"'\")\
         end\
 \
         local custom = getFunction( false, matrix.customHandler )\
@@ -1355,14 +1367,18 @@ function Parser.parse( data )\
                 alias = handle()\
             elseif handle == true then\
                 -- simply use the tag name as the class and fetch from that\
-                log(\"i\", \"DCMLMatrix for \"..element.label..\" has instructed that DCML parsing should alias with the class '\"..element.label..\"'.__alias\")\
+                if not aliasCache[ label ] then\
+                    log(\"i\", \"DCMLMatrix for \"..label..\" has instructed that DCML parsing should alias with the class '\"..label..\"'.__alias\")\
 \
-                local c = class.getClass( element.label )\
-                if not c then\
-                    error(\"Failed to fetch class for '\"..element.label..\"' while fetching alias information\")\
+                    local c = class.getClass( label )\
+                    if not c then\
+                        error(\"Failed to fetch class for '\"..label..\"' while fetching alias information\")\
+                    end\
+\
+                    aliasCache[ label ] = c.__alias\
                 end\
 \
-                alias = c.__alias\
+                alias = aliasCache[ label ]\
             end\
             -- Compile arguments to be passed to the instance constructor.\
             local args = {}\
@@ -1386,7 +1402,7 @@ function Parser.parse( data )\
 \
 \
             -- Create an instance of the tag\
-            local instanceFn = getFunction( false, matrix.instanceHandler ) or class.getClass(element.label)\
+            local instanceFn = getFunction( false, matrix.instanceHandler ) or class.getClass(label)\
 \
             local instance\
             if instanceFn then\
@@ -1394,7 +1410,7 @@ function Parser.parse( data )\
             end\
 \
             if not instance then\
-                return error(\"Failed to generate instance for DCML tag '\"..element.label..\"'\")\
+                return error(\"Failed to generate instance for DCML tag '\"..label..\"'\")\
             end\
 \
             if element.hasChildren and matrix.childHandler then\
@@ -1413,7 +1429,7 @@ function Parser.parse( data )\
                     end\
                 end\
             elseif matrix.callbacks then\
-                log(\"w\", \"Couldn't generate callbacks for '\"..element.label..\"' during DCML parse. Callback generator not defined\")\
+                log(\"w\", \"Couldn't generate callbacks for '\"..label..\"' during DCML parse. Callback generator not defined\")\
             end\
 \
             if matrix.onDCMLParseComplete then\
@@ -1447,9 +1463,7 @@ function Daemon:stop() log(\"d\", \"WARNING: Daemon '\"..self.name..\"' (\"..sel
   [ "loadFirst.cfg" ] = "Logging.lua\
 ClassUtil.lua\
 TextUtil.lua\
-DCMLParser.lua\
-Event.lua\
-MDaemon.lua",
+DCMLParser.lua",
   [ "MDaemon.lua" ] = "abstract class \"MDaemon\" -- this class is used for mixin(s) only.\
 \
 function MDaemon:registerDaemon( service )\
@@ -1602,7 +1616,7 @@ _G.log = log",
 local len = string.len\
 local sub = string.sub\
 \
-class \"Input\" extends \"Node\" alias \"COLOUR_REDIRECT\" {\
+class \"Input\" extends \"Node\" alias \"ACTIVATABLE\" alias \"SELECTABLE\" {\
     acceptMouse = true;\
     acceptKeyboard = false;\
 \
@@ -2146,37 +2160,33 @@ function Application:appendStagesFromDCML( path )\
         end\
     end\
 end",
-  [ "Class.lua" ] = "--[[\
-    ComputerCraft Class Iteration - 4\
-    Copyright Harry Felton (HexCodeCC) 2015 - 2016\
+  [ "Class.lua" ] = "local gsub, match = string.gsub, string.match\
 \
-    This class system is still a heavy work in progress\
-    It should be assumed that certain features may be missing\
-    or do not function as they should.\
+-- Define Class Settings\
+local CRASH_DUMP = {\
+    ENABLE = false;\
+    LOCATION = \"DynaCrash-Dump.crash\"\
+}\
 \
-    Please report any bugs you find to the HexCodeCC/DynaCode repo on GitHub\
-\
-    Refer to file '/plan.md' for info on class\
-]]\
-\
-local match, gsub = string.match, string.gsub\
-\
--- TODO load missing classes when using 'mixin' (current workaround: load the target class using 'loadFirst.cfg')\
-\
---[[ Settings ]]--\
+local MISSING_CLASS_LOADER;\
+local RESERVED = {\
+    __type = true;\
+    __defined = true;\
+    __class = true;\
+    __extends = true;\
+    __instance = true;\
+    __alias = true;\
+};\
 local WORK_ENV = _G;\
-local SAVE_CRASHED_FILES = false;\
-local CRASH_REPORT_LOCATION = \"DynaCrash.crash\";\
-local CUSTOM_CLASS_LOADER\
-local CUSTOM_SOURCE_VIEWER\
 \
---[[ Variables ]]--\
-local class = {}\
-local classes = {}\
-local building\
+-- Define Class Variables\
+local raw_access\
+\
+local current\
 local last\
+local classes = {}\
 \
-local allowRawAccess = false -- This is automatically changed, don't bother messing with it.\
+local class = {}\
 \
 local setters = setmetatable( {}, {__index = function( self, key )\
     -- This will be called when a setter we need is not cached. Create the name and change the name.\
@@ -2185,6 +2195,7 @@ local setters = setmetatable( {}, {__index = function( self, key )\
 \
     return setter\
 end})\
+\
 local getters = setmetatable( {}, {__index = function( self, key )\
     local getter = \"get\" .. key:sub( 1,1 ):upper() .. key:sub( 2 )\
     self[ key ] = getter\
@@ -2192,19 +2203,122 @@ local getters = setmetatable( {}, {__index = function( self, key )\
     return getter\
 end})\
 \
---[[ Methods ]]--\
--- local helpers\
+--[[\
+    @local\
+    @desc Will try to execute 'method' passing arg 3+ to the call. If failed to execute 'err' will be thrown.\
+    @param\
+        @var method\
+        @string err\
+        @args ...\
+    @return methodCall OR error\
+]]\
+local function exec( method, err, ... )\
+    if type( method ) == \"function\" then\
+        return method( ... )\
+    else\
+        return error( err )\
+    end\
+end\
+\
+\
+--[[\
+    @local\
+    @desc Enables accessing of class raw content, grabs the raw content and disables access again. Returns content\
+    @param\
+        @class target\
+    @return table\
+]]\
+local function getRawContent( target )\
+    raw_access = true\
+    local c = target:getRaw()\
+    raw_access = false\
+\
+    return c\
+end\
+\
+\
+--[[\
+    @local\
+    @desc Attempts to load 'target' via use of the custom class loader.\
+    @param\
+        @string target\
+    @return class OR error\
+]]\
+local function loadRequiredClass( target )\
+    -- Target class is required by another class. Store current configuration settings and load this class.\
+    local oCurrent = current\
+    local c, _c\
+\
+    c = exec( MISSING_CLASS_LOADER, \"MISSING_CLASS_LOADER method not defined. Cannot load missing target class '\"..tostring(target)..\"'\", target )\
+\
+    _c = classes[ target ]\
+    if class.isClass( _c ) then\
+        if not _c:isSealed() then _c:seal() end\
+    else\
+        return error(\"Target class '\"..tostring( target )..\"' failed to load\")\
+    end\
+\
+    current = oCurrent -- restore old current (continue olding the class that required this class) AFTER the new class has been sealed (the target class may also require a class)\
+    return _c\
+end\
+\
+\
+local function fetchClass( target, mustBeSealed )\
+    local _c = classes[ target ]\
+    if class.isClass( _c ) then\
+        if _c:isSealed() or not mustBeSealed then\
+            return _c\
+        elseif mustBeSealed then\
+            return error(\"Failed to fetch target class '\"..target..\"'. Target isn't sealed.\")\
+        end\
+    else\
+        return loadRequiredClass( target )\
+    end\
+end\
+\
+\
+--[[\
+    @local\
+    @desc Returned by class functions when a table of arguments may be expected to trail the call. The contents of the table will be added to the current class\
+    @param\
+        @table t\
+    @return nil OR error\
+]]\
 local function propertyCatch( t )\
     if type( t ) == \"table\" then\
         for key, value in pairs( t ) do\
             if type( value ) == \"function\" then return error(\"Cannot set function indexes in class properties!\") end\
 \
-            building[ key ] = value\
+            current[ key ] = value\
         end\
     elseif type( t ) ~= \"nil\" then\
         return error(\"Unknown object trailing class declaration '\"..tostring( t )..\" (\" .. type( t ) .. \")'\")\
     end\
 end\
+\
+--[[\
+    @local\
+    @desc Creates a completely independant table that contains all the same information as the 'source'\
+    @param\
+        @var source\
+    @return var\
+]]\
+local function deepCopy( source, useB )\
+    local orig_type = type( source )\
+    local copy\
+    if orig_type == 'table' then\
+        copy = {}\
+        for key, value in next, source, nil do\
+            if not useB or ( useB and not RESERVED[ key ] ) then\
+                copy[ deepCopy( key ) ] = deepCopy( value )\
+            end\
+        end\
+    else\
+        copy = source\
+    end\
+    return copy\
+end\
+\
 \
 local function preprocess( data )\
     local name = match( data, \"abstract class (\\\"%w*\\\")\")\
@@ -2213,6 +2327,8 @@ local function preprocess( data )\
     end\
     return data\
 end\
+\
+\
 \
 local function export( data, _file, EX )\
 \
@@ -2262,457 +2378,405 @@ local function export( data, _file, EX )\
     will not have any affect. Please edit the source file (]==] .. tostring( file or _file or \"?\" ) .. [==[)\
 ]]]==]\
 \
-    local f = fs.open(CRASH_REPORT_LOCATION, \"w\")\
+    local f = fs.open(CRASH_DUMP.LOCATION, \"w\")\
     f.write( data ..\"-- END OF FILE --\" )\
     f.write(\"\\n\\n\"..footer)\
     f.close()\
 end\
 \
-local blacklist = {\
-    __defined = true;\
-    __definedProperty = true;\
-    __definedFunction = true;\
-    __type = true;\
-    __class = true;\
+--[[\
+    @local\
+    @desc Creates a matrix of super methods\
+    @param\
+        @class instance\
+        @string target\
+    @return table\
+]]\
+local function formSuper( instance, target, total )\
+    -- Find the class, load if it is required and not already loaded.\
+    local totalKeyPairs = total or {}\
 \
-    spawn = true;\
-}\
-local function deepCopy( source, useB )\
-    local orig_type = type(source)\
-    local copy\
-    if orig_type == 'table' then\
-        copy = {}\
-        for key, value in next, source, nil do\
-            if not useB or ( useB and not blacklist[ key ] ) then\
-                copy[ deepCopy( key ) ] = deepCopy( value )\
-            end\
-        end\
-    else\
-        copy = source\
-    end\
-    return copy\
-end\
+    local super = fetchClass( target, true )\
+    local superRaw = deepCopy( getRawContent( super ) )\
+    local superProxy, superProxyMt = {}, {}\
 \
-local function formSupers( instance, _target, total )\
-    -- total will accumulate all supers keys, these can then be set on the instance afterwards to 'refresh' its indexes.\
-    local total = total or {}\
+    local sym\
 \
-    local sym = false\
-\
-    local target = classes[ _target ]\
-    if not target then\
-        return error(\"Failed to extend instance '\"..instance:type()..\"' to target '\"..tostring( _target )..\"'. The class cannot be found\")\
-    elseif not target:isSealed() then\
-        return error(\"Failed to extend instance '\"..instance:type()..\"' to target '\"..tostring( _target )..\"'. The class is not sealed\")\
-    end\
-\
-    -- We have the super class, create a copy of its contents, not the proxy.\
-    allowRawAccess = true\
-    local raw = deepCopy( target:getRaw() )\
-    allowRawAccess = false\
-    _G.raw = raw\
-    local super, superMt = {}, {}\
-\
-    for key, value in pairs( raw ) do\
-        if not total[ key ] and not blacklist[ key ] then\
-            total[ key ] = value\
+    for key, value in pairs( superRaw ) do\
+        if not totalKeyPairs[ key ] and not RESERVED[ key ] then\
+            totalKeyPairs[ key ] = value\
         end\
     end\
 \
-    local function applyKeyValue( key, value )\
-        local last = instance\
-        local isInstance = true\
+    if superRaw.__extends then\
+        local keys\
+        superProxy.super, keys = formSuper( instance, superRaw.__extends, totalKeyPairs )\
 \
-        local supers = {}\
-\
-        while true do\
-            if last.__defined[ key ] then\
-                return true\
-            else\
-                supers[ #supers + 1 ] = last\
-                if last.super ~= super then\
-                    last = last.super\
-                else\
-                    -- set the key-value pair in all prior supers\
-                    for i = 1, #supers do\
-                        local _super = supers[ i ]\
-                        if isInstance then\
-                            isInstance = false\
-                        end\
-\
-                        _super:addSymbolicKey( key, value )\
-                    end\
-                    break\
-                end -- no super or its this super...\
-            end\
+        sym = true\
+        for key, value in pairs( keys ) do\
+            if not superRaw.__defined[ key ] then superRaw[ key ] = value end\
         end\
+        sym = false\
     end\
 \
-    local function getKeyFromSuper( key )\
-        local last = super\
+    local function getKeyFromSuper( k )\
+        local last = superProxy\
 \
         while true do\
             local _super = last.super\
             if _super then\
-                if _super.__defined[ key ] then\
-                    return _super[ key ]\
-                else\
-                    last = _super\
-                end\
+                if _super.__defined[ k ] then return _super[ k ] else last = _super end\
+            else break end\
+        end\
+    end\
+\
+    local function applyKeyValue( k, v )\
+        local last = instance\
+        local supers = {}\
+\
+        while true do\
+            if last.__defined[ k ] then\
+                return true\
             else\
-                break\
+                supers[ #supers + 1 ] = last\
+                if last.super ~= superProxy and last.super then last = last.super\
+                else\
+                    for i = 1, #supers do supers[i]:addSymbolicKey( k, v ) end\
+                    break\
+                end\
             end\
         end\
     end\
 \
-    -- if this super has a super, then create that one too\
-    local _, keys\
-    if raw.__extends then super.super, _, keys = formSupers( instance, raw.__extends, total ) end\
-    -- Set any keys on this super from its parent. This only needs to be done for the immediate parent\
-\
-    if keys then for key, value in pairs( keys ) do\
-        if not raw[ key ] and not blacklist[ key ] then\
-            raw[ key ] = value\
-        end\
-    end end\
-\
-    -- Create the proxy (the interface between super and raw)\
     local cache = {}\
-    function superMt:__index( k )\
-        if type( raw[ k ] ) == \"function\" then\
-            if not cache[ k ] then\
-                -- Cache the return function\
-                cache[ k ] = function( self, ... )\
-                    local old = instance.super\
-                    instance.super = super.super\
+    function superProxyMt:__index( k )\
+        -- search for the method on the supers raw\
+        if type( superRaw[ k ] ) == \"function\" then\
+            if not cache[ k ] then cache[ k ] = function( self, ... )\
+                local old = instance.super\
+                instance.super = superProxy.super\
 \
-                    local v = { raw[ k ]( instance, ... ) }\
+                local v = { superRaw[ k ]( instance, ... ) }\
+                instance.super = old\
 \
-                    instance.super = old\
-                    return unpack( v )\
-                end\
-            end\
+                return unpack( v )\
+            end end\
             return cache[ k ]\
         else\
-            return raw[ k ]\
+            return superRaw[ k ]\
         end\
     end\
-    function superMt:__newindex( k, v )\
-        -- A new index! Set the value on the super and then check if the instance can have it too.\
-        -- Super\
-        raw[ k ] = v == nil and getKeyFromSuper( k ) or v -- if nil fetch a replacement via inheritance.\
 \
-        if not sym then\
-            local t = type( v )\
-            raw.__defined[ k ] = t ~= \"nil\" or nil\
-            raw.__definedProperty[ k ] = t ~= \"function\" or nil\
-            raw.__definedFunction[ k ] = t == \"function\" or nil\
-        end\
+    function superProxyMt:__newindex( k, v )\
+        superRaw[ k ] = v == nil and getKeyFromSuper( k ) or v\
 \
-        -- Instance\
+        if not sym then superRaw.__defined[ k ] = v ~= nil or nil end\
         applyKeyValue( k, v )\
     end\
-    function superMt:__tostring()\
-        return \"[Super] \"..raw.__type..\" of \"..tostring( instance )\
-    end\
-    function superMt:__call( ... )\
+\
+    function superProxyMt:__tostring() return \"[Super] \"..superRaw.__type..\" of \"..tostring( instance ) end\
+\
+    function superProxyMt:__call( ... )\
         -- if a super table is called run the constructor.\
-        local initName = ( type( raw.initialise ) == \"function\" and \"initialise\" or ( type( raw.initialize ) == \"function\" and \"initialize\" or false ) )\
+        local initName = ( type( superRaw.initialise ) == \"function\" and \"initialise\" or ( type( superRaw.initialize ) == \"function\" and \"initialize\" or false ) )\
         if initName then\
-            raw[ initName ]( instance, ... )\
+            return superRaw[ initName ]( instance, ... )\
         end\
     end\
 \
-    function super:addSymbolicKey( k, v )\
-        sym = true\
-        self[ k ] = v\
-        sym = false\
+    function superProxy:addSymbolicKey( k, v )\
+        sym = true; self[ k ] = v; sym = false\
     end\
-    setmetatable( super, superMt )\
 \
 \
-    return super, total, raw\
+    setmetatable( superProxy, superProxyMt )\
+    return superProxy, totalKeyPairs\
 end\
 \
--- Core class code\
-function class.getLast() return last end\
-function class.forge( name )\
+--[[\
+    @local\
+    @desc Creates a new instance of class 'obj'\
+    @param\
+        @class obj\
+    @return class instance\
+]]\
+local function new( obj, ... )\
+    -- create instance tables\
+    local instanceRaw = deepCopy( getRawContent( obj ) )\
+    instanceRaw.__instance = true\
 \
-    if type( name ) ~= \"string\" or not string.match( name, \"%a\" ) then\
-        return error(\"Cannot create class with name '\"..tostring( name )..\"'. The name is invalid\")\
-    end\
+    local instance, instanceMt = {}, {}\
+    local alias = instanceRaw.__alias or {}\
+    local sym\
 \
-    if classes[ name ] then return error(\"Cannot create class with name '\"..tostring( name )..\"'. A class with that name already exists\") end\
+    instance.raw = instanceRaw\
 \
-    local raw = {}\
-    local proxy, proxyMt = {}, {}\
-    local setToProxy = false\
-\
-    local isAbstract, isSealed = false, false\
-\
-    -- initialise the class base\
-    raw.__defined = {}\
-    raw.__definedProperty = {}\
-    raw.__definedFunction = {}\
-    raw.__type = name\
-    raw.__class = true\
-\
-    -- create the class proxy\
-    function proxy:seal()\
-        setToProxy = true\
-        if isAbstract then\
-            function proxy:spawn()\
-                return error(\"Cannot spawn instance of abstract class '\"..proxy:type()..\"'\")\
-            end\
-        else\
-            function proxy:spawn( ... )\
-                -- instance private variables\
-                local sym = false\
-                local instanceRaw = deepCopy( raw )\
-                instanceRaw.__instance = true\
-                instanceRaw.__class = true\
-\
-                local instance, instanceMt = {}, {}\
-\
-                local alias = instanceRaw.__alias or {}\
-\
-                local function seekFromSuper( key )\
-                    local last = instanceRaw\
-                    while true do\
-                        local super = last.super\
-                        if super then\
-                            -- Check the super\
-                            if super.__defined[ key ] then\
-                                -- This super owns a property with this key name\
-                                return super[ key ]\
-                            else\
-                                last = super\
-                            end\
-                        else\
-                            return nil\
-                        end\
-                    end\
+    local function seekFromSuper( key )\
+        local last = instance\
+        while true do\
+            local super = last.super\
+            if super then\
+                -- Check the super\
+                if super.__defined[ key ] then\
+                    -- This super owns a property with this key name\
+                    return super[ key ]\
+                else\
+                    last = super\
                 end\
-                -- Methods\
-\
-                function instance:type()\
-                    return instanceRaw.__type\
-                end\
-\
-                function instance:addSymbolicKey( k, v )\
-                    sym = true\
-                    self[ k ] = v\
-                    sym = false\
-                end\
-\
-                local overridable = {\
-                    [\"__add\"] = true\
-                }\
-                function instance:__overrideMetaMethod( method, fn )\
-                    if not overridable[method] then\
-                        return error(\"Meta method '\"..tostring( method )..\"' cannot be overridden\")\
-                    end\
-\
-                    instanceMt[ method ] = fn\
-                end\
-\
-                function instance:__lockMetaMethod( method ) overridable[ method ] = nil end\
-\
-                -- metatable\
-                function instanceMt:__tostring()\
-                    return \"[Instance] \"..instanceRaw.__type\
-                end\
-\
-                local getting = {}\
-                function instanceMt:__index( k )\
-                    -- If this key is aliased, then change the key to the redirect\
-                    local k = alias[ k ] or k\
-\
-                    -- Search raw for a getter\
-                    local getter = getters[ k ]\
-                    if type(instanceRaw[ getter ]) == \"function\" and not getting[ k ] then\
-                        getting[ k ] = true\
-                        local v = { instanceRaw[ getter ]( self ) }\
-                        getting[ k ] = nil\
-\
-                        return unpack( v )\
-                    else\
-                        return instanceRaw[ k ]\
-                    end\
-                end\
-\
-                local setting = {}\
-                function instanceMt:__newindex( k, v )\
-                    local k = alias[ k ] or k\
-\
-                    local setter = setters[ k ]\
-                    if type( instanceRaw[ setter ] ) == \"function\" and not setting[ k ] then\
-                        setting[ k ] = true\
-                        instanceRaw[ setter ]( self, v )\
-                        setting[ k ] = nil\
-                    else\
-                        -- simply set\
-                        instanceRaw[ k ] = v\
-                    end\
-                    -- If the new value is nil, then grab an inherited version from the supers\
-                    if v == nil then\
-                        instanceRaw[ k ] = seekFromSuper( k )\
-                    elseif not sym then\
-                        local t = type( v )\
-\
-                        self.__defined[ k ] = t ~= \"nil\" or nil\
-                        self.__definedProperty[ k ] = t ~= \"function\" or nil\
-                        self.__definedFunction[ k ] = t == \"function\" or nil\
-                    end\
-                end\
-\
-\
-                -- create the super\
-                local keys\
-                if instanceRaw.__extends then\
-                    instanceRaw.super, keys = formSupers( instance, instanceRaw.__extends )\
-                end\
-\
-                if keys then for name, value in pairs( keys ) do\
-                    -- if this instance doesn't define the key, set it from the supers\
-                    if not instanceRaw.__defined[ name ] and not blacklist[ name ] then\
-                        instanceRaw[ name ] = seekFromSuper( name )\
-                    end\
-                end end\
-\
-                -- compile the instance alias table.\
-                if instanceRaw.super then\
-                    local new = {}\
-\
-                    local current = instanceRaw\
-                    while true do\
-                        if current.__alias then\
-                            for k, v in pairs( current.__alias ) do\
-                                if not new[ k ] then\
-                                    new[ k ] = v\
-                                end\
-                            end\
-                        end\
-                        if current.super then current = current.super else break end\
-                    end\
-\
-                    instanceRaw.__alias = new\
-                    alias = instanceRaw.__alias\
-                end\
-\
-                setmetatable( instance, instanceMt )\
-\
-                local initName = ( type( instanceRaw.initialise ) == \"function\" and \"initialise\" or ( type( instanceRaw.initialize ) == \"function\" and \"initialize\" or false ) )\
-                if initName then\
-                    instanceRaw[ initName ]( instance, ... )\
-                end\
-\
-                return instance\
+            else\
+                return nil\
             end\
         end\
-        setToProxy = false\
+    end\
 \
-        -- any mixins?\
-        local mixins = raw.__mixinTargets\
-        if mixins then for i = 1, #mixins do\
-            local m = mixins[ i ]\
+    local keys\
+    if instanceRaw.__extends then\
+        instance.super, keys = formSuper( instance, instanceRaw.__extends )\
 \
-            local class = classes[ m ]\
-            if not class then\
-                return error(\"Failed to mixin target class '\"..tostring( m )..\"'. The class cannot be found\")\
-            elseif not class:isSealed() then\
-                return error(\"Failed to mixin target class '\"..tostring( m )..\"'. The class is not sealed\")\
+        for key, value in pairs( keys ) do\
+            if not instanceRaw.__defined[ key ] and not RESERVED[ key ] then\
+                instanceRaw[ key ] = value\
             end\
-\
-            allowRawAccess = true\
-            for key, value in pairs( class:getRaw() ) do\
-                if not raw[ key ] and not blacklist[ key ] then\
-                    raw[ key ] = value\
-                end\
-            end\
-            allowRawAccess = false\
-\
-        end end\
-\
-        proxyMt.__call = proxy.spawn\
-        isSealed = true\
-\
-        last = building\
-        building = nil\
+        end\
     end\
 \
-    function proxy:abstract( bool )\
-        if isSealed then return error(\"Cannot change abstract property of sealed class\") end\
+    -- create instance proxies\
 \
-        isAbstract = bool\
+    local getting = {}\
+    function instanceMt:__index( k )\
+        local k = alias[ k ] or k\
+\
+        local getter = getters[ k ]\
+        if type(instanceRaw[ getter ]) == \"function\" and not getting[ k ] then\
+            getting[ k ] = true\
+            local v = { instanceRaw[ getter ]( self ) }\
+            getting[ k ] = nil\
+\
+            return unpack( v )\
+        else\
+            return instanceRaw[ k ]\
+        end\
     end\
 \
-    function proxy:type()\
-        return raw.__type\
+    local setting = {}\
+    function instanceMt:__newindex( k, v )\
+        local k = alias[ k ] or k\
+\
+        local setter = setters[ k ]\
+        if type( instanceRaw[ setter ] ) == \"function\" and not setting[ k ] then\
+            setting[ k ] = true\
+            instanceRaw[ setter ]( self, v )\
+            setting[ k ] = nil\
+        else\
+            instanceRaw[ k ] = v\
+        end\
+        if v == nil then\
+            instanceRaw[ k ] = seekFromSuper( k )\
+        end\
+        if not sym then\
+            instanceRaw.__defined[ k ] = v ~= nil or nil\
+        end\
     end\
+\
+    function instanceMt:__tostring() return \"[Instance] \"..instanceRaw.__type end\
+\
+    -- additional instance methods\
+    function instance:type() return instanceRaw.__type end\
+\
+    function instance:addSymbolicKey( k, v )\
+        sym = true; self[ k ] = v; sym = false\
+    end\
+\
+    local locked = {\
+        [\"__index\"] = true;\
+        [\"__newindex\"] = true;\
+    }\
+    function instance:__overrideMetaMethod( method, fn )\
+        if locked[ method ] then return error(\"Meta method '\"..tostring( method )..\"' cannot be overridden\") end\
+\
+        instanceMt[ method ] = fn\
+    end\
+\
+    function instance:__lockMetaMethod( method ) locked[ method ] = true end\
+\
+    setmetatable( instance, instanceMt )\
+\
+    local initName = ( type( instanceRaw.initialise ) == \"function\" and \"initialise\" or ( type( instanceRaw.initialize ) == \"function\" and \"initialize\" or false ) )\
+    if initName then instanceRaw[ initName ]( instance, ... ) end\
+\
+    return instance\
+end\
+\
+\
+--[[\
+    @static\
+    @desc Creates a new class base\
+    @param\
+        @string name\
+    @return function\
+]]\
+function class.forge( name )\
+    -- Class definition\
+    local raw = {}\
+    raw.__class = true\
+    raw.__type = name\
+    raw.__defined = {}\
+\
+    local proxy = {}\
+\
+    -- Class private settings\
+    local isAbstract, isSealed, mixinTargets, rawMode = false, false, {}, false\
 \
     function proxy:isSealed() return isSealed end\
     function proxy:isAbstract() return isAbstract end\
 \
+    function proxy:seal()\
+        if isSealed then return error(\"Class is already sealed\") end\
+\
+        if #mixinTargets > 0 then\
+            -- implement these mixin targets\
+            for i = 1, #mixinTargets do\
+                local mixin = mixinTargets[ i ]\
+\
+                local _class = fetchClass( mixin )\
+\
+                local cnt = getRawContent( _class )\
+                for key, value in pairs( cnt ) do\
+                    if not raw[ key ] and not RESERVED[ key ] then\
+                        raw[ key ] = value\
+                    end\
+                end\
+            end\
+        end\
+\
+        -- Compile the alias NOW! This is needed because DCML parsing gets the alias settings from the base class (because the instance isn't ready when DCML is parsing).\
+        local tAlias = self.__alias or {}\
+        local last = self\
+\
+        local super, cnt\
+        while true do\
+            super = last.__extends\
+            if super then\
+                cnt = getRawContent( fetchClass( super, true ) )\
+\
+                local _alias = cnt.__alias\
+                if _alias then\
+                    -- add these keys\
+                    for key, value in pairs( _alias ) do\
+                        if not tAlias[ key ] then tAlias[ key ] = value end\
+                    end\
+                end\
+                last = super\
+            else\
+                break\
+            end\
+        end\
+\
+        self.__alias = tAlias\
+\
+        isSealed = true\
+        if current == self then last = self current = nil end\
+    end\
+\
+    function proxy:spawn( ... )\
+        if not isSealed then return error(\"Cannot spawn instance of '\"..name..\"'. Class is un-sealed\") end\
+        if isAbstract then return error(\"Cannot spawn instance of '\"..name..\"'. Class is abstract\") end\
+\
+        return new( self, ... )\
+    end\
+\
     function proxy:getRaw()\
+        if not raw_access then return error(\"Cannot fetch raw content of class (DISABLED)\") end\
+\
         return raw\
     end\
 \
-    -- redirect\
-    local setting = {}\
-    function proxyMt:__newindex( k, v )\
-        if isSealed then return error(\"Cannot create new indexes on sealed base class!\") end\
+    function proxy:type()\
+        return self.__type\
+    end\
 \
-        raw[ k ] = v\
-        if not setToProxy then\
-            local tV = type( v )\
-            raw.__defined[ k ] = tV ~= \"nil\" or nil\
-            raw.__definedProperty[ k ] = tV ~= \"function\" or nil\
-            raw.__definedFunction[ k ] = tV == \"function\" or nil\
+    function proxy:symIndex( k, v )\
+        rawMode = true; self[ k ] = v; rawMode = false\
+    end\
+\
+    function proxy:extend( target )\
+        if isSealed then return error(\"Cannot extend base class after being sealed\") end\
+\
+        self:symIndex( \"__extends\", target )\
+    end\
+\
+    function proxy:mixin( target )\
+        if isSealed then return error(\"Cannot add mixin targets to class base after being sealed\") end\
+\
+        mixinTargets[ #mixinTargets + 1 ] = target\
+    end\
+\
+    function proxy:abstract( bool )\
+        if isSealed then return error(\"Cannot modify abstract state of class base after being sealed\") end\
+\
+        isAbstract = bool\
+    end\
+\
+    function proxy:alias( tbl )\
+        if isSealed then return error(\"Cannot set alias table of class base after being sealed\") end\
+\
+        if not raw.__alias then\
+            raw.__alias = tbl\
+        else\
+            for key, value in pairs( tbl ) do\
+                raw.__alias[ key ] = value -- override any others with the same key.\
+            end\
         end\
     end\
 \
+    local proxyMt = {}\
+    function proxyMt:__newindex( k, v )\
+        if isSealed then return error(\"Cannot create new indexes on class base after being sealed\") end\
+\
+        raw[ k ] = v\
+        if not rawMode then\
+            raw.__defined[ k ] = v ~= nil or nil\
+        end\
+    end\
     proxyMt.__index = raw\
 \
     function proxyMt:__tostring()\
-        return \"[\" .. (isSealed and \"Sealed\" or \"Un-Sealed\") .. \" Class] \" .. raw.__type\
+        return (isSealed and \"[Sealed] \" or \"[Un-sealed] \") .. name\
     end\
 \
-    function proxyMt:__call() return error(\"Cannot spawn instance of class '\" .. raw.__type .. \"'. The class is not sealed.\") end\
+    function proxyMt:__call( ... ) return self:spawn( ... ) end\
 \
     setmetatable( proxy, proxyMt )\
 \
-    building = proxy\
-    classes[ name ] = building\
-    WORK_ENV[ name ] = building\
+    current = proxy\
+    WORK_ENV[ name ] = proxy\
+    classes[ name ] = proxy\
 \
     return propertyCatch\
 end\
 \
--- Other class code (mainly class parsing)\
-function class.isClass( _class ) return (type( _class ) == \"table\" and _class.__class) or false end\
 \
-function class.isInstance( _class ) return (type( _class ) == \"table\" and _class.__instance) or false end\
+-- Util functions\
+function class.getClass( name ) return classes[ name ] end\
+function class.setClassLoader( fn )\
+    if type( fn ) ~= \"function\" then return error(\"Cannot set missing class loader to variable of type '\"..type( fn )..\"'\") end\
 \
-function class.typeOf( _class, _type, strict )\
-    -- is this even a class?\
-    if type( _class ) == \"table\" and _class.__class then\
-        if _class:type() ~= _type then return false end\
+    MISSING_CLASS_LOADER = fn\
+end\
+function class.isClass( target )\
+    return type( target ) == \"table\" and type( target.type ) == \"function\" and classes[ target:type() ] and target.__class\
+end\
+function class.isInstance( target )\
+    return class.isClass( target ) and target.__instance\
+end\
+function class.typeOf( target, _type, strict )\
+    if not class.isClass( target ) or ( strict and not class.isInstance( target ) ) then return false end\
 \
-        return ( strict and ( _class.__instance ) ) or not strict\
-    end\
-    return false\
+    return target:type() == _type\
 end\
 \
-function class.setCustomLoader( fn )\
-    if type( fn ) ~= \"function\" then return error(\"Expected function\") end\
-\
-    CUSTOM_CLASS_LOADER = fn\
-end\
 function class.runClassString( str, file, ignore )\
-    -- str -> class data\
-    -- file --> Name used for loadString\
-    local ext = SAVE_CRASHED_FILES and \" The file being loaded at the time of the crash has been saved to '\"..CRASH_REPORT_LOCATION..\"'\" or \"\"\
+    local ext = CRASH_DUMP.ENABLE and \" The file being loaded at the time of the crash has been saved to '\"..CRASH_DUMP.LOCATION..\"'\" or \"\"\
 \
     -- Preprocess the string\
     local data = preprocess( str )\
@@ -2745,49 +2809,26 @@ function class.runClassString( str, file, ignore )\
         end\
     end\
 end\
-class.preprocess = preprocess\
-function class.getClasses() return classes end\
 \
-function class.getClass( name ) return classes[ name ] end\
+setmetatable( class, {\
+    __call = function( self, name ) return class.forge( name ) end\
+})\
 \
-function class.setCustomViewer( fn )\
-    if type( fn ) ~= \"function\" then return error(\"Expected function\") end\
-\
-    CUSTOM_SOURCE_VIEWER = fn\
-end\
-\
-function class.viewSource( _class )\
-    -- finds the source of the class\
-    if not CUSTOM_SOURCE_VIEWER then\
-        return error(\"Cannot load source of class because no source viewer has been defined.\")\
-    end\
-\
-    CUSTOM_SOURCE_VIEWER( _class )\
-end\
-\
-\
-setmetatable( class, {__call = function(t, ...) return t.forge( ... ) end})\
-\
-\
--- Global declaration\
 WORK_ENV.class = class\
 WORK_ENV.extends = function( target )\
     if type( target ) ~= \"string\" then return error(\"Failed to extend building class to target '\"..tostring( target )..\"'. Invalid target\") end\
 \
-    building.__extends = target\
+    current:extend( target )\
     return propertyCatch\
 end\
 WORK_ENV.mixin = function( target )\
     if type( target ) ~= \"string\" then return error(\"Failed to mix target class '\"..tostring( target )..\"' into the building class. Invalid target\") end\
-    building.__mixinTargets = building.__mixinTargets or {}\
-    local t = building.__mixinTargets\
 \
-    t[ #t + 1 ] = target\
-\
+    current:mixin( target )\
     return propertyCatch\
 end\
 WORK_ENV.abstract = function()\
-    building:abstract( true )\
+    current:abstract( true )\
 \
     return propertyCatch\
 end\
@@ -2801,8 +2842,8 @@ WORK_ENV.alias = function( tbl )\
     elseif type( tbl ) ~= \"table\" then\
         return error(\"Cannot set alias to '\"..tostring( tbl )..\"'. Invalid type\")\
     end\
-    building.__alias = tbl\
 \
+    current:alias( tbl )\
     return propertyCatch\
 end",
   [ "Node.lua" ] = "abstract class \"Node\" alias \"COLOUR_REDIRECT\" {\
@@ -3916,7 +3957,7 @@ local function loadFromPack( name )
     loaded[ name ] = true
 end
 
-class.setCustomLoader( function( _c )
+class.setClassLoader( function( _c )
     loadFromPack( _c..".lua" )
 end )
 
@@ -3941,7 +3982,7 @@ for name, _ in pairs( files ) do
     loadFromPack( name )
 end
 
-class.setCustomViewer(function(_class)
+--[[class.setCustomViewer(function(_class)
     if class.isClass( _class ) then
         local t = _class:type()
         local file = t..".lua"
@@ -3960,7 +4001,7 @@ class.setCustomViewer(function(_class)
             return error("Class originates from unknown source")
         end
     else return error("Unknown object to anaylyse '" .. tostring( _class ) .. "'") end
-end)
+end)]]
 
 local path = shell.getRunningProgram() or DYNACODE_PATH
 _G.DynaCode = {}

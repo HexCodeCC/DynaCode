@@ -11,7 +11,7 @@ DCML.registerTag("Label", {
 
 local len = string.len
 
-class "Label" extends "Node" alias "COLOUR_REDIRECT" {
+class "Label" extends "Node" {
     text = "Label";
 }
 
