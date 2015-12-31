@@ -119,6 +119,16 @@ _G.COLOUR_REDIRECT = {
     disabledBackgroundColor = "disabledBackgroundColour"
 }
 
+_G.ACTIVATABLE = {
+    activeTextColor = "activeTextColour";
+    activeBackgroundColor = "activeBackgroundColour"
+}
+
+_G.SELECTABLE = {
+    selectedTextColor = "selectedTextColour";
+    selectedBackgroundColor = "selectedBackgroundColour"
+}
+
 _G.OverflowText = function( text, max )
     if len( text ) > max then
         local diff = len( text ) - max

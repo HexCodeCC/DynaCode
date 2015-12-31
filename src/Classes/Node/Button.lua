@@ -17,7 +17,7 @@ DCML.registerTag("Button", {
     aliasHandler = true
 })
 
-class "Button" extends "Node" alias "COLOUR_REDIRECT" {
+class "Button" extends "Node" alias "ACTIVATABLE" {
     text = nil;
 
     yCenter = false;

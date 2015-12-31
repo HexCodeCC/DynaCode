@@ -149,6 +149,7 @@ local function convertToType( alias, value, key, matrix )
     return rValue
 end
 
+local aliasCache = {}
 function Parser.parse( data )
     -- Loop the data, create instances of any tags (default class name is the tag name) OR use the XML handler (function)
     --[[
@@ -170,10 +171,11 @@ function Parser.parse( data )
     local parsed = {}
     for i = 1, #data do
         local element = data[i]
+        local label = element.label
 
-        local matrix = DCMLMatrix[ element.label ]
+        local matrix = DCMLMatrix[ label ]
         if type( matrix ) ~= "table" then
-            return error("No DCMLMatrix for tag with label '"..tostring(element.label).."'")
+            return error("No DCMLMatrix for tag with label '"..tostring(label).."'")
         end
 
         local custom = getFunction( false, matrix.customHandler )
@@ -189,14 +191,18 @@ function Parser.parse( data )
                 alias = handle()
             elseif handle == true then
                 -- simply use the tag name as the class and fetch from that
-                log("i", "DCMLMatrix for "..element.label.." has instructed that DCML parsing should alias with the class '"..element.label.."'.__alias")
+                if not aliasCache[ label ] then
+                    log("i", "DCMLMatrix for "..label.." has instructed that DCML parsing should alias with the class '"..label.."'.__alias")
 
-                local c = class.getClass( element.label )
-                if not c then
-                    error("Failed to fetch class for '"..element.label.."' while fetching alias information")
+                    local c = class.getClass( label )
+                    if not c then
+                        error("Failed to fetch class for '"..label.."' while fetching alias information")
+                    end
+
+                    aliasCache[ label ] = c.__alias
                 end
 
-                alias = c.__alias
+                alias = aliasCache[ label ]
             end
             -- Compile arguments to be passed to the instance constructor.
             local args = {}
@@ -220,7 +226,7 @@ function Parser.parse( data )
 
 
             -- Create an instance of the tag
-            local instanceFn = getFunction( false, matrix.instanceHandler ) or class.getClass(element.label)
+            local instanceFn = getFunction( false, matrix.instanceHandler ) or class.getClass(label)
 
             local instance
             if instanceFn then
@@ -228,7 +234,7 @@ function Parser.parse( data )
             end
 
             if not instance then
-                return error("Failed to generate instance for DCML tag '"..element.label.."'")
+                return error("Failed to generate instance for DCML tag '"..label.."'")
             end
 
             if element.hasChildren and matrix.childHandler then
@@ -247,7 +253,7 @@ function Parser.parse( data )
                     end
                 end
             elseif matrix.callbacks then
-                log("w", "Couldn't generate callbacks for '"..element.label.."' during DCML parse. Callback generator not defined")
+                log("w", "Couldn't generate callbacks for '"..label.."' during DCML parse. Callback generator not defined")
             end
 
             if matrix.onDCMLParseComplete then

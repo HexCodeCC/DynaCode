@@ -98,14 +98,12 @@ local function executeString( name )
 end
 
 -- Load the class library now!
---[[if files[ "Class.lua" ] then
+if files[ "Class.lua" ] then
     executeString( "Class.lua" )
     loaded[ "Class.lua" ] = true
 else
     return error("Cannot unpack DynaCode because the class library is missing (Class.lua)")
-end]]
-loaded[ "Class.lua" ] = true
-dofile("new_code/Class.lua")
+end
 
 local function getHandleFromPack( file )
     if not files[ file ] then return false, 404 end
@@ -152,7 +150,7 @@ for name, _ in pairs( files ) do
     loadFromPack( name )
 end
 
-class.setCustomViewer(function(_class)
+--[[class.setCustomViewer(function(_class)
     if class.isClass( _class ) then
         local t = _class:type()
         local file = t..".lua"
@@ -171,7 +169,7 @@ class.setCustomViewer(function(_class)
             return error("Class originates from unknown source")
         end
     else return error("Unknown object to anaylyse '" .. tostring( _class ) .. "'") end
-end)
+end)]]
 
 local path = shell.getRunningProgram() or DYNACODE_PATH
 _G.DynaCode = {}

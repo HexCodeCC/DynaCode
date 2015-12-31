@@ -21,7 +21,7 @@ DCML.registerTag("Input", {
 local len = string.len
 local sub = string.sub
 
-class "Input" extends "Node" alias "COLOUR_REDIRECT" {
+class "Input" extends "Node" alias "ACTIVATABLE" alias "SELECTABLE" {
     acceptMouse = true;
     acceptKeyboard = false;
 
