@@ -1,24 +1,22 @@
-local running
-local debug = true -- Allows reboot and application exit using keys. (\ for reboot, / for application close)
-
-class "Application" alias "COLOUR_REDIRECT" {
+class "Application" alias "COLOUR_REDIRECT" mixin "MDaemon" {
     canvas = nil;
     hotkey = nil;
-    schedule = nil;
     timer = nil;
     event = nil;
 
-    stages = nil;
-    name = nil;
+    stages = {};
 
-    changed = true
+    changed = true;
+    running = false;
+
+    lastID = 0;
 }
 
 function Application:initialise( ... )
     -- Classes can be called with either a single table of arguments, or a series of required arguments. The latter only allows certain arguments.
     -- Here, we use the classUtil.lua functionality to parse the arguments passed to the application.
 
-    ParseClassArguments( self, { ... }, { { "name", "string" }, { "width", "number" }, {"height", "number"} }, true )
+    ParseClassArguments( self, { ... }, { { "width", "number" }, {"height", "number"} }, true )
 
     self.canvas = ApplicationCanvas( self, self.width, self.height )
     self.hotkey = HotkeyManager( self )
@@ -31,11 +29,10 @@ function Application:initialise( ... )
         ["key"] = KeyEvent;
         ["key_up"] = KeyEvent;
         ["char"] = KeyEvent;
-    })
-    --[[self.schedule = ApplicationScheduler( self )
-    self.timer = TimeManager( self )]]
+    });
+    self.timer = TimerManager( self )
 
-    self.stages = {}
+    --self.stages = {}
     self:__overrideMetaMethod( "__add", function( a, b ) -- only allows overriding certain metamethods.
         if class.typeOf( a, "Application", true ) then
             -- allows stages to be added into the instance via the sugar of (app + stage)
@@ -48,6 +45,17 @@ function Application:initialise( ... )
             return error("Invalid left hand assignment (" .. tostring( a ) .. ")")
         end
     end)
+
+    self:clearLayerMap()
+end
+
+function Application:clearLayerMap()
+    local layerMap = {}
+    for i = 1, self.width * self.height do
+        layerMap[ i ] = false
+    end
+
+    self.layerMap = layerMap
 end
 
 function Application:setTextColour( col )
@@ -62,8 +70,13 @@ end
 
 function Application:addStage( stage )
     stage.application = self
+    stage.mappingID = self.lastID + 1
+
+    self.lastID = self.lastID + 1
 
     self.stages[ #self.stages + 1 ] = stage
+
+    stage:map()
     return stage
 end
 
@@ -71,64 +84,253 @@ function Application:removeStage( stageOrName )
     local isStage = class.typeOf( stageOrName, "Stage", true )
     for i = 1, #self.stages do
         local stage = self.stages[ i ]
-        if ( isStage and stage == stageOrName ) or ( not isStage and stage.name and stage.name == stageOrName ) then
+        if ( isStage and stage == stageOrName ) or ( not isStage and stage.name == stageOrName ) then
             table.remove( self.stages, i )
+            self.changed = true
         end
     end
 end
 
-function Application:draw()
+function Application:draw( force )
     -- orders all stages to draw to the application canvas
-    --if not self.changed then return end
+    if not self.changed then return end
 
-    for i = 1, #self.stages do
-        self.stages[ i ]:draw()
+    for i = #self.stages, 1, -1 do
+        self.stages[ i ]:draw( force )
     end
 
     -- Then draw the application to screen
-    self.canvas:drawToScreen()
+    self.canvas:drawToScreen( force )
     self.changed = false
 end
 
+
 function Application:run( thread )
-    -- If present, exectute the callback thread in parallel with the main event loop.
-    running = true
+    -- If present, execute the callback thread in parallel with the main event loop.
+    log("i", "Attempting to start application")
+    self.running = true
+    self.hotkey:reset()
 
     local function engine()
         -- DynaCode main runtime loop
-        while running do
-            self:draw()
-            local ev = { coroutine.yield() } -- more direct version of os.pullEventRaw
-            local event = self.event:create( ev )
-            if debug then if ev[1] == "char" and ev[2] == "\\" then os.reboot() elseif ev[1] == "char" and ev[2] == "/" then self:finish() end end
+        local hk = self.hotkey
+        local tm = self.timer
 
-            -- Pass the event to stages and process through any application daemons
+        if self.onRun then self:onRun() end
+
+        self:draw( true )
+        log("s", "Engine start successful. Running in protected mode")
+        while self.running do
+
+            -- If there is an outstanding stage re-order request then handle this now (move the new stage to the top of the stage table)
+            if self.reorderRequest then
+                log("i", "Reordering stage list")
+                -- remove this stage from the table and re-insert it at the beggining.
+                local stage = self.reorderRequest
+                for i = 1, #self.stages do
+                    if self.stages[i] == stage then
+                        table.insert( self.stages, 1, table.remove( self.stages, i ) )
+                        self:setStageFocus( stage )
+                        break
+                    end
+                end
+                self.reorderRequest = nil
+            end
+
+
+            term.setCursorBlink( false )
+            self:draw()
+
+            for i = 1, #self.stages do --< temporary 'for' loop
+                self.stages[i]:appDrawComplete() -- stages may want to add a cursor blink on screen etc..
+            end
+
+            local event = self.event:create( { coroutine.yield() } )
+            self.event:shipToRegistrations( event )
+
+            if event.main == "KEY" then
+                hk:handleKey( event )
+                hk:checkCombinations()
+            elseif event.main == "TIMER" then
+                tm:update( event.raw[2] )
+            end
+
             for i = 1, #self.stages do
-                self.stages[i]:handleEvent( event )
+                if self.stages[i] then
+                    self.stages[i]:handleEvent( event )
+                end
             end
         end
     end
 
-    if type(thread) == "function" then
-        ok, err = pcall( function() parallel.waitForAll( engine, thread ) end )
-    else
-        ok, err = pcall( engine )
+    log("i", "Trying to start daemon services")
+    local _, err = pcall( function() self:startDaemons() end ) -- daemons started before anything else.
+    if err then
+        log("f", "Failed to start daemon services. Reason '" .. tostring( err ) .. "'")
+        if self.errorHandler then
+            self:errorHandler( err, false )
+        else
+            if self.onError then self:onError( err ) end
+            error("Failed to start daemon service: "..err)
+        end
+    elseif ok then
+        log("s", "Daemon service started")
     end
 
+    log("i", "Starting engine")
+    local ok, err = pcall( engine )
     if not ok and err then
-        -- crashed
-        term.setTextColour( colours.yellow )
-        print("DynaCode has crashed")
-        term.setTextColour( colours.red )
-        print( err )
-        term.setTextColour( 1 )
+        log("f", "Engine error: '"..tostring( err ).."'")
+        if self.errorHandler then
+            self:errorHandler( err, true )
+        else
+            -- crashed
+            term.setTextColour( colours.yellow )
+            print("DynaCode has crashed")
+            term.setTextColour( colours.red )
+            print( err )
+            print("")
+
+            local function crashProcess( preColour, pre, fn, errColour, errPre, okColour, okMessage, postColour )
+                term.setTextColour( preColour )
+                print( pre )
+
+                local ok, err = pcall( fn )
+                if err then
+                    term.setTextColour( errColour )
+                    print( errPre .. err )
+                else
+                    term.setTextColour( okColour )
+                    print( okMessage )
+                end
+
+                term.setTextColour( postColour )
+            end
+
+            local YELLOW, RED, LIME = colours.yellow, colours.red, colours.lime
+
+            crashProcess( YELLOW, "Attempting to stop daemon service and children", function() self:stopDaemons( false ) end, RED, "Failed to stop daemon service: ", LIME, "Stopped daemon service", 1 )
+            print("")
+
+            crashProcess( YELLOW, "Attempting to write crash information to log file", function()
+                log("f", "DynaCode crashed: "..err)
+            end, RED, "Failed to write crash information: ", LIME, "Wrote crash information to file", 1 )
+            if self.onError then self:onError( err ) end
+        end
     end
 end
 
 function Application:finish( thread )
-    running = false
+    log("i", "Stopping Daemons")
+    self:stopDaemons( true )
+
+    log("i", "Stopping Application")
+    self.running = false
     os.queueEvent("stop") -- if the engine is waiting for an event give it one so it can realise 'running' is false -> while loop finished -> exit and return.
     if type( thread ) == "function" then thread() end
 end
 
-class "Test"
+function Application:mapWindow( x1, y1, x2, y2 )
+    -- Updates drawing map for windows. Prevents windows that aren't visible from drawing themselves (if they are covered by other windows)
+    -- Also clears the area used by the window if the current window is not visible.
+
+
+    local stages = self.stages
+    local layers = self.layerMap
+
+    for i = #stages, 1, -1 do -- This loop works backwards, meaning the stage at the top of the stack is ontop during drawing and mapping also.
+        local stage = stages[ i ]
+
+        local stageX, stageY = stage.X, stage.Y
+        local stageWidth, stageHeight = stage.canvas.width, stage.canvas.height
+
+        local stageX2, stageY2
+        stageX2 = stageX + stageWidth
+        stageY2 = stageY + stageHeight
+
+        local stageVisible = stage.visible
+        local ID = stage.mappingID
+
+        if not (stageX > x2 or stageY > y2 or x1 > stageX2 or y1 > stageY2) then
+            for y = math.max(stageY, y1), math.min(stageY2, y2) do
+                local yPos = self.width * ( y - 1 )
+
+                for x = math.max(stageX, x1), math.min(stageX2, x2) do
+                    local layer = layers[ yPos + x ]
+
+                    if layer ~= ID and stageVisible and ( stage:isPixel( x - stageX + 1 , y - stageY + 1 ) ) then
+                        layers[ yPos + x ] = ID
+                    elseif layer == ID and not stageVisible then
+                        layers[ yPos + x ] = false
+                    end
+                end
+            end
+        end
+    end
+
+    local buffer = self.canvas.buffer
+    local width = self.width
+    local layers = self.layerMap
+    for y = y1, y2 do
+        -- clear the unused pixels back to background colours.
+        local yPos = width * ( y - 1 )
+
+        for x = x1, x2 do
+            local pos = yPos + x
+            local layer = layers[ yPos + x ]
+            if layer == false then
+                if buffer[ pos ] then buffer[ pos ] = { false, false, false } end -- bg pixel. Anything may draw in this space.
+            end
+        end
+    end
+end
+
+function Application:requestStageFocus( stage )
+    -- queue a re-order of the stages.
+    self.reorderRequest = stage
+end
+
+function Application:setStageFocus( stage )
+    if not class.isInstance( stage, "Stage" ) then return error("Expected Class Instance Stage, not "..tostring( stage )) end
+
+    -- remove the current stage focus (if one)
+    self:unSetStageFocus()
+
+    stage:onFocus()
+    self.focusedStage = stage
+end
+
+function Application:unSetStageFocus( stage )
+    local stage = stage or self.focusedStage
+
+    if self.focusedStage and self.focusedStage == stage then
+        self.focusedStage:onBlur()
+        self.focusedStage = nil
+    end
+end
+
+function Application:getStageByName( name )
+    local stages = self.stages
+
+    for i = 1, #stages do
+        local stage = stages[i]
+
+        if stage.name == name then return stage end
+    end
+end
+
+local function getFromDCML( path )
+    return DCML.parse( DCML.loadFile( path ) )
+end
+function Application:appendStagesFromDCML( path )
+    local data = getFromDCML( path )
+
+    for i = 1, #data do
+        local stage = data[i]
+        if class.typeOf( stage, "Stage", true ) then
+            self:addStage( stage )
+        else
+            return error("The DCML parser has created a "..tostring( stage )..". This is not a stage and cannot be added as such. Please ensure the DCML file '"..tostring( path ).."' only creates stages with nodes inside of them, not nodes by themselves. Refer to the wiki for more information")
+        end
+    end
+end

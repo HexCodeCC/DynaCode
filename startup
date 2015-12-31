@@ -1,62 +1,131 @@
 local tWidth, tHeight = term.getSize()
+local logging = true
 
-local shortBoot = false
-local function printCentre( text, y, colour )
+
+local function drawCentre( text, y, colour )
     if colour then term.setTextColour( colour ) end
-    term.setCursorPos( tWidth / 2 - ( text:len() / 2 ), y )
-    term.clearLine()
+    if text:len() <= tWidth then
+        term.setCursorPos( math.ceil( (tWidth / 2) - ( text:len() / 2 ) ), y )
+    else
+        term.setCursorPos( 1, y )
+    end
     term.write( text )
 end
 
-local function title()
-    printCentre("DynaCode - ComputerCraft Graphics Framework", 6, colors.blue)
-    printCentre("Loading Class Definitions", 7, colors.lightBlue)
-    printCentre("Created by Harry Felton (hbomb79)", tHeight, colors.gray)
-end
-
-local function cls( colour )
-    term.setBackgroundColour( colour )
-    term.clear()
-    title()
-    sleep(0)
-end
-
-cls( colors.black )
-cls( colors.gray )
-cls( colors.lightGray )
-cls( colors.white )
 shell.run("dobuild.lua", "/src", "bin/DynaCode.lua")
-printCentre("Booting DynaCode", 7, colors.lightBlue)
-
-term.setTextColour( colors.red )
 dofile("bin/DynaCode.lua")
 
-app = Application( "testName", tWidth, tHeight )
+if true then dofile("example/example.lua") return end
+
+
+if logging then
+    if not log then error("DynaCode Logger not available.", 0) end
+
+    log:setLoggingEnabled( true )
+    log:setLoggingPath("DynaCode.log")
+end
+
+
+app = Application( term.getSize() )
 app.backgroundColour = colors.cyan
 
 stage = app + Stage({
     name = "TestStage";
-    X = 20;
-    Y = 3;
+    X = 5;
+    Y = 5;
     width = 15;
-    height = 6;
-    textColour = colors.blue;
+    height = 8;
+    textColour = colors.lightGray;
     titleTextColour = colors.white;
     titleBackgroundColour = 128;
     backgroundColour = colors.white;
     shadowColour = colors.gray;
     shadow = true;
-    title = "Test Window"
+    title = "Test Window";
+    minHeight = 10;
 })
 
---TODO Nodes...
---label = stage + Label( {width = 10; Y = 2; text = "Hello World"} )
+stage2 = app + Stage({
+    name = "TestStage2";
+    X = 5;
+    Y = 2;
+    width = 25;
+    height = 10;
+    textColour = colors.lightGray;
+    titleTextColour = colors.white;
+    titleBackgroundColour = 128;
+    backgroundColour = colors.white;
+    shadowColour = colors.gray;
+    shadow = true;
+    title = "Another Window";
+})
 
-cls( 1 )
-printCentre("Load Complete", 7, colours.lightBlue)
-printCentre("Press any key to begin", 11, colors.lightGray)
-if not shortBoot then
-    while true do local e = { os.pullEventRaw() } if e[1] == "key" then break end end
+label = stage + Label("Hello World!", 3, 1)
+input = stage + Input( 3, 2, 11, 1 )
+button = stage + Button( "Hello world", 4, 3, 9, 4 )
+
+
+app.hotkey:registerCombination("stop", "shift-ctrl-q", function()
+    app:finish()
+    print("Finished")
+end)
+
+app.hotkey:registerCombination("openLuaPrompt", "shift-ctrl-l", function()
+    app:finish( function() shell.run("lua") end )
+end)
+
+app:registerDaemon( MyDaemon("application_example_daemon_service") )
+
+function app:onRun()
+    -- will be called _every_ time the application is executed.
+    log("i", "Application starting")
 end
-sleep(0)
+
+local BLUE, GREY, LIGHT_GREY, WHITE = colours.blue, colours.grey, colours.lightGrey, 1
+function app:errorHandler( err, daemon )
+    log("f", "Fatal error caught: '"..err.."'. Daemon status: ".. ( daemon and "running" or "not running" ) )
+    term.setBackgroundColour( 1 )
+    term.clear()
+
+    drawCentre( "DynaCode Crash Handler", 4, BLUE )
+    drawCentre( "A fatal exception occured "..( daemon and "during runtime" or "during service start"), 5, GREY )
+
+    drawCentre( "Please report this issue with the error", 8, LIGHT_GREY )
+    drawCentre( "and steps to reproduce using the", 9 )
+    drawCentre( "GitHub issue page", 10 )
+
+    drawCentre( "Error: "..err, 12, colours.red )
+
+    drawCentre("Press any key to shutdown", tHeight, GREY )
+
+    if daemon then
+        local ok, err = pcall( function() self:stopDaemons( false ) end )
+        if err or not ok then
+            drawCentre( "Daemon Status: Failed to stop", 14, colours.red )
+            log("f", "Failed to stop daemon service in crash handler. Reason: "..err)
+        elseif ok then
+            drawCentre( "Daemon Status: Stopped", 14, colours.green)
+        end
+    else drawCentre( "Daemon Status: Failed to start (stopped)", 14, colours.orange ) end
+
+    if logging and type( log ) == "table" and type( log.getEnabled ) == "function" and log:getEnabled() then
+        drawCentre("See log for full error details", tHeight-2, GREY)
+    else
+        drawCentre("Enable log to get further error details", tHeight-2, GREY)
+    end
+
+    while true do
+        local e = { coroutine.yield() }
+        if e[1] == "key" then os.shutdown() break end
+    end
+end
+
+
+panel = stage2 + Panel( 2, 2, 20, 10 )
+panel.backgroundColour = colours.red
+
+button2 = panel + Button("Hello Again", 2, 3, 30, 5)
+app:requestStageFocus( stage2 ) -- The event eating issue is fixed so this can be here now.
+
+app:appendStagesFromDCML( "stages.dcml" )
 app:run()

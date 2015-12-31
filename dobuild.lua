@@ -79,7 +79,7 @@ final = final .. [==[
 ]]
 
 local ignore = {
-    ["class.lua"] = true
+    ["Class.lua"] = true
 }
 local loaded = {}
 
@@ -98,11 +98,11 @@ local function executeString( name )
 end
 
 -- Load the class library now!
-if files[ "class.lua" ] then
-    executeString( "class.lua" )
-    loaded[ "class.lua" ] = true
+if files[ "Class.lua" ] then
+    executeString( "Class.lua" )
+    loaded[ "Class.lua" ] = true
 else
-    return error("Cannot unpack DynaCode because the class library is missing (class.lua)")
+    return error("Cannot unpack DynaCode because the class library is missing (Class.lua)")
 end
 
 local function getHandleFromPack( file )
@@ -125,7 +125,7 @@ local function loadFromPack( name )
     loaded[ name ] = true
 end
 
-class.setCustomLoader( function( _c )
+class.setClassLoader( function( _c )
     loadFromPack( _c..".lua" )
 end )
 
@@ -150,22 +150,40 @@ for name, _ in pairs( files ) do
     loadFromPack( name )
 end
 
-class.setCustomViewer(function(_class)
+--[[class.setCustomViewer(function(_class)
     if class.isClass( _class ) then
         local t = _class:type()
         local file = t..".lua"
 
         if files[ file ] then
+            if fs.exists( "tempSource.lua" ) then error("Cannot open source, tempSource.lua already exists (this should've been removed)", 0) end
             local h = fs.open("tempSource.lua", "w")
             h.write( files[ file ] )
             h.close()
 
             shell.run("edit", "tempSource.lua")
+            fs.delete("tempSource.lua")
+
+            print("Temporary source file removed (tempSource.lua)")
         else
             return error("Class originates from unknown source")
         end
     else return error("Unknown object to anaylyse '" .. tostring( _class ) .. "'") end
-end)
+end)]]
+
+local path = shell.getRunningProgram() or DYNACODE_PATH
+_G.DynaCode = {}
+function DynaCode.checkForUpdate()
+
+end
+
+function DynaCode.installUpdateData()
+
+end
+
+function DynaCode.checkForAndInstallUpdate()
+
+end
 ]==]
 
 

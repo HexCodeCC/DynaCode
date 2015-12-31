@@ -16,7 +16,7 @@ _G.ParseClassArguments = function( instance, args, order, require, raw )
 
         if _type and type( value ) ~= _type then
             if not class.typeOf( value, _type, true ) then
-                return error("Expected type '".._type.."' for argument '"..key.."', got '"..type( value ).."' instead.")
+                return error("Expected type '".._type.."' for argument '"..key.."', got '"..type( value ).."' instead.", 2)
             end
         end
         return value
@@ -119,6 +119,16 @@ _G.COLOUR_REDIRECT = {
     disabledBackgroundColor = "disabledBackgroundColour"
 }
 
+_G.ACTIVATABLE = {
+    activeTextColor = "activeTextColour";
+    activeBackgroundColor = "activeBackgroundColour"
+}
+
+_G.SELECTABLE = {
+    selectedTextColor = "selectedTextColour";
+    selectedBackgroundColor = "selectedBackgroundColour"
+}
+
 _G.OverflowText = function( text, max )
     if len( text ) > max then
         local diff = len( text ) - max
@@ -131,4 +141,11 @@ _G.OverflowText = function( text, max )
         end
     end
     return text
+end
+
+_G.InArea = function( x, y, x1, y1, x2, y2 )
+    if x >= x1 and x <= x2 and y >= y1 and y <= y2 then
+        return true
+    end
+    return false
 end
