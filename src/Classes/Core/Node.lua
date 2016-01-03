@@ -16,11 +16,16 @@ abstract class "Node" alias "COLOUR_REDIRECT" {
 
     __node = true;
 
-    acceptKeyboard = false;
-    acceptMouse = false;
-    acceptMisc = false;
-
-    manuallyHandle = false;
+    eventConfig = {
+        ["MouseEvent"] = {
+            acceptAll = false
+        };
+        acceptAll = false;
+        acceptMisc = false;
+        acceptKeyboard = false;
+        acceptMouse = false;
+        manuallyHandle = false;
+    }
 }
 
 function Node:initialise( ... )

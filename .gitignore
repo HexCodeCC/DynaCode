@@ -2,3 +2,4 @@
 *.out
 *.crash
 *.log
+/minified/

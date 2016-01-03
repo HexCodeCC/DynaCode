@@ -93,7 +93,7 @@ end
 
 function Application:draw( force )
     -- orders all stages to draw to the application canvas
-    if not self.changed then return end
+    --if not self.changed then return end
 
     for i = #self.stages, 1, -1 do
         self.stages[ i ]:draw( force )

@@ -1919,7 +1919,7 @@ end\
 \
 function Application:draw( force )\
     -- orders all stages to draw to the application canvas\
-    if not self.changed then return end\
+    --if not self.changed then return end\
 \
     for i = #self.stages, 1, -1 do\
         self.stages[ i ]:draw( force )\
@@ -2864,11 +2864,16 @@ end",
 \
     __node = true;\
 \
-    acceptKeyboard = false;\
-    acceptMouse = false;\
-    acceptMisc = false;\
-\
-    manuallyHandle = false;\
+    eventConfig = {\
+        [\"MouseEvent\"] = {\
+            acceptAll = false\
+        };\
+        acceptAll = false;\
+        acceptMisc = false;\
+        acceptKeyboard = false;\
+        acceptMouse = false;\
+        manuallyHandle = false;\
+    }\
 }\
 \
 function Node:initialise( ... )\
@@ -3329,6 +3334,10 @@ class \"Stage\" alias \"COLOUR_REDIRECT\" {\
     mouseMode = nil;\
 \
     visible = true;\
+\
+    resizable = true;\
+    movable = true;\
+    closeable = true;\
 }\
 \
 function Stage:initialise( ... )\
@@ -3570,29 +3579,76 @@ function Stage:handleMouse( event )\
     end\
 end\
 \
+local function focus( self )\
+    self.application:requestStageFocus( self )\
+end\
+\
+function Stage:close()\
+    self:removeFromMap()\
+    self.application:removeStage( self )\
+end\
+\
 function Stage:handleEvent( event )\
     if event.handled then return end\
 \
-    if event.main == \"MOUSE\" then\
-        if self:hitTest( event.X, event.Y ) or self.mouseMode then\
-            -- this click was on the stages hit area (not shadow)\
-            if not self.focused and event.sub == \"CLICK\" then\
-                -- focus this stage if it was clicked.\
-                return self.application:requestStageFocus( self )\
-            elseif self.focused then\
-                local X, Y = event:getRelative( self )\
-                if Y == 1 or ( Y == self.height + 1 ) or self.mouseMode then\
-                    -- if the mouse event was in the bottom right or on the top bar submit it to the stage handler.\
-                    self:handleMouse( event )\
-                else\
-                    self:submitEvent( event )\
-                end\
+    local main, sub = event.main, event.sub\
+\
+    if main == \"MOUSE\" then\
+        local inBounds = event:inBounds( self )\
+        if sub == \"CLICK\" then\
+            -- if the click was on the top bar, close button or resize location then act accordingly\
+            local ignore, oX, oY = false, event.X, event.Y\
+            event:convertToRelative( self )\
+\
+            local width = self.width\
+\
+            local X, Y = event:getPosition()\
+            if Y == 1 then\
+                if X == width and self.closeable then\
+                    self:close()\
+                elseif self.movable and X >= 1 and X <= width then\
+                    self.mouseMode = \"move\"\
+                    focus( self )\
+                    event.handled = true\
+                elseif inBounds then focus( self ) end\
+            elseif self.resizable and Y == self.height + ( not self.borderless and 1 or 0 ) and X == width then\
+                self.mouseMode = \"resize\"\
+                focus( self )\
                 event.handled = true\
+            else\
+                if self.focused then\
+                    if not self.borderless then\
+                        event.Y = event.Y - 1\
+                    end\
+                    -- submit the event\
+                    local nodes = self.nodes\
+\
+                    for i = 1, #nodes do\
+                        local node = nodes[i]\
+                        node:handleEvent( event )\
+                    end\
+                elseif not self.focused and inBounds then\
+                    -- focus the stage\
+                    focus( self )\
+                    event.handled = true\
+                end\
             end\
+\
+            event:restore( oX, oY )\
+        elseif sub == \"UP\" then\
+            self.mouseMode = nil\
+            if self.focused then self:submitEvent( event ) end\
+        elseif sub == \"SCROLL\" and self.focused then\
+            self:submitEvent( event )\
+        elseif sub == \"DRAG\" and self.focused then\
+            self:submitEvent( event )\
+        end\
+\
+        if self.focused and inBounds then\
+            event.handled = true\
         end\
     else\
         self:submitEvent( event )\
-        event.handled = true\
     end\
 end\
 \
@@ -3733,12 +3789,14 @@ function Event:isType( main, sub )\
 end",
   [ "MouseEvent.lua" ] = "local sub = string.sub\
 \
-class \"MouseEvent\" mixin \"Event\" { -- no real need to extend the Event class, mixing it in is just fine and will optimize the event creation process.\
+class \"MouseEvent\" mixin \"Event\" {\
     main = \"MOUSE\";\
     sub = nil;\
     X = nil;\
     Y = nil;\
     misc = nil; -- scroll direction or mouse button\
+\
+    inParentBounds = false;\
 }\
 \
 function MouseEvent:initialise( raw )\
@@ -3766,6 +3824,8 @@ function MouseEvent:onPoint( x, y )\
     return false\
 end\
 \
+function MouseEvent:getPosition() return self.X, self.Y end\
+\
 function MouseEvent:convertToRelative( parent )\
     self.X, self.Y = self:getRelative( parent )\
 end\
@@ -3773,6 +3833,15 @@ end\
 function MouseEvent:getRelative( parent )\
     -- similar to convertToRelative, however this leaves the event unchanged\
     return self.X - parent.X + 1, self.Y - parent.Y + 1\
+end\
+\
+function MouseEvent:inBounds( parent )\
+    local X, Y = parent.X, parent.Y\
+    return self:inArea( X, Y, X + parent.width - 1, Y + parent.height - 1 )\
+end\
+\
+function MouseEvent:restore( x, y )\
+    self.X, self.Y = x, y\
 end",
   [ "KeyEvent.lua" ] = "local sub = string.sub\
 \

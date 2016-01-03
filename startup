@@ -15,7 +15,7 @@ end
 shell.run("dobuild.lua", "/src", "bin/DynaCode.lua")
 dofile("bin/DynaCode.lua")
 
-if true then dofile("example/example.lua") return end
+--if true then dofile("example/example.lua") return end
 
 
 if logging then

@@ -8,3 +8,7 @@
         </Panel>
     </Panel>
 </Stage>
+
+<Stage X="6" Y="2" name="TestStage2" width="15" height="10">
+    <Label X="1" Y="1" backgroundColour="red" textColor="black">Some Window</Label>
+</Stage>

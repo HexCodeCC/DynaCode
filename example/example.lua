@@ -18,24 +18,3 @@ mainStage:addToController("close_app", function()
 end)
 
 app:run()
-
---[[class "Main" abstract() alias {
-    X = "redirected"
-} {
-    X = 1;
-    redirected = "You have been redirected here"
-}
-Main:seal()
-
-class "Parent" extends "Main" alias {
-    Y = "redirected"
-} {
-    Y = 1;
-}
-Parent:seal()
-
-class "Child" extends "Parent" {
-    Z = 1;
-}
-Child:seal()
-c = Child()]]

@@ -1,11 +1,13 @@
 local sub = string.sub
 
-class "MouseEvent" mixin "Event" { -- no real need to extend the Event class, mixing it in is just fine and will optimize the event creation process.
+class "MouseEvent" mixin "Event" {
     main = "MOUSE";
     sub = nil;
     X = nil;
     Y = nil;
     misc = nil; -- scroll direction or mouse button
+
+    inParentBounds = false;
 }
 
 function MouseEvent:initialise( raw )
@@ -33,6 +35,8 @@ function MouseEvent:onPoint( x, y )
     return false
 end
 
+function MouseEvent:getPosition() return self.X, self.Y end
+
 function MouseEvent:convertToRelative( parent )
     self.X, self.Y = self:getRelative( parent )
 end
@@ -40,4 +44,13 @@ end
 function MouseEvent:getRelative( parent )
     -- similar to convertToRelative, however this leaves the event unchanged
     return self.X - parent.X + 1, self.Y - parent.Y + 1
+end
+
+function MouseEvent:inBounds( parent )
+    local X, Y = parent.X, parent.Y
+    return self:inArea( X, Y, X + parent.width - 1, Y + parent.height - 1 )
+end
+
+function MouseEvent:restore( x, y )
+    self.X, self.Y = x, y
 end
