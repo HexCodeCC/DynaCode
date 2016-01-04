@@ -1,0 +1,104 @@
+--[[
+    DynaCode Installer
+
+    Can be used to download source and built DynaCode files
+    from the development or master branch.
+
+    Flags:
+    --early_access: When specified source/build files will be downloaded from the 'develop' branch.
+    --minified: When specified the minified build file will be download from the branch in use (this doesn't affect source download).
+    --download_source: When specified the source code for DynaCode will be downloaded. This takes a lot longer and puts more strain on both GitHub and my server.
+    --source-install-dir: When downloading source (--download_source) the files will be created in this directory.
+    --build-install-path: When download a build (not the source) the file will be saved at this location.
+
+
+    Source downloading:
+    To download DynaCodes source instead of its build simply run the install with --download_source specified. The installer will then
+    request the file listing from my server (which queries GitHub if the cache SHA is old). Each of the returned file paths will be
+    downloaded one by one and saved into the path specified with --source-install-dir (or default /INSTALL). The directory
+    structure of DynaCode will be preserved inside of the source directory.
+]]
+
+local REPO_DOWNLOAD_EARLY
+local REPO_DOWNLOAD_MINIFIED
+local DOWNLOAD_SOURCE
+
+local INSTALL_DIR = "/INSTALL"
+local INSTALL_PATH = "DynaCode.lua"
+
+local SUPPORTED_FLAGS = {
+    ["--early_access"] = {0, function() REPO_DOWNLOAD_EARLY = true end};
+    ["--minified"] = {0, function() REPO_DOWNLOAD_MINIFIED = true end};
+    ["--source-install-dir"] = {1, function( dir ) INSTALL_DIR = dir end};
+    ["--build-install-path"] = {1, function( path ) INSTALL_PATH = path end};
+    ["--download_source"] = {0, function() DOWNLOAD_SOURCE = true end}
+}
+
+local args = { ... }
+if #args >= 1 then
+    local i = 1
+    while i <= #args do
+        local flag = args[i]
+
+        if SUPPORTED_FLAGS[ flag ] then
+            -- check how many arguments this needs
+            local amount = SUPPORTED_FLAGS[ flag ][1]
+            local arguments = {}
+            if amount > 0 then
+                if #args < amount or not args[ i + amount ] then
+                    error("Flag '"..tostring( flag ).."' requires "..tostring( amount ).." argument"..( amount > 1 and "s" or ""))
+                else
+                    for k = i + 1, i + amount do table.insert( arguments, args[ k ] ) i = i + 1 end
+                end
+            end
+
+            local fn = SUPPORTED_FLAGS[ flag ][2]
+            if type( fn ) == "function" then fn( unpack( arguments ) ) end
+        else
+            error("Unknown flag or file not found '"..tostring( flag ).."'")
+        end
+        i = i + 1
+    end
+end
+
+local function getResponse( url )
+    for i = 1, 3 do
+        local response = http.get( url )
+        if response then return response:readAll() end
+    end
+    return error("Failed to fetch response from '"..url.."'")
+end
+
+if DOWNLOAD_SOURCE then
+    print("Fetching file listing")
+    local response = getResponse("http://harryfelton.web44.net/api/?early="..( REPO_DOWNLOAD_EARLY and 1 or 0 ))
+
+    local files = {}
+    for name in response:gmatch( "[^\n]+" ) do
+        files[ #files + 1 ] = name
+        print("File '"..fs.getName( tostring( name ) ).."'")
+    end
+
+    if #files == 0 then error("HTTP response contained invalid information") end
+
+    -- Download these files.
+    local branch = REPO_DOWNLOAD_EARLY and "develop" or "master"
+    for i = 1, #files do
+        local file = files[i]
+        print("Downloading '"..file.."'")
+        local response = getResponse("https://raw.githubusercontent.com/HexCodeCC/DynaCode/"..branch.."/"..file)
+
+        local f = fs.open( fs.combine( INSTALL_DIR, file ), "w" )
+        f.write( response )
+        f.close()
+    end
+    print("DynaCode source downloaded from branch '"..branch.."' into dir '"..INSTALL_DIR.."'")
+else
+    print("Downloading build. Early: "..tostring( REPO_DOWNLOAD_EARLY )..", Minified: "..tostring( REPO_DOWNLOAD_MINIFIED ) )
+    local response = getResponse("https://raw.githubusercontent.com/HexCodeCC/DynaCode/"..(REPO_DOWNLOAD_EARLY and "develop" or "master").."/bin/"..(REPO_DOWNLOAD_MINIFIED and "DynaCode.min.lua" or "DynaCode.lua"))
+
+    local f = fs.open( INSTALL_PATH, "w" )
+    f.write( response )
+    f.close()
+    print("Done")
+end
