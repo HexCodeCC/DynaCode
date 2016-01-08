@@ -233,6 +233,7 @@ end
 local function formSuper( instance, target, total )
     -- Find the class, load if it is required and not already loaded.
     local totalKeyPairs = total or {}
+    local localKeys = {}
 
     local super = fetchClass( target, true )
     local superRaw = deepCopy( getRawContent( super ) )
@@ -241,20 +242,12 @@ local function formSuper( instance, target, total )
     local sym
 
     for key, value in pairs( superRaw ) do
-        if not totalKeyPairs[ key ] and not RESERVED[ key ] then
-            totalKeyPairs[ key ] = value
+        if not RESERVED[ key ] then
+            if not totalKeyPairs[ key ] then
+                totalKeyPairs[ key ] = value
+            end
+            --localKeys[ key ]
         end
-    end
-
-    if superRaw.__extends then
-        local keys
-        superProxy.super, keys = formSuper( instance, superRaw.__extends, totalKeyPairs )
-
-        sym = true
-        for key, value in pairs( keys ) do
-            if not superRaw.__defined[ key ] then superRaw[ key ] = value end
-        end
-        sym = false
     end
 
     local function getKeyFromSuper( k )
@@ -266,6 +259,19 @@ local function formSuper( instance, target, total )
                 if _super.__defined[ k ] then return _super[ k ] else last = _super end
             else break end
         end
+    end
+
+    if superRaw.__extends then
+        local keys
+        superProxy.super, keys = formSuper( instance, superRaw.__extends, totalKeyPairs )
+
+        sym = true
+        for key, value in pairs( keys ) do
+            if not superRaw.__defined[ key ] then
+                superRaw[ key ] = superProxy.super[ key ]
+            end
+        end
+        sym = false
     end
 
     local function applyKeyValue( k, v )
@@ -295,8 +301,8 @@ local function formSuper( instance, target, total )
                 instance.super = superProxy.super
 
                 local v = { superRaw[ k ]( instance, ... ) }
-                instance.super = old
 
+                instance.super = old
                 return unpack( v )
             end end
             return cache[ k ]
@@ -318,7 +324,7 @@ local function formSuper( instance, target, total )
         -- if a super table is called run the constructor.
         local initName = ( type( superRaw.initialise ) == "function" and "initialise" or ( type( superRaw.initialize ) == "function" and "initialize" or false ) )
         if initName then
-            return superRaw[ initName ]( instance, ... )
+            return superProxy[ initName ]( instance, ... )
         end
     end
 
@@ -373,7 +379,7 @@ local function new( obj, ... )
 
         for key, value in pairs( keys ) do
             if not instanceRaw.__defined[ key ] and not RESERVED[ key ] then
-                instanceRaw[ key ] = value
+                instanceRaw[ key ] = instance.super[ key ]
             end
         end
     end

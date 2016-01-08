@@ -416,7 +416,7 @@ self.nodesToAdd={}\
 end",
   [ "ClassUtil.lua" ] = "local h=table.insert\
 local o,d,r=string.len,string.sub,string.rep\
-_G.ParseClassArguments=function(s,n,e,o,r)\
+function ParseClassArguments(s,n,e,o,r)\
 local i={}\
 local function d(a,t)\
 if type(e)~=\"table\"then return end\
@@ -481,13 +481,13 @@ end\
 return unpack(t)\
 end\
 end\
-_G.AssertClass=function(e,o,a,t)\
+function AssertClass(e,o,a,t)\
 if not class.typeOf(e,o,a)then\
 return error(t,2)\
 end\
 return e\
 end\
-_G.AssertEnum=function(e,t,i)\
+function AssertEnum(e,t,i)\
 local a\
 for o=1,#t do\
 if t[o]==e then\
@@ -515,7 +515,7 @@ _G.SELECTABLE={\
 selectedTextColor=\"selectedTextColour\";\
 selectedBackgroundColor=\"selectedBackgroundColour\"\
 }\
-_G.OverflowText=function(e,a)\
+function OverflowText(e,a)\
 if o(e)>a then\
 local t=o(e)-a\
 if t>3 then\
@@ -528,7 +528,7 @@ end\
 end\
 return e\
 end\
-_G.InArea=function(e,t,o,a,i,n)\
+function InArea(e,t,o,a,i,n)\
 if e>=o and e<=i and t>=a and t<=n then\
 return true\
 end\
@@ -650,6 +650,11 @@ function MyDaemon:stop(e)\
 log(e and\"di\"or\"de\",\"MyDaemon detected application close. \"..(e and\"graceful\"or\"not graceful\")..\".\")\
 local e=self.owner.event\
 e:removeEventHandler(\"TERMINATE\",\"EVENT\",\"Terminate\")\
+end",
+  [ "TextContainer.lua" ] = "class\"TextContainer\"extends\"MultiLineTextDisplay\"\
+function TextContainer:setText(e)\
+self.text=e\
+self.container.text=e\
 end",
   [ "UnknownEvent.lua" ] = "class\"UnknownEvent\"mixin\"Event\"{\
 main=false;\
@@ -901,6 +906,99 @@ end\
 self.height=self.height-1\
 end\
 end",
+  [ "Daemon.lua" ] = "class\"Daemon\"abstract(){\
+acceptMouse=false;\
+acceptMisc=false;\
+acceptKeyboard=false;\
+owner=nil;\
+__daemon=true;\
+}\
+function Daemon:initialise(e)\
+if not e then return error(\"Daemon '\"..self:type()..\"' cannot initialise without name\")end\
+self.name=e\
+end\
+function Daemon:start()log(\"d\",\"WARNING: Daemon '\"..self.name..\"' (\"..self:type()..\") has no start function declared\")end\
+function Daemon:stop()log(\"d\",\"WARNING: Daemon '\"..self.name..\"' (\"..self:type()..\") has no end function declared\")end",
+  [ "MultiLineTextDisplay.lua" ] = "class\"MultiLineTextDisplay\"abstract()extends\"NodeScrollContainer\"\
+function MultiLineTextDisplay:initialise(...)\
+ParseClassArguments(self,{...},{{\"text\",\"string\"},{\"X\",\"number\"},{\"Y\",\"number\"},{\"width\",\"number\"},{\"height\",\"number\"}},true,false)\
+self.container=FormattedTextObject(self)\
+end\
+function MultiLineTextDisplay:parseIdentifiers()\
+local e=self.text\
+local s={}\
+if not e then return error(\"Failed to parse identifiers. No text is set\")end\
+local n,h,r,i=false,false,false,0\
+while len(e)>0 do\
+local a,t=find(e,\"%@%w-%-%w+[[%+%w-%-%w+]+]?\")\
+if not a or not t then break end\
+local o=sub(e,a,t)\
+local d=t+i-len(o)\
+i=i+a-2-(sub(e,a-1,a-1)==\" \"and 1 or 0)-(sub(e,t+1,t+1)==\" \"and 1 or 0)\
+e=sub(e,t)\
+for e in gmatch(o,\"([^%+]+)\")do\
+e=sub(e,1,1)==\"@\"and sub(e,2)or e\
+local t,a=match(e,\"(%w-)%-\"),match(e,\"%-(%w+)\")\
+if not t or not a then error(\"identifier '\"..tostring(o)..\"' contains invalid syntax\")end\
+if t==\"tc\"then n=parseColour(a)\
+elseif t==\"bg\"then h=parseColour(a)\
+elseif t==\"align\"then r=a else\
+error(\"Unknown identifier target '\"..tostring(t)..\"' in identifier '\"..tostring(o)..\"' at part '\"..e..\"'\")\
+end\
+end\
+s[d]={n,h,r}\
+end\
+local t=self.container\
+t.segments,t.text=s,gsub(e,\"[ ]?%@%w-%-%w+[[%+%w-%-%w+]+]?[ ]?\",\"\")\
+end\
+function MultiLineTextDisplay:draw(e,t)\
+local a=self.container\
+if not a then return error(\"Failed to draw node '\"..self:type()..\"' because the MultiLineTextDisplay has no FormattedTextObject set\")end\
+self.container:draw(e,t)\
+end",
+  [ "loadFirst.cfg" ] = "Logging.lua\
+ClassUtil.lua\
+TextUtil.lua\
+DCMLParser.lua",
+  [ "MDaemon.lua" ] = "class\"MDaemon\"abstract()\
+function MDaemon:registerDaemon(e)\
+if not class.isInstance(e)or not e.__daemon then\
+return error(\"Cannot register daemon '\"..tostring(e)..\"' (\"..type(e)..\")\")\
+end\
+if not e.name then return error(\"Daemon '\"..e:type()..\"' has no name!\")end\
+log(\"di\",\"Registered daemon of type '\"..e:type()..\"' (name \"..e.name..\") to \"..self:type())\
+e.owner=self\
+table.insert(self.__daemons,e)\
+end\
+function MDaemon:removeDaemon(a)\
+if not a then return error(\"Cannot un-register daemon with no name to search\")end\
+local e=self.__daemons\
+for t=1,#e do\
+local e=e[t]\
+if e.name==a then\
+log(\"di\",\"Removed daemon of type '\"..e:type()..\"' (name \"..e.name..\") from \"..self:type()..\". Index \"..t)\
+table.remove(self.__daemons,t)\
+end\
+end\
+end\
+function MDaemon:get__daemons()\
+if type(self.__daemons)~=\"table\"then\
+self.__daemons={}\
+end\
+return self.__daemons\
+end\
+function MDaemon:startDaemons()\
+local e=self.__daemons\
+for t=1,#e do\
+e[t]:start()\
+end\
+end\
+function MDaemon:stopDaemons(t)\
+local e=self.__daemons\
+for a=1,#e do\
+e[a]:stop(t)\
+end\
+end",
   [ "DCMLParser.lua" ] = "local h=string.sub\
 local function l(l)\
 function parseargs(t)\
@@ -1109,62 +1207,6 @@ end\
 return h\
 end\
 _G.DCML=i",
-  [ "Daemon.lua" ] = "class\"Daemon\"abstract(){\
-acceptMouse=false;\
-acceptMisc=false;\
-acceptKeyboard=false;\
-owner=nil;\
-__daemon=true;\
-}\
-function Daemon:initialise(e)\
-if not e then return error(\"Daemon '\"..self:type()..\"' cannot initialise without name\")end\
-self.name=e\
-end\
-function Daemon:start()log(\"d\",\"WARNING: Daemon '\"..self.name..\"' (\"..self:type()..\") has no start function declared\")end\
-function Daemon:stop()log(\"d\",\"WARNING: Daemon '\"..self.name..\"' (\"..self:type()..\") has no end function declared\")end",
-  [ "loadFirst.cfg" ] = "Logging.lua\
-ClassUtil.lua\
-TextUtil.lua\
-DCMLParser.lua",
-  [ "MDaemon.lua" ] = "class\"MDaemon\"abstract()\
-function MDaemon:registerDaemon(e)\
-if not class.isInstance(e)or not e.__daemon then\
-return error(\"Cannot register daemon '\"..tostring(e)..\"' (\"..type(e)..\")\")\
-end\
-if not e.name then return error(\"Daemon '\"..e:type()..\"' has no name!\")end\
-log(\"di\",\"Registered daemon of type '\"..e:type()..\"' (name \"..e.name..\") to \"..self:type())\
-e.owner=self\
-table.insert(self.__daemons,e)\
-end\
-function MDaemon:removeDaemon(a)\
-if not a then return error(\"Cannot un-register daemon with no name to search\")end\
-local e=self.__daemons\
-for t=1,#e do\
-local e=e[t]\
-if e.name==a then\
-log(\"di\",\"Removed daemon of type '\"..e:type()..\"' (name \"..e.name..\") from \"..self:type()..\". Index \"..t)\
-table.remove(self.__daemons,t)\
-end\
-end\
-end\
-function MDaemon:get__daemons()\
-if type(self.__daemons)~=\"table\"then\
-self.__daemons={}\
-end\
-return self.__daemons\
-end\
-function MDaemon:startDaemons()\
-local e=self.__daemons\
-for t=1,#e do\
-e[t]:start()\
-end\
-end\
-function MDaemon:stopDaemons(t)\
-local e=self.__daemons\
-for a=1,#e do\
-e[a]:stop(t)\
-end\
-end",
   [ "Logging.lua" ] = "local a\
 local t\
 local i={\
@@ -1228,6 +1270,135 @@ e.close()\
 end\
 setmetatable(e,{__call=e.log})\
 _G.log=e",
+  [ "FormattedTextObject.lua" ] = "local l,f,m=string.len,string.match,string.sub\
+local function u(t)\
+local a=l(t)\
+local e=0\
+return(function()\
+e=e+1\
+if e<=a then return m(t,e,e)end\
+end)\
+end\
+class\"FormattedTextObject\"{\
+segments={};\
+cache={\
+height=nil;\
+text=nil;\
+};\
+}\
+function FormattedTextObject:initialise(t,e)\
+self.owner=class.isInstance(t)and t or error(\"Cannot set owner of FormattedTextObject to '\"..tostring(t)..\"'\",2)\
+self.width=type(e)==\"number\"and e or error(\"Cannot set width of FormattedTextObject to '\"..tostring(e)..\"'\",2)\
+end\
+function FormattedTextObject:cacheSegmentInformation()\
+if not text then self.owner:parseIdentifiers()text=self.text end\
+if not self.text then return error(\"Failed to parse text identifiers. No new text received.\")end\
+local w=self.segments\
+local n,o,a,t,e=self.width,self.text,{},0,0\
+local s,d,h=false,false,\"left\"\
+local function i()\
+e=1\
+a[t][2]=AssertEnum(h,{\"left\",\"center\",\"centre\",\"right\"},\"Failed FormattedTextObject caching: '\"..tostring(h)..\"' is an invalid alignment setting.\")\
+t=t+1\
+a[t]={\
+{},\
+false\
+}\
+return a[t]\
+end\
+i()\
+local c=0\
+local function r()\
+c=c+1\
+local e=w[c]\
+if e then\
+s=e[1]or s\
+d=e[2]or d\
+h=e[3]or h\
+end\
+end\
+local function h(o)\
+a[t][e+1]={\
+o,\
+s,\
+d\
+}\
+e=e+1\
+end\
+while l(o)>0 do\
+local c=f(o,\"^[ \\t]+\")\
+if c then\
+local t=a[t]\
+for a in u(c)do\
+r()\
+t[#t+1]={\
+a,\
+s,\
+d\
+}\
+e=e+1\
+if e>n then t=i()end\
+end\
+o=m(o,l(c)+1)\
+end\
+local t=f(o,\"^[^ \\t\\n]+\")\
+local a=l(t)\
+if e+a<=n then\
+for e in u(t)do\
+r()\
+h(e)\
+end\
+elseif a<=n then\
+i()\
+for e in u(t)do\
+r()\
+h(e)\
+end\
+else\
+if e>n then i()end\
+for t in u(t)do\
+r()\
+h(t)\
+if e>n then i()end\
+end\
+end\
+end\
+self:cacheAlignments(a)\
+end\
+function FormattedTextObject:cacheAlignments(e)\
+local a=e or self.lines\
+local o=self.width\
+local e,t\
+for i=1,#a do\
+e=a[i]\
+t=e[2]\
+if t==\"left\"then\
+e[3]=1\
+elseif t==\"center\"then\
+e[3]=math.ceil((o/2)-(#e/2))\
+elseif t==\"right\"then\
+e[3]=o-#e\
+else return error(\"Invalid alignment property '\"..tostring(t)..\"'\")end\
+end\
+self.lines=a\
+return self.lines\
+end\
+function FormattedTextObject:draw(e,e)\
+local e=self.owner\
+if class.isInstance(e)then\
+return error(\"Cannot draw '\"..tostring(self:type())..\"'. The instance has no owner.\")\
+end\
+local e=e.canvas\
+end\
+function FormattedTextObject:getCache()\
+if not self.cache then\
+self:cacheText()\
+end\
+return self.cache\
+end\
+function FormattedTextObject:getHeight()\
+return self.cache.height\
+end",
   [ "Input.lua" ] = "DCML.registerTag(\"Input\",{\
 argumentType={\
 X=\"number\";\
@@ -2163,12 +2334,12 @@ manuallyHandle=false;\
 }\
 }\
 function Node:initialise(...)\
-local o,a,e,t=ParseClassArguments(self,{...},{{\"X\",\"number\"},{\"Y\",\"number\"},{\"width\",\"number\"},{\"height\",\"number\"}},false,true)\
-self.canvas=NodeCanvas(self,e or 1,t-1 or 0)\
+local o,a,t,e=ParseClassArguments(self,{...},{{\"X\",\"number\"},{\"Y\",\"number\"},{\"width\",\"number\"},{\"height\",\"number\"}},false,true)\
+self.canvas=NodeCanvas(self,t or 1,e and(e-1)or 0)\
 self.X=o\
 self.Y=a\
-self.width=e or 1\
-self.height=t or 1\
+self.width=t or 1\
+self.height=e or 1\
 end\
 function Node:draw(e,t)\
 if self.preDraw then\
@@ -2241,18 +2412,18 @@ end\
 end\
 end\
 function Node:getTotalOffset()\
-local t,e=0,0\
+local e,t=0,0\
 if self.parent then\
 local a,o=self.parent:getTotalOffset()\
-t=t+a-1\
-e=e+o-1\
+e=e+a-1\
+t=t+o-1\
 elseif self.stage then\
-t=t+self.stage.X\
-e=e+self.stage.Y\
+e=e+self.stage.X\
+t=t+self.stage.Y\
 end\
-t=t+self.X\
-e=e+self.Y\
-return t,e\
+e=e+self.X\
+t=t+self.Y\
+return e,t\
 end\
 function Node.generateNodeCallback(e,t,a)\
 return(function(...)\

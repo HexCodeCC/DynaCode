@@ -29,10 +29,11 @@ abstract class "Node" alias "COLOUR_REDIRECT" {
 }
 
 function Node:initialise( ... )
+    print("i", "initialise node '"..tostring( self ).."'")
     local X, Y, width, height = ParseClassArguments( self, { ... }, { { "X", "number" }, { "Y", "number" }, { "width", "number" }, { "height", "number" } }, false, true )
 
     -- Creates a NodeCanvas
-    self.canvas = NodeCanvas( self, width or 1, height - 1 or 0 )
+    self.canvas = NodeCanvas( self, width or 1, height and (height - 1) or 0 )
 
     self.X = X
     self.Y = Y

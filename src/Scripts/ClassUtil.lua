@@ -1,7 +1,7 @@
 local insert = table.insert
 local len, sub, rep = string.len, string.sub, string.rep
 
-_G.ParseClassArguments = function( instance, args, order, require, raw )
+function ParseClassArguments( instance, args, order, require, raw )
     -- 'instance' is the class instance (self) that is calling the ParseClassArguments function.
     -- 'args' should be an array of the properties passed to the constructor.
     -- 'order' is an optional array that specifies the required arguments and the order in which they should be returned to the caller (see raw)
@@ -88,14 +88,14 @@ _G.ParseClassArguments = function( instance, args, order, require, raw )
     end
 end
 
-_G.AssertClass = function( _class, _type, _instance, err )
+function AssertClass( _class, _type, _instance, err )
     if not class.typeOf( _class, _type, _instance ) then
         return error( err, 2 )
     end
     return _class
 end
 
-_G.AssertEnum = function( input, possible, err )
+function AssertEnum( input, possible, err )
     local ok
     for i = 1, #possible do
         if possible[ i ] == input then
@@ -129,7 +129,7 @@ _G.SELECTABLE = {
     selectedBackgroundColor = "selectedBackgroundColour"
 }
 
-_G.OverflowText = function( text, max )
+function OverflowText( text, max )
     if len( text ) > max then
         local diff = len( text ) - max
         if diff > 3 then
@@ -143,7 +143,7 @@ _G.OverflowText = function( text, max )
     return text
 end
 
-_G.InArea = function( x, y, x1, y1, x2, y2 )
+function InArea( x, y, x1, y1, x2, y2 )
     if x >= x1 and x <= x2 and y >= y1 and y <= y2 then
         return true
     end

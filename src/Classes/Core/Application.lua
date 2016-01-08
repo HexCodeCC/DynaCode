@@ -1,3 +1,4 @@
+local oError
 class "Application" alias "COLOUR_REDIRECT" mixin "MDaemon" {
     canvas = nil;
     hotkey = nil;
@@ -15,6 +16,7 @@ class "Application" alias "COLOUR_REDIRECT" mixin "MDaemon" {
 function Application:initialise( ... )
     -- Classes can be called with either a single table of arguments, or a series of required arguments. The latter only allows certain arguments.
     -- Here, we use the classUtil.lua functionality to parse the arguments passed to the application.
+    if not oError then oError = trace.hook() end
 
     ParseClassArguments( self, { ... }, { { "width", "number" }, {"height", "number"} }, true )
 
@@ -164,8 +166,7 @@ function Application:run( thread )
     end
 
     log("i", "Trying to start daemon services")
-    local _, err = pcall( function() self:startDaemons() end ) -- daemons started before anything else.
-    if err then
+    local ok, err = xpcall( function() self:startDaemons() end, function( err )
         log("f", "Failed to start daemon services. Reason '" .. tostring( err ) .. "'")
         if self.errorHandler then
             self:errorHandler( err, false )
@@ -173,14 +174,33 @@ function Application:run( thread )
             if self.onError then self:onError( err ) end
             error("Failed to start daemon service: "..err)
         end
-    elseif ok then
+    end)
+    if ok then
         log("s", "Daemon service started")
     end
 
+
     log("i", "Starting engine")
-    local ok, err = pcall( engine )
-    if not ok and err then
+
+    local _, err = xpcall( engine, function( err )
         log("f", "Engine error: '"..tostring( err ).."'")
+        local l = 3
+        if trace.getLastHookedError() == err then
+            l = l + 1
+            log("Error Handling", "Error '"..err.."' has been previously hooked by the trace system. Advancing traceback level by one (now " .. l .. ")")
+        else
+            log("Error Handling", "Error '"..err.."' has not been hooked by the trace system. Last hook: "..tostring( trace.getLastHookedError() ))
+        end
+
+        log("Error Handling", "Generating error traceback")
+        trace.traceback( err, l )
+        log("Error Handling", "Unhooking traceback")
+        trace.unhook( oError )
+
+        return err
+    end )
+
+    if err then
         if self.errorHandler then
             self:errorHandler( err, true )
         else
@@ -214,7 +234,8 @@ function Application:run( thread )
 
             crashProcess( YELLOW, "Attempting to write crash information to log file", function()
                 log("f", "DynaCode crashed: "..err)
-            end, RED, "Failed to write crash information: ", LIME, "Wrote crash information to file", 1 )
+                log("f", trace.getLastStack())
+            end, RED, "Failed to write crash information: ", LIME, "Wrote crash information to file (stacktrace)", 1 )
             if self.onError then self:onError( err ) end
         end
     end
@@ -227,7 +248,7 @@ function Application:finish( thread )
     log("i", "Stopping Application")
     self.running = false
     os.queueEvent("stop") -- if the engine is waiting for an event give it one so it can realise 'running' is false -> while loop finished -> exit and return.
-    if type( thread ) == "function" then thread() end
+    if type( thread ) == "function" then return thread() end
 end
 
 function Application:mapWindow( x1, y1, x2, y2 )
