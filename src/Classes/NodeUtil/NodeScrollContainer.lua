@@ -129,6 +129,7 @@ function NodeScrollContainer:draw( xO, yO, force )
     local nodes = self.nodes
     local manDraw = force or self.forceRedraw
     local canvas = self.canvas
+    local drawTo = self.__drawChildrenToCanvas
 
     canvas:clear()
 
@@ -149,7 +150,8 @@ function NodeScrollContainer:draw( xO, yO, force )
         if self:inView( node ) and nC or manDraw then
             -- draw the node using our offset
             node:draw( hO, vO, manDraw or force )
-            node.canvas:drawToCanvas( canvas, node.X + hO, node.Y + vO )
+            log("w", "Drawing node '"..tostring( node ).."' to canvas")
+            if drawTo then node.canvas:drawToCanvas( canvas, node.X + hO, node.Y + vO ) end
 
             if nC then node.changed = false end
         end
@@ -162,7 +164,7 @@ function NodeScrollContainer:draw( xO, yO, force )
 
 
     self.changed = false
-    self.canvas:drawToCanvas( ( self.parent or self.stage ).canvas, self.X + xO, self.Y + yO )
+    --self.canvas:drawToCanvas( ( self.parent or self.stage ).canvas, self.X + xO, self.Y + yO )
 end
 
 function NodeScrollContainer:postDraw()

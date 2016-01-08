@@ -151,12 +151,24 @@ panel.backgroundColour = colours.red
 button2 = panel + Button("Hello Again", 2, 3, 30, 5)
 app:requestStageFocus( stage2 ) -- The event eating issue is fixed so this can be here now.]]
 
-para = stage2 + TextContainer([[@tc-grey+align-center Hey there
-@tc-lightBlue I am centered in the middle of this here box!
+para = stage2 + TextContainer([[@tc-grey+align-center TextContainers
 
-I am over here on the righthand side of your screen!
+@tc-lightBlue Text containers are a very helpful addition to DynaCode. They allow you to write text freely, with inline colour adjustments and alignment changes.
 
-You'll never catch me alive you dirty bastard]], 2, 2, 43, 12)
+Text containers require text, X, Y, width and height variables. If any text overflows outside of the width then it will wrap down to other lines or flow over multiple (if the word is longer than a new line would allow)
+
+If the amount of text lines exceeds the height then a scrollbar will automatically appear and allow you to scroll through your text.
+
+You can also change the @tc-black  text colour and @bg-blue  background colour or even @tc-white+bg-black  both at the same time.
+
+@tc-lightBlue+bg-white You can also adjust alignments. When the alignment is adjusted it will affect the entire line, not just the part after the declaration.
+
+@align-right+tc-grey I am over here on the righthand side of your screen!
+
+@align-left+tc-blue You'll never catch me alive!
+
+@align-center This-is-one-big-huge-super-long-word-that-will-wrap-over-multiple-lines.]], 2, 2, 43, 9)
 
 --app:appendStagesFromDCML( "stages.dcml" )
+app:requestStageFocus( stage2 )
 app:run()

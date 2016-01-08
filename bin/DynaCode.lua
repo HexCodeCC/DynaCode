@@ -280,6 +280,7 @@ function NodeScrollContainer:draw( xO, yO, force )\
     local nodes = self.nodes\
     local manDraw = force or self.forceRedraw\
     local canvas = self.canvas\
+    local drawTo = self.__drawChildrenToCanvas\
 \
     canvas:clear()\
 \
@@ -300,7 +301,8 @@ function NodeScrollContainer:draw( xO, yO, force )\
         if self:inView( node ) and nC or manDraw then\
             -- draw the node using our offset\
             node:draw( hO, vO, manDraw or force )\
-            node.canvas:drawToCanvas( canvas, node.X + hO, node.Y + vO )\
+            log(\"w\", \"Drawing node '\"..tostring( node )..\"' to canvas\")\
+            if drawTo then node.canvas:drawToCanvas( canvas, node.X + hO, node.Y + vO ) end\
 \
             if nC then node.changed = false end\
         end\
@@ -313,7 +315,7 @@ function NodeScrollContainer:draw( xO, yO, force )\
 \
 \
     self.changed = false\
-    self.canvas:drawToCanvas( ( self.parent or self.stage ).canvas, self.X + xO, self.Y + yO )\
+    --self.canvas:drawToCanvas( ( self.parent or self.stage ).canvas, self.X + xO, self.Y + yO )\
 end\
 \
 function NodeScrollContainer:postDraw()\
@@ -1219,6 +1221,8 @@ function MultiLineTextDisplay:initialise( ... )\
 \
     self.text = text\
     self.container = FormattedTextObject( self, self.width )\
+\
+    self.nodes[ 1 ] = self.container\
 end\
 \
 function MultiLineTextDisplay:parseIdentifiers()\
@@ -1274,14 +1278,6 @@ function MultiLineTextDisplay:parseIdentifiers()\
 \
     local container = self.container\
     container.segments, container.text = segments, newString\
-end\
-\
-function MultiLineTextDisplay:draw( xO, yO )\
-    -- draw the text\
-    local container = self.container\
-    if not container then return error(\"Failed to draw node '\"..self:type()..\"' because the MultiLineTextDisplay has no FormattedTextObject set\") end\
-\
-    self.container:draw( xO, yO )\
 end",
   [ "loadFirst.cfg" ] = "Logging.lua\
 ClassUtil.lua\
@@ -1699,7 +1695,7 @@ local function splitWord( word )\
     end)\
 end\
 \
-class \"FormattedTextObject\" {\
+class \"FormattedTextObject\" extends \"Node\" {\
     segments = {};\
     cache = {\
         height = nil;\
@@ -1738,15 +1734,12 @@ function FormattedTextObject:cacheSegmentInformation()\
 \
     local textIndex = 0\
     local function applySegments()\
-        log(\"i\", \"Searching for segment at textIndex \"..textIndex)\
         local segment = segments[ textIndex ]\
 \
         if segment then\
             textColour = segment[1] or textColour\
             backgroundColour = segment[2] or backgroundColour\
             lineAlignment = segment[3] or lineAlignment\
-\
-            log(\"i\", \"Settings after segment found: textColour: \"..tostring(textColour)..\", backgroundColour: \"..tostring(backgroundColour)..\", lineAlignment: \"..lineAlignment)\
         end\
         textIndex = textIndex + 1\
     end\
@@ -1766,7 +1759,6 @@ function FormattedTextObject:cacheSegmentInformation()\
         local new = match( text, \"^[\\n]+\")\
         if new then\
             for i = 1, len( new ) do\
-                log(\"i\", \"Newline\")\
                 newline()\
                 textIndex = textIndex + 1\
             end\
@@ -1778,7 +1770,6 @@ function FormattedTextObject:cacheSegmentInformation()\
             local currentLine = lines[ currentY ]\
             for char in splitWord( whitespace ) do\
                 applySegments()\
-                log(\"i\", \"Whitespace located at \"..#currentLine + 1)\
                 currentLine[ #currentLine + 1 ] = {\
                     char,\
                     textColour,\
@@ -1791,11 +1782,8 @@ function FormattedTextObject:cacheSegmentInformation()\
             text = sub( text, len(whitespace) + 1 )\
         end\
 \
-        log(\"i\", \"new text: \"..text)\
-\
         local word = match( text, \"%S+\" )\
         if word then\
-            log(\"i\", \"Processing word '\"..word..\"'\")\
             local lengthOfWord = len( word )\
             text = sub( text, lengthOfWord + 1 )\
 \
@@ -1841,8 +1829,6 @@ function FormattedTextObject:cacheAlignments( _lines )\
         line = lines[ i ]\
         alignment = line.align\
 \
-        log(\"i\", \"Align for line '\"..i..\"': \"..tostring( alignment ))\
-\
         if alignment == \"left\" then\
             line.X = 1\
         elseif alignment == \"center\" then\
@@ -1864,26 +1850,27 @@ function FormattedTextObject:draw( xO, yO )\
 \
     local canvas = owner.canvas\
     if not canvas then return error(\"Object '\"..tostring( owner )..\"' has no canvas\") end\
+    canvas:clear()\
     local buffer = canvas.buffer\
 \
     if not self.lines then\
         self:cacheSegmentInformation()\
     end\
     local lines = self.lines\
-    local width = self.width\
+    local width = self.owner.width\
 \
     -- Draw the text to the canvas ( the cached version )\
     local startingPos, pos, pixel\
     for i = 1, #lines do\
-        -- use the i value as a Y axis\
-        local line = lines[ i ]\
-        startingPos = ( width * ( i - 1 ) ) + (line.X - 1)\
+        local line = lines[i]\
+        local lineX = line.X\
+        startingPos = canvas.width * ( i - 0 )\
 \
         for x = 1, #line do\
-            pos = startingPos + x\
-            pixel = line[ x ] or { \" \", false, false }\
-\
-            buffer[ pos ] = { pixel[1], pixel[2], pixel[3] }\
+            local pixel = line[x] or {\" \", colours.red, colours.red}\
+            if pixel then\
+                buffer[ (canvas.width * (i - 1 + yO)) + (x + lineX - 1) ] = { pixel[1], pixel[2], pixel[3] }\
+            end\
         end\
     end\
 end\
@@ -1898,8 +1885,12 @@ end\
 \
 \
 function FormattedTextObject:getHeight()\
-    return self.cache.height\
-end",
+    if not self.lines then self:cacheSegmentInformation() end\
+\
+    return #self.lines\
+end\
+\
+function FormattedTextObject:getCanvas() return self.owner.canvas end",
   [ "Input.lua" ] = "DCML.registerTag(\"Input\", {\
     argumentType = {\
         X = \"number\";\

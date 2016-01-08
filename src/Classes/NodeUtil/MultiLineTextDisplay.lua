@@ -16,6 +16,8 @@ function MultiLineTextDisplay:initialise( ... )
 
     self.text = text
     self.container = FormattedTextObject( self, self.width )
+
+    self.nodes[ 1 ] = self.container
 end
 
 function MultiLineTextDisplay:parseIdentifiers()
@@ -71,12 +73,4 @@ function MultiLineTextDisplay:parseIdentifiers()
 
     local container = self.container
     container.segments, container.text = segments, newString
-end
-
-function MultiLineTextDisplay:draw( xO, yO )
-    -- draw the text
-    local container = self.container
-    if not container then return error("Failed to draw node '"..self:type().."' because the MultiLineTextDisplay has no FormattedTextObject set") end
-
-    self.container:draw( xO, yO )
 end
