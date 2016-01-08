@@ -9,13 +9,12 @@ local function drawCentre( text, y, colour )
     else
         term.setCursorPos( 1, y )
     end
+    term.clearLine()
     term.write( text )
 end
 
 shell.run("dobuild.lua", "/src", "bin/DynaCode.lua")
 dofile("bin/DynaCode.lua")
-
---if true then dofile("example/example.lua") return end
 
 
 if logging then
@@ -24,6 +23,9 @@ if logging then
     log:setLoggingEnabled( true )
     log:setLoggingPath("DynaCode.log")
 end
+if type( trace ) ~= "table" then error("DynaCode Traceback system not available.", 0) end
+
+--if true then dofile("classtest.lua") return end
 
 
 app = Application( term.getSize() )
@@ -49,8 +51,8 @@ stage2 = app + Stage({
     name = "TestStage2";
     X = 5;
     Y = 2;
-    width = 25;
-    height = 10;
+    width = 45;
+    height = 14;
     textColour = colors.lightGray;
     titleTextColour = colors.white;
     titleBackgroundColour = 128;
@@ -96,36 +98,65 @@ function app:errorHandler( err, daemon )
 
     drawCentre( "Error: "..err, 12, colours.red )
 
-    drawCentre("Press any key to shutdown", tHeight, GREY )
+    local usingLog
+
+    if logging and type( log ) == "table" and type( log.getEnabled ) == "function" and log:getEnabled() then
+        drawCentre("Gathering stacktrace information", tHeight-2, GREY)
+        log("Stacktrace", "\n"..tostring(trace.getLastStack()))
+        drawCentre("", tHeight-2, GREY)
+        usingLog = true
+    else
+        drawCentre("Enable log to see stacktrace + details", tHeight-2, GREY)
+    end
 
     if daemon then
+        drawCentre("Shutting down daemon services", 14, colours.grey)
         local ok, err = pcall( function() self:stopDaemons( false ) end )
         if err or not ok then
             drawCentre( "Daemon Status: Failed to stop", 14, colours.red )
-            log("f", "Failed to stop daemon service in crash handler. Reason: "..err)
+            log("f", "Failed to stop daemon service. Error: "..err)
         elseif ok then
             drawCentre( "Daemon Status: Stopped", 14, colours.green)
         end
     else drawCentre( "Daemon Status: Failed to start (stopped)", 14, colours.orange ) end
 
-    if logging and type( log ) == "table" and type( log.getEnabled ) == "function" and log:getEnabled() then
-        drawCentre("See log for full error details", tHeight-2, GREY)
+    if usingLog then
+        drawCentre("Press 'l' to open the log", tHeight - 1, GREY )
+        drawCentre("or press any other key to shutdown", tHeight, GREY )
     else
-        drawCentre("Enable log to get further error details", tHeight-2, GREY)
+        drawCentre("Press any key to shutdown", tHeight, GREY )
     end
 
     while true do
         local e = { coroutine.yield() }
-        if e[1] == "key" then os.shutdown() break end
+        sleep()
+        if e[1] == "key" then
+            if usingLog then
+                if e[2] == keys.l then
+                    shell.run("edit", log:getLoggingPath())
+                else
+                    os.shutdown()
+                end
+            else
+                os.shutdown()
+            end
+        end
     end
 end
 
 
-panel = stage2 + Panel( 2, 2, 20, 10 )
+--[[panel = stage2 + Panel( 2, 2, 20, 10 )
 panel.backgroundColour = colours.red
 
 button2 = panel + Button("Hello Again", 2, 3, 30, 5)
-app:requestStageFocus( stage2 ) -- The event eating issue is fixed so this can be here now.
+app:requestStageFocus( stage2 ) -- The event eating issue is fixed so this can be here now.]]
 
-app:appendStagesFromDCML( "stages.dcml" )
+para = stage2 + TextContainer([[@tc-grey+align-center Hey there
+@tc-lightBlue I am centered in the middle of this here box!
+
+I am over here on the righthand side of your screen!
+
+You'll never catch me alive you dirty bastard]], 2, 2, 43, 12)
+
+--app:appendStagesFromDCML( "stages.dcml" )
 app:run()

@@ -1,6 +1,6 @@
 local tArgs = { ... }
 if #tArgs < 1 then
-    error("dobuild.lua <OUTPUT> [--clean ?]", 1)
+    error("make <OUTPUT> [--clean ?]", 1)
 end
 
 local OUTPUT_FILE = tArgs[1]

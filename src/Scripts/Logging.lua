@@ -64,6 +64,8 @@ function log:setLoggingPath( path )
     self:clearLog( true )
 end
 
+function log:getLoggingPath() return loggingPath end
+
 function log:clearLog( intro )
     if not loggingPath then return end
 

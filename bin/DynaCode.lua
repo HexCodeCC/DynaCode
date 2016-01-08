@@ -548,7 +548,7 @@ end",
   [ "ClassUtil.lua" ] = "local insert = table.insert\
 local len, sub, rep = string.len, string.sub, string.rep\
 \
-_G.ParseClassArguments = function( instance, args, order, require, raw )\
+function ParseClassArguments( instance, args, order, require, raw )\
     -- 'instance' is the class instance (self) that is calling the ParseClassArguments function.\
     -- 'args' should be an array of the properties passed to the constructor.\
     -- 'order' is an optional array that specifies the required arguments and the order in which they should be returned to the caller (see raw)\
@@ -635,14 +635,14 @@ _G.ParseClassArguments = function( instance, args, order, require, raw )\
     end\
 end\
 \
-_G.AssertClass = function( _class, _type, _instance, err )\
+function AssertClass( _class, _type, _instance, err )\
     if not class.typeOf( _class, _type, _instance ) then\
         return error( err, 2 )\
     end\
     return _class\
 end\
 \
-_G.AssertEnum = function( input, possible, err )\
+function AssertEnum( input, possible, err )\
     local ok\
     for i = 1, #possible do\
         if possible[ i ] == input then\
@@ -676,7 +676,7 @@ _G.SELECTABLE = {\
     selectedBackgroundColor = \"selectedBackgroundColour\"\
 }\
 \
-_G.OverflowText = function( text, max )\
+function OverflowText( text, max )\
     if len( text ) > max then\
         local diff = len( text ) - max\
         if diff > 3 then\
@@ -690,7 +690,7 @@ _G.OverflowText = function( text, max )\
     return text\
 end\
 \
-_G.InArea = function( x, y, x1, y1, x2, y2 )\
+function InArea( x, y, x1, y1, x2, y2 )\
     if x >= x1 and x <= x2 and y >= y1 and y <= y2 then\
         return true\
     end\
@@ -850,6 +850,15 @@ function MyDaemon:stop( graceful )\
     -- remove event registers\
     local event = self.owner.event\
     event:removeEventHandler(\"TERMINATE\", \"EVENT\", \"Terminate\")\
+end",
+  [ "TextContainer.lua" ] = "class \"TextContainer\" extends \"MultiLineTextDisplay\"\
+\
+function TextContainer:setText( text )\
+    self.text = text\
+\
+    if self.__init_complete then\
+        self.container.text = text\
+    end\
 end",
   [ "UnknownEvent.lua" ] = "class \"UnknownEvent\" mixin \"Event\" {\
     main = false;\
@@ -1158,7 +1167,7 @@ end\
 function Canvas:setHeight( height )\
     if not self.buffer then self.height = height return end\
     local width, buffer, cHeight = self.width, self.buffer, self.height\
-\
+    \
 \009while self.height < height do\
 \009\009for i = 1, width do\
 \009\009\009buffer[#buffer + 1] = px\
@@ -1173,6 +1182,161 @@ function Canvas:setHeight( height )\
 \009\009self.height = self.height - 1\
 \009end\
     --self:clear()\
+end",
+  [ "Daemon.lua" ] = "abstract class \"Daemon\" {\
+    acceptMouse = false;\
+    acceptMisc = false;\
+    acceptKeyboard = false;\
+\
+    owner = nil;\
+\
+    __daemon = true;\
+}\
+\
+function Daemon:initialise( name )\
+    if not name then return error(\"Daemon '\"..self:type()..\"' cannot initialise without name\") end\
+\
+    self.name = name\
+end\
+\
+function Daemon:start() log(\"d\", \"WARNING: Daemon '\"..self.name..\"' (\"..self:type()..\") has no start function declared\") end\
+function Daemon:stop() log(\"d\", \"WARNING: Daemon '\"..self.name..\"' (\"..self:type()..\") has no end function declared\") end",
+  [ "MultiLineTextDisplay.lua" ] = "-- The MultiLineTextDisplay stores the parsed text in a FormattedTextObject class which is then used by the NodeScrollContainer to detect the need for and draw scrollbars to traverse the text.\
+\
+-- When any nodes extending this class are drawn the draw request will be forwarded to the FormattedTextObject where it will then decide (based on the size of the parent node) how to\
+-- layout the formatted text (this included colouring and alignments of course).\
+local len, find, sub, match, gmatch, gsub = string.len, string.find, string.sub, string.match, string.gmatch, string.gsub\
+local function parseColour( cl )\
+    return colours[ cl ] or colors[ cl ] or error(\"Invalid colour '\"..cl..\"'\")\
+end\
+\
+\
+abstract class \"MultiLineTextDisplay\" extends \"NodeScrollContainer\"\
+\
+function MultiLineTextDisplay:initialise( ... )\
+    local text, X, Y, width, height = ParseClassArguments( self, { ... }, { {\"text\", \"string\"}, {\"X\", \"number\"}, {\"Y\", \"number\"}, {\"width\", \"number\"}, {\"height\", \"number\"} }, true, true )\
+    self.super( X, Y, width, height )\
+\
+    self.text = text\
+    self.container = FormattedTextObject( self, self.width )\
+end\
+\
+function MultiLineTextDisplay:parseIdentifiers()\
+    local segments = {}\
+    local str = self.text\
+    local oldStop = 0\
+\
+    local newString = gsub( str, \"[ ]?%@%w-%-%w+[[%+%w-%-%w+]+]?[ ]?\", \"\" )\
+\
+    -- Loop until the string has been completely searched\
+    local textColour, backgroundColour, alignment = false, false, false\
+    while len( str ) > 0 do\
+        -- Search the string for the next identifier.\
+        local start, stop = find( str, \"%@%w-%-%w+[[%+%w-%-%w+]+]?\" )\
+        local leading, trailing, identifier\
+\
+        if not start or not stop then break end\
+\
+        leading = sub( str, start - 1, start - 1 ) == \" \"\
+        trailing = sub( str, stop + 1, stop + 1 ) == \" \"\
+        identifier = sub( str, start, stop )\
+\
+        -- Remove the identifier from the string along with everything prior. Reduce the X index with that too.\
+        local X = stop + oldStop - len( identifier )\
+        oldStop = oldStop + start - 2 - ( leading and 1 or 0 ) - ( trailing and 1 or 0 )\
+\
+        -- We have the X index which is where the settings will be applied during draw, trim the string\
+        str = sub( str, stop )\
+\
+        -- Parse this identifier\
+        for part in gmatch( identifier, \"([^%+]+)\" ) do\
+            if sub( part, 1, 1 ) == \"@\" then\
+                -- discard the starting symbol\
+                part = sub( part, 2 )\
+            end\
+\
+            local pre, post = match( part, \"(%w-)%-\" ), match( part, \"%-(%w+)\" )\
+            if not pre or not post then error(\"identifier '\"..tostring( identifier )..\"' contains invalid syntax\") end\
+\
+            if pre == \"tc\" then\
+                textColour = parseColour( post )\
+            elseif pre == \"bg\" then\
+                backgroundColour = parseColour( post )\
+            elseif pre == \"align\" then\
+                alignment = post\
+            else\
+                error(\"Unknown identifier target '\"..tostring(pre)..\"' in identifier '\"..tostring( identifier )..\"' at part '\"..part..\"'\")\
+            end\
+        end\
+\
+        segments[ X ] = { textColour, backgroundColour, alignment }\
+    end\
+\
+    local container = self.container\
+    container.segments, container.text = segments, newString\
+end\
+\
+function MultiLineTextDisplay:draw( xO, yO )\
+    -- draw the text\
+    local container = self.container\
+    if not container then return error(\"Failed to draw node '\"..self:type()..\"' because the MultiLineTextDisplay has no FormattedTextObject set\") end\
+\
+    self.container:draw( xO, yO )\
+end",
+  [ "loadFirst.cfg" ] = "Logging.lua\
+ClassUtil.lua\
+TextUtil.lua\
+DCMLParser.lua",
+  [ "MDaemon.lua" ] = "abstract class \"MDaemon\" -- this class is used for mixin(s) only.\
+\
+function MDaemon:registerDaemon( service )\
+    -- name -> string\
+    -- service -> daemonService (class extending Daemon)\
+    if not class.isInstance( service ) or not service.__daemon then\
+        return error(\"Cannot register daemon '\"..tostring( service )..\"' (\"..type( service )..\")\")\
+    end\
+\
+    if not service.name then return error(\"Daemon '\"..service:type()..\"' has no name!\") end\
+    log(\"di\", \"Registered daemon of type '\"..service:type()..\"' (name \"..service.name..\") to \"..self:type())\
+\
+    service.owner = self\
+    table.insert( self.__daemons, service )\
+end\
+\
+function MDaemon:removeDaemon( name )\
+    if not name then return error(\"Cannot un-register daemon with no name to search\") end\
+    local daemons = self.__daemons\
+\
+    for i = 1, #daemons do\
+        local daemon = daemons[i]\
+        if daemon.name == name then\
+            log(\"di\", \"Removed daemon of type '\"..daemon:type()..\"' (name \"..daemon.name..\") from \"..self:type()..\". Index \"..i)\
+            table.remove( self.__daemons, i )\
+        end\
+    end\
+end\
+\
+function MDaemon:get__daemons()\
+    if type( self.__daemons ) ~= \"table\" then\
+        self.__daemons = {}\
+    end\
+    return self.__daemons\
+end\
+\
+function MDaemon:startDaemons()\
+    local daemons = self.__daemons\
+\
+    for i = 1, #daemons do\
+        daemons[i]:start()\
+    end\
+end\
+\
+function MDaemon:stopDaemons( graceful )\
+    local daemons = self.__daemons\
+\
+    for i = 1, #daemons do\
+        daemons[i]:stop( graceful )\
+    end\
 end",
   [ "DCMLParser.lua" ] = "local sub = string.sub\
 local function readData( data )\
@@ -1442,79 +1606,6 @@ function Parser.parse( data )\
     return parsed\
 end\
 _G.DCML = Parser",
-  [ "Daemon.lua" ] = "abstract class \"Daemon\" {\
-    acceptMouse = false;\
-    acceptMisc = false;\
-    acceptKeyboard = false;\
-\
-    owner = nil;\
-\
-    __daemon = true;\
-}\
-\
-function Daemon:initialise( name )\
-    if not name then return error(\"Daemon '\"..self:type()..\"' cannot initialise without name\") end\
-\
-    self.name = name\
-end\
-\
-function Daemon:start() log(\"d\", \"WARNING: Daemon '\"..self.name..\"' (\"..self:type()..\") has no start function declared\") end\
-function Daemon:stop() log(\"d\", \"WARNING: Daemon '\"..self.name..\"' (\"..self:type()..\") has no end function declared\") end",
-  [ "loadFirst.cfg" ] = "Logging.lua\
-ClassUtil.lua\
-TextUtil.lua\
-DCMLParser.lua",
-  [ "MDaemon.lua" ] = "abstract class \"MDaemon\" -- this class is used for mixin(s) only.\
-\
-function MDaemon:registerDaemon( service )\
-    -- name -> string\
-    -- service -> daemonService (class extending Daemon)\
-    if not class.isInstance( service ) or not service.__daemon then\
-        return error(\"Cannot register daemon '\"..tostring( service )..\"' (\"..type( service )..\")\")\
-    end\
-\
-    if not service.name then return error(\"Daemon '\"..service:type()..\"' has no name!\") end\
-    log(\"di\", \"Registered daemon of type '\"..service:type()..\"' (name \"..service.name..\") to \"..self:type())\
-\
-    service.owner = self\
-    table.insert( self.__daemons, service )\
-end\
-\
-function MDaemon:removeDaemon( name )\
-    if not name then return error(\"Cannot un-register daemon with no name to search\") end\
-    local daemons = self.__daemons\
-\
-    for i = 1, #daemons do\
-        local daemon = daemons[i]\
-        if daemon.name == name then\
-            log(\"di\", \"Removed daemon of type '\"..daemon:type()..\"' (name \"..daemon.name..\") from \"..self:type()..\". Index \"..i)\
-            table.remove( self.__daemons, i )\
-        end\
-    end\
-end\
-\
-function MDaemon:get__daemons()\
-    if type( self.__daemons ) ~= \"table\" then\
-        self.__daemons = {}\
-    end\
-    return self.__daemons\
-end\
-\
-function MDaemon:startDaemons()\
-    local daemons = self.__daemons\
-\
-    for i = 1, #daemons do\
-        daemons[i]:start()\
-    end\
-end\
-\
-function MDaemon:stopDaemons( graceful )\
-    local daemons = self.__daemons\
-\
-    for i = 1, #daemons do\
-        daemons[i]:stop( graceful )\
-    end\
-end",
   [ "Logging.lua" ] = "local loggingEnabled\
 local loggingPath\
 local loggingModes = {\
@@ -1581,6 +1672,8 @@ function log:setLoggingPath( path )\
     self:clearLog( true )\
 end\
 \
+function log:getLoggingPath() return loggingPath end\
+\
 function log:clearLog( intro )\
     if not loggingPath then return end\
 \
@@ -1593,6 +1686,220 @@ end\
 \
 setmetatable( log, {__call = log.log})\
 _G.log = log",
+  [ "FormattedTextObject.lua" ] = "-- The FormattedTextObject has dynamic a height which will change to fit the size of the text\
+local len, match, sub = string.len, string.match, string.sub\
+\
+local function splitWord( word )\
+    local wordLength = len( word )\
+\
+    local i = 0\
+    return (function()\
+        i = i + 1\
+        if i <= wordLength then return sub( word, i, i ) end\
+    end)\
+end\
+\
+class \"FormattedTextObject\" {\
+    segments = {};\
+    cache = {\
+        height = nil;\
+        text = nil;\
+    };\
+}\
+\
+function FormattedTextObject:initialise( owner, width )\
+    self.owner = class.isInstance( owner ) and owner or error(\"Cannot set owner of FormattedTextObject to '\"..tostring( owner )..\"'\", 2)\
+    self.width = type( width ) == \"number\" and width or error(\"Cannot set width of FormattedTextObject to '\"..tostring( width )..\"'\", 2)\
+end\
+\
+function FormattedTextObject:cacheSegmentInformation()\
+    if not text then self.owner:parseIdentifiers() text = self.text end\
+    if not self.text then return error(\"Failed to parse text identifiers. No new text received.\") end\
+\
+    local segments = self.segments\
+    local width, text, lines, currentY, currentX = self.width, self.text, {}, 1, 1\
+    local textColour, backgroundColour, lineAlignment = false, false, \"left\"\
+\
+    local function newline()\
+        currentX = 1\
+\
+        lines[ currentY ].align = AssertEnum( lineAlignment, {\"left\", \"center\", \"centre\", \"right\"}, \"Failed FormattedTextObject caching: '\"..tostring( lineAlignment )..\"' is an invalid alignment setting.\") -- set the property on this line for later processing\
+\
+        currentY = currentY + 1\
+\
+        lines[ currentY ] = {\
+            align = lineAlignment\
+        }\
+        return lines[ currentY ]\
+    end\
+    lines[ currentY ] = {\
+        align = lineAlignment\
+    }\
+\
+    local textIndex = 0\
+    local function applySegments()\
+        log(\"i\", \"Searching for segment at textIndex \"..textIndex)\
+        local segment = segments[ textIndex ]\
+\
+        if segment then\
+            textColour = segment[1] or textColour\
+            backgroundColour = segment[2] or backgroundColour\
+            lineAlignment = segment[3] or lineAlignment\
+\
+            log(\"i\", \"Settings after segment found: textColour: \"..tostring(textColour)..\", backgroundColour: \"..tostring(backgroundColour)..\", lineAlignment: \"..lineAlignment)\
+        end\
+        textIndex = textIndex + 1\
+    end\
+\
+    local function appendChar( char )\
+        local currentLine = lines[ currentY ]\
+        lines[ currentY ][ #currentLine + 1 ] = {\
+            char,\
+            textColour,\
+            backgroundColour\
+        }\
+        currentX = currentX + 1\
+    end\
+\
+    -- pre-process the text line by fetching each word and analysing it.\
+    while len( text ) > 0 do\
+        local new = match( text, \"^[\\n]+\")\
+        if new then\
+            for i = 1, len( new ) do\
+                log(\"i\", \"Newline\")\
+                newline()\
+                textIndex = textIndex + 1\
+            end\
+            text = sub( text, len( new ) + 1 )\
+        end\
+\
+        local whitespace = match( text, \"^[ \\t]+\" )\
+        if whitespace then\
+            local currentLine = lines[ currentY ]\
+            for char in splitWord( whitespace ) do\
+                applySegments()\
+                log(\"i\", \"Whitespace located at \"..#currentLine + 1)\
+                currentLine[ #currentLine + 1 ] = {\
+                    char,\
+                    textColour,\
+                    backgroundColour\
+                }\
+\
+                currentX = currentX + 1\
+                if currentX > width then currentLine = newline() end\
+            end\
+            text = sub( text, len(whitespace) + 1 )\
+        end\
+\
+        log(\"i\", \"new text: \"..text)\
+\
+        local word = match( text, \"%S+\" )\
+        if word then\
+            log(\"i\", \"Processing word '\"..word..\"'\")\
+            local lengthOfWord = len( word )\
+            text = sub( text, lengthOfWord + 1 )\
+\
+            if currentX + lengthOfWord <= width then\
+                -- if this word can fit on the current line then add it\
+                for char in splitWord( word ) do\
+                    -- append this character after searching for and applying segment information.\
+                    applySegments()\
+                    appendChar( char ) -- we know the word can fit so we needn't check the width here.\
+                end\
+            elseif lengthOfWord <= width then\
+                -- if this word cannot fit on the current line but can fit on a new line add it to a new one\
+                newline()\
+                for char in splitWord( word ) do\
+                    applySegments()\
+                    appendChar( char )\
+                end\
+            else\
+                -- if the word cannot fit on a new line then wrap it over multiple lines\
+                if currentX > width then newline() end\
+                for char in splitWord( word ) do\
+                    applySegments()\
+                    appendChar( char )\
+\
+                    if currentX > width then newline() end\
+                end\
+            end\
+        else break end\
+    end\
+\
+    -- wrap the final line (this is done when newlines are generated so all but the last line will be ready)\
+    lines[currentY].align = lineAlignment\
+\
+    self:cacheAlignments( lines )\
+end\
+\
+function FormattedTextObject:cacheAlignments( _lines )\
+    local lines = _lines or self.lines\
+    local width = self.width\
+\
+    local line, alignment\
+    for i = 1, #lines do\
+        line = lines[ i ]\
+        alignment = line.align\
+\
+        log(\"i\", \"Align for line '\"..i..\"': \"..tostring( alignment ))\
+\
+        if alignment == \"left\" then\
+            line.X = 1\
+        elseif alignment == \"center\" then\
+            line.X = math.ceil( ( width / 2 ) - ( #line / 2 ) ) + 1\
+        elseif alignment == \"right\" then\
+            line.X = width - #line + 1\
+        else return error(\"Invalid alignment property '\"..tostring( alignment )..\"'\") end\
+    end\
+\
+    self.lines = lines\
+    return self.lines\
+end\
+\
+function FormattedTextObject:draw( xO, yO )\
+    local owner = self.owner\
+    if not class.isInstance( owner ) then\
+        return error(\"Cannot draw '\"..tostring( self:type() )..\"'. The instance has no owner.\")\
+    end\
+\
+    local canvas = owner.canvas\
+    if not canvas then return error(\"Object '\"..tostring( owner )..\"' has no canvas\") end\
+    local buffer = canvas.buffer\
+\
+    if not self.lines then\
+        self:cacheSegmentInformation()\
+    end\
+    local lines = self.lines\
+    local width = self.width\
+\
+    -- Draw the text to the canvas ( the cached version )\
+    local startingPos, pos, pixel\
+    for i = 1, #lines do\
+        -- use the i value as a Y axis\
+        local line = lines[ i ]\
+        startingPos = ( width * ( i - 1 ) ) + (line.X - 1)\
+\
+        for x = 1, #line do\
+            pos = startingPos + x\
+            pixel = line[ x ] or { \" \", false, false }\
+\
+            buffer[ pos ] = { pixel[1], pixel[2], pixel[3] }\
+        end\
+    end\
+end\
+\
+function FormattedTextObject:getCache()\
+    if not self.cache then\
+        self:cacheText()\
+    end\
+\
+    return self.cache\
+end\
+\
+\
+function FormattedTextObject:getHeight()\
+    return self.cache.height\
+end",
   [ "Input.lua" ] = "DCML.registerTag(\"Input\", {\
     argumentType = {\
         X = \"number\";\
@@ -1823,8 +2130,10 @@ function Input:onFocusGain() self.focused = true; self.acceptKeyboard = true; se
   [ "scriptFiles.cfg" ] = "ClassUtil.lua\
 TextUtil.lua\
 DCMLParser.lua\
-Logging.lua",
-  [ "Application.lua" ] = "class \"Application\" alias \"COLOUR_REDIRECT\" mixin \"MDaemon\" {\
+Logging.lua\
+Traceback.lua",
+  [ "Application.lua" ] = "local oError\
+class \"Application\" alias \"COLOUR_REDIRECT\" mixin \"MDaemon\" {\
     canvas = nil;\
     hotkey = nil;\
     timer = nil;\
@@ -1841,6 +2150,7 @@ Logging.lua",
 function Application:initialise( ... )\
     -- Classes can be called with either a single table of arguments, or a series of required arguments. The latter only allows certain arguments.\
     -- Here, we use the classUtil.lua functionality to parse the arguments passed to the application.\
+    if not oError then oError = trace.hook() end\
 \
     ParseClassArguments( self, { ... }, { { \"width\", \"number\" }, {\"height\", \"number\"} }, true )\
 \
@@ -1990,8 +2300,7 @@ function Application:run( thread )\
     end\
 \
     log(\"i\", \"Trying to start daemon services\")\
-    local _, err = pcall( function() self:startDaemons() end ) -- daemons started before anything else.\
-    if err then\
+    local ok, err = xpcall( function() self:startDaemons() end, function( err )\
         log(\"f\", \"Failed to start daemon services. Reason '\" .. tostring( err ) .. \"'\")\
         if self.errorHandler then\
             self:errorHandler( err, false )\
@@ -1999,14 +2308,33 @@ function Application:run( thread )\
             if self.onError then self:onError( err ) end\
             error(\"Failed to start daemon service: \"..err)\
         end\
-    elseif ok then\
+    end)\
+    if ok then\
         log(\"s\", \"Daemon service started\")\
     end\
 \
+\
     log(\"i\", \"Starting engine\")\
-    local ok, err = pcall( engine )\
-    if not ok and err then\
+\
+    local _, err = xpcall( engine, function( err )\
         log(\"f\", \"Engine error: '\"..tostring( err )..\"'\")\
+        local l = 3\
+        if trace.getLastHookedError() == err then\
+            l = l + 1\
+            log(\"Error Handling\", \"Error '\"..err..\"' has been previously hooked by the trace system. Advancing traceback level by one (now \" .. l .. \")\")\
+        else\
+            log(\"Error Handling\", \"Error '\"..err..\"' has not been hooked by the trace system. Last hook: \"..tostring( trace.getLastHookedError() ))\
+        end\
+\
+        log(\"Error Handling\", \"Generating error traceback\")\
+        trace.traceback( err, l )\
+        log(\"Error Handling\", \"Unhooking traceback\")\
+        trace.unhook( oError )\
+\
+        return err\
+    end )\
+\
+    if err then\
         if self.errorHandler then\
             self:errorHandler( err, true )\
         else\
@@ -2040,7 +2368,8 @@ function Application:run( thread )\
 \
             crashProcess( YELLOW, \"Attempting to write crash information to log file\", function()\
                 log(\"f\", \"DynaCode crashed: \"..err)\
-            end, RED, \"Failed to write crash information: \", LIME, \"Wrote crash information to file\", 1 )\
+                log(\"f\", trace.getLastStack())\
+            end, RED, \"Failed to write crash information: \", LIME, \"Wrote crash information to file (stacktrace)\", 1 )\
             if self.onError then self:onError( err ) end\
         end\
     end\
@@ -2053,7 +2382,7 @@ function Application:finish( thread )\
     log(\"i\", \"Stopping Application\")\
     self.running = false\
     os.queueEvent(\"stop\") -- if the engine is waiting for an event give it one so it can realise 'running' is false -> while loop finished -> exit and return.\
-    if type( thread ) == \"function\" then thread() end\
+    if type( thread ) == \"function\" then return thread() end\
 end\
 \
 function Application:mapWindow( x1, y1, x2, y2 )\
@@ -2395,6 +2724,7 @@ end\
 local function formSuper( instance, target, total )\
     -- Find the class, load if it is required and not already loaded.\
     local totalKeyPairs = total or {}\
+    local localKeys = {}\
 \
     local super = fetchClass( target, true )\
     local superRaw = deepCopy( getRawContent( super ) )\
@@ -2403,20 +2733,12 @@ local function formSuper( instance, target, total )\
     local sym\
 \
     for key, value in pairs( superRaw ) do\
-        if not totalKeyPairs[ key ] and not RESERVED[ key ] then\
-            totalKeyPairs[ key ] = value\
+        if not RESERVED[ key ] then\
+            if not totalKeyPairs[ key ] then\
+                totalKeyPairs[ key ] = value\
+            end\
+            --localKeys[ key ]\
         end\
-    end\
-\
-    if superRaw.__extends then\
-        local keys\
-        superProxy.super, keys = formSuper( instance, superRaw.__extends, totalKeyPairs )\
-\
-        sym = true\
-        for key, value in pairs( keys ) do\
-            if not superRaw.__defined[ key ] then superRaw[ key ] = value end\
-        end\
-        sym = false\
     end\
 \
     local function getKeyFromSuper( k )\
@@ -2428,6 +2750,19 @@ local function formSuper( instance, target, total )\
                 if _super.__defined[ k ] then return _super[ k ] else last = _super end\
             else break end\
         end\
+    end\
+\
+    if superRaw.__extends then\
+        local keys\
+        superProxy.super, keys = formSuper( instance, superRaw.__extends, totalKeyPairs )\
+\
+        sym = true\
+        for key, value in pairs( keys ) do\
+            if not superRaw.__defined[ key ] then\
+                superRaw[ key ] = superProxy.super[ key ]\
+            end\
+        end\
+        sym = false\
     end\
 \
     local function applyKeyValue( k, v )\
@@ -2457,8 +2792,8 @@ local function formSuper( instance, target, total )\
                 instance.super = superProxy.super\
 \
                 local v = { superRaw[ k ]( instance, ... ) }\
-                instance.super = old\
 \
+                instance.super = old\
                 return unpack( v )\
             end end\
             return cache[ k ]\
@@ -2480,7 +2815,7 @@ local function formSuper( instance, target, total )\
         -- if a super table is called run the constructor.\
         local initName = ( type( superRaw.initialise ) == \"function\" and \"initialise\" or ( type( superRaw.initialize ) == \"function\" and \"initialize\" or false ) )\
         if initName then\
-            return superRaw[ initName ]( instance, ... )\
+            return superProxy[ initName ]( instance, ... )\
         end\
     end\
 \
@@ -2535,7 +2870,7 @@ local function new( obj, ... )\
 \
         for key, value in pairs( keys ) do\
             if not instanceRaw.__defined[ key ] and not RESERVED[ key ] then\
-                instanceRaw[ key ] = value\
+                instanceRaw[ key ] = instance.super[ key ]\
             end\
         end\
     end\
@@ -2877,10 +3212,11 @@ end",
 }\
 \
 function Node:initialise( ... )\
+    print(\"i\", \"initialise node '\"..tostring( self )..\"'\")\
     local X, Y, width, height = ParseClassArguments( self, { ... }, { { \"X\", \"number\" }, { \"Y\", \"number\" }, { \"width\", \"number\" }, { \"height\", \"number\" } }, false, true )\
 \
     -- Creates a NodeCanvas\
-    self.canvas = NodeCanvas( self, width or 1, height - 1 or 0 )\
+    self.canvas = NodeCanvas( self, width or 1, height and (height - 1) or 0 )\
 \
     self.X = X\
     self.Y = Y\
@@ -3773,6 +4109,70 @@ function Stage:setChanged( bool )\
     self.changed = bool\
     if bool then self.application.changed = true end\
 end",
+  [ "Traceback.lua" ] = "local lastStack\
+local find = string.find\
+local oError = false\
+local trace = {}\
+local lastHookedError\
+\
+local CRASH_ON_MANUAL_ERRORS = true\
+\
+function trace.traceback( message, _level )\
+    if not oError then return end\
+    if message == \"Terminated\" or _level == 0 then\
+        return oError( message, _level )\
+    end\
+\
+    local level = type( _level ) == \"number\" and _level + 1 or 2\
+\
+    local stack = [[\
+## Error ##\
+]]..tostring( message )..[[\
+\
+\
+## Stacktrace Follows ##\
+\
+]]\
+    local ok, err\
+    local running = true\
+    while running do\
+        local ok, err = pcall( oError, message, level )\
+\
+        if find( err, \"bios%.?.-:\") or find( err, \"shell.-:\" ) or find( err, \"xpcall.-:\" ) then break end\
+\
+        local name, line = err:match(\"(%w+%.?.-):(%d+).-\")\
+        stack = stack .. \"> \"..(name or \"?\")..\": \"..(line or \"?\")..\" (\"..tostring( err )..\")\"..\"\\n\"\
+\
+        level = level + 1\
+    end\
+    lastStack = stack\
+end\
+\
+function trace.hook()\
+    oError = _G.error\
+    _G.error = function( m, l )\
+        l = type( l ) == \"number\" and l + 1 or 2\
+\
+        local _, err = pcall( oError, m, l + 2 )\
+        lastHookedError = err\
+\
+        trace.traceback( m, l + 1 )\
+        log(\"e\", \"A manual error occured, stack: \\n\"..tostring( lastStack ))\
+        if CRASH_ON_MANUAL_ERRORS then log(\"w\", \"The previous error will propagate\") oError(m, l + 1) else log(\"i\", \"The previous error will not propagate. CRASH_ON_MANUAL_ERRORS is false\") end\
+    end\
+\
+    return oError\
+end\
+function trace.unhook( o )\
+    _G.error = o or oError or error(\"Already unhooked\")\
+    oError = nil\
+end\
+function trace.getLastStack()\
+    return lastStack\
+end\
+function trace.getLastHookedError() return lastHookedError end\
+\
+_G.trace = trace",
   [ "Event.lua" ] = "class \"Event\" {\
     raw = nil;\
 \
