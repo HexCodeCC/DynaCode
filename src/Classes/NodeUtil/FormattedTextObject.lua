@@ -29,7 +29,7 @@ function FormattedTextObject:cacheSegmentInformation()
     if not self.text then return error("Failed to parse text identifiers. No new text received.") end
 
     local segments = self.segments
-    local width, text, lines, currentY, currentX = self.width, self.text, {}, 1, 1
+    local width, text, lines, currentY, currentX = self.owner.displayWidth, self.text, {}, 1, 1
     local textColour, backgroundColour, lineAlignment = false, false, "left"
 
     local function newline()
@@ -166,7 +166,7 @@ function FormattedTextObject:draw( xO, yO )
 
     local canvas = owner.canvas
     if not canvas then return error("Object '"..tostring( owner ).."' has no canvas") end
-    canvas:clear()
+    --canvas:clear()
     local buffer = canvas.buffer
 
     if not self.lines then
@@ -206,4 +206,6 @@ function FormattedTextObject:getHeight()
     return #self.lines
 end
 
-function FormattedTextObject:getCanvas() return self.owner.canvas end
+function FormattedTextObject:getCanvas() -- Because FormattedTextObject are stored in the node table the NodeScrollContainer will expect a canvas. So we redirect the request to the owner.
+    return self.owner.canvas
+end

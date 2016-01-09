@@ -16,6 +16,7 @@ DCML.registerTag("Panel", {
 class "Panel" extends "NodeScrollContainer" {
     width = 2;
     height = 2;
+    __drawChildrenToCanvas = true;
 }
 
 function Panel:initialise( ... )

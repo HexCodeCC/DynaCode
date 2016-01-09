@@ -13,9 +13,15 @@ function MyDaemon:start()
         end
     end)
 
-    --[[self.owner.timer:setTimer("MyDaemonTimer", 2, function( raw, timerEvent )
-        log("di", "example check complete.")
-    end, 5) -- set this timer a total of 5 times. ( the callback will be run 5 times over 10 seconds )]]
+    self.owner.timer:setTimer("MyDaemonTimer", 2, function( raw, timerEvent )
+        para.text = [[
+@align-center+tc-grey Hello my good man!
+
+@tc-lightGrey I see you have found out how to use daemons and timers. You also seem to have un-commented the block of code that makes me appear.
+
+Want to know how I do it? Head over to @tc-blue  src/Classes/Daemon/MyDaemon.lua @tc-lightGrey  to see the source code of... me!
+]]
+    end)
 end
 
 function MyDaemon:stop( graceful )

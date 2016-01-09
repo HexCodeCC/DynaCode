@@ -446,7 +446,7 @@ local function new( obj, ... )
     setmetatable( instance, instanceMt )
 
     local initName = ( type( instanceRaw.initialise ) == "function" and "initialise" or ( type( instanceRaw.initialize ) == "function" and "initialize" or false ) )
-    if initName then instanceRaw[ initName ]( instance, ... ) end
+    if initName then instanceRaw[ initName ]( instance, ... ); instanceRaw.__init_complete = true end
 
     return instance
 end

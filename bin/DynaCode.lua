@@ -125,6 +125,7 @@ end",
 class \"Panel\" extends \"NodeScrollContainer\" {\
     width = 2;\
     height = 2;\
+    __drawChildrenToCanvas = true;\
 }\
 \
 function Panel:initialise( ... )\
@@ -178,6 +179,7 @@ function NodeScrollContainer:calculateContentSize()\
         h = nodeY2 > h and nodeY2 or h\
     end\
 \
+    self.contentWidth, self.contentHeight = w, h\
     return w, h\
 end\
 \
@@ -272,7 +274,9 @@ function NodeScrollContainer:onMouseScroll( event )\
 end\
 \
 function NodeScrollContainer:getActiveScrollbars( contentWidth, contentHeight )\
-    return contentWidth > self.width, contentHeight > self.height\
+    self.horizontalBarActive, self.verticalBarActive = contentWidth > self.width, contentHeight > self.height\
+\
+    return self.horizontalBarActive, self.verticalBarActive\
 end\
 \
 function NodeScrollContainer:draw( xO, yO, force )\
@@ -320,9 +324,9 @@ end\
 \
 function NodeScrollContainer:postDraw()\
     -- draw the scroll bars\
+    local isH, isV = self:getActiveScrollbars( self:calculateContentSize() ) -- uses the content size to determine which scroll bars are active.\
 \
-    local contentWidth, contentHeight = self:calculateContentSize()\
-    local isH, isV = self:getActiveScrollbars( contentWidth, contentHeight ) -- uses the content size to determine which scroll bars are active.\
+    local contentWidth, contentHeight = self.contentWidth, self.contentHeight\
     if isH or isV then\
         local dWidth, dHeight = self:calculateDisplaySize( isH, isV )\
 \
@@ -841,9 +845,15 @@ function MyDaemon:start()\
         end\
     end)\
 \
-    --[[self.owner.timer:setTimer(\"MyDaemonTimer\", 2, function( raw, timerEvent )\
-        log(\"di\", \"example check complete.\")\
-    end, 5) -- set this timer a total of 5 times. ( the callback will be run 5 times over 10 seconds )]]\
+    self.owner.timer:setTimer(\"MyDaemonTimer\", 2, function( raw, timerEvent )\
+        para.text = [[\
+@align-center+tc-grey Hello my good man!\
+\
+@tc-lightGrey I see you have found out how to use daemons and timers. You also seem to have un-commented the block of code that makes me appear.\
+\
+Want to know how I do it? Head over to @tc-blue  src/Classes/Daemon/MyDaemon.lua @tc-lightGrey  to see the source code of... me!\
+]]\
+    end)\
 end\
 \
 function MyDaemon:stop( graceful )\
@@ -859,7 +869,13 @@ function TextContainer:setText( text )\
     self.text = text\
 \
     if self.__init_complete then\
-        self.container.text = text\
+        self:parseIdentifiers()\
+        self.container:cacheSegmentInformation()\
+\
+        -- Because the user may have been scrolling when the text changed, make sure that the Y offset isn't too big for this text.\
+        self.verticalScroll = math.max( math.min( self.verticalScroll, self.container.height - 1 ), 0 )\
+\
+        self.changed = true\
     end\
 end",
   [ "UnknownEvent.lua" ] = "class \"UnknownEvent\" mixin \"Event\" {\
@@ -1213,7 +1229,11 @@ local function parseColour( cl )\
 end\
 \
 \
-abstract class \"MultiLineTextDisplay\" extends \"NodeScrollContainer\"\
+abstract class \"MultiLineTextDisplay\" extends \"NodeScrollContainer\" {\
+    lastHorizontalStatus = false;\
+    lastVerticalStatus = false;\
+    displayWidth = 0;\
+}\
 \
 function MultiLineTextDisplay:initialise( ... )\
     local text, X, Y, width, height = ParseClassArguments( self, { ... }, { {\"text\", \"string\"}, {\"X\", \"number\"}, {\"Y\", \"number\"}, {\"width\", \"number\"}, {\"height\", \"number\"} }, true, true )\
@@ -1278,6 +1298,20 @@ function MultiLineTextDisplay:parseIdentifiers()\
 \
     local container = self.container\
     container.segments, container.text = segments, newString\
+end\
+\
+function MultiLineTextDisplay:getActiveScrollbars( ... )\
+    local h, v = self.super:getActiveScrollbars( ... )\
+    -- The scrollbar status is updated, has our display width been changed?\
+\
+    if self.lastVerticalStatus ~= v then\
+        -- A scroll bar has been created/removed. Re-cache the text content to accomodate the new width.\
+        self.displayWidth = self.width - ( v and 1 or 0 )\
+        \
+        self.container:cacheSegmentInformation()\
+    end\
+\
+    return h, v\
 end",
   [ "loadFirst.cfg" ] = "Logging.lua\
 ClassUtil.lua\
@@ -1713,7 +1747,7 @@ function FormattedTextObject:cacheSegmentInformation()\
     if not self.text then return error(\"Failed to parse text identifiers. No new text received.\") end\
 \
     local segments = self.segments\
-    local width, text, lines, currentY, currentX = self.width, self.text, {}, 1, 1\
+    local width, text, lines, currentY, currentX = self.owner.displayWidth, self.text, {}, 1, 1\
     local textColour, backgroundColour, lineAlignment = false, false, \"left\"\
 \
     local function newline()\
@@ -1850,7 +1884,7 @@ function FormattedTextObject:draw( xO, yO )\
 \
     local canvas = owner.canvas\
     if not canvas then return error(\"Object '\"..tostring( owner )..\"' has no canvas\") end\
-    canvas:clear()\
+    --canvas:clear()\
     local buffer = canvas.buffer\
 \
     if not self.lines then\
@@ -1890,7 +1924,9 @@ function FormattedTextObject:getHeight()\
     return #self.lines\
 end\
 \
-function FormattedTextObject:getCanvas() return self.owner.canvas end",
+function FormattedTextObject:getCanvas() -- Because FormattedTextObject are stored in the node table the NodeScrollContainer will expect a canvas. So we redirect the request to the owner.\
+    return self.owner.canvas\
+end",
   [ "Input.lua" ] = "DCML.registerTag(\"Input\", {\
     argumentType = {\
         X = \"number\";\
@@ -2293,7 +2329,7 @@ function Application:run( thread )\
     log(\"i\", \"Trying to start daemon services\")\
     local ok, err = xpcall( function() self:startDaemons() end, function( err )\
         log(\"f\", \"Failed to start daemon services. Reason '\" .. tostring( err ) .. \"'\")\
-        if self.errorHandler then\
+        if false and self.errorHandler then\
             self:errorHandler( err, false )\
         else\
             if self.onError then self:onError( err ) end\
@@ -2928,7 +2964,7 @@ local function new( obj, ... )\
     setmetatable( instance, instanceMt )\
 \
     local initName = ( type( instanceRaw.initialise ) == \"function\" and \"initialise\" or ( type( instanceRaw.initialize ) == \"function\" and \"initialize\" or false ) )\
-    if initName then instanceRaw[ initName ]( instance, ... ) end\
+    if initName then instanceRaw[ initName ]( instance, ... ); instanceRaw.__init_complete = true end\
 \
     return instance\
 end\

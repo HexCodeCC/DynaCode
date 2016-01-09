@@ -8,7 +8,11 @@ local function parseColour( cl )
 end
 
 
-abstract class "MultiLineTextDisplay" extends "NodeScrollContainer"
+abstract class "MultiLineTextDisplay" extends "NodeScrollContainer" {
+    lastHorizontalStatus = false;
+    lastVerticalStatus = false;
+    displayWidth = 0;
+}
 
 function MultiLineTextDisplay:initialise( ... )
     local text, X, Y, width, height = ParseClassArguments( self, { ... }, { {"text", "string"}, {"X", "number"}, {"Y", "number"}, {"width", "number"}, {"height", "number"} }, true, true )
@@ -73,4 +77,18 @@ function MultiLineTextDisplay:parseIdentifiers()
 
     local container = self.container
     container.segments, container.text = segments, newString
+end
+
+function MultiLineTextDisplay:getActiveScrollbars( ... )
+    local h, v = self.super:getActiveScrollbars( ... )
+    -- The scrollbar status is updated, has our display width been changed?
+
+    if self.lastVerticalStatus ~= v then
+        -- A scroll bar has been created/removed. Re-cache the text content to accomodate the new width.
+        self.displayWidth = self.width - ( v and 1 or 0 )
+        
+        self.container:cacheSegmentInformation()
+    end
+
+    return h, v
 end

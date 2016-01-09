@@ -27,6 +27,7 @@ function NodeScrollContainer:calculateContentSize()
         h = nodeY2 > h and nodeY2 or h
     end
 
+    self.contentWidth, self.contentHeight = w, h
     return w, h
 end
 
@@ -121,7 +122,9 @@ function NodeScrollContainer:onMouseScroll( event )
 end
 
 function NodeScrollContainer:getActiveScrollbars( contentWidth, contentHeight )
-    return contentWidth > self.width, contentHeight > self.height
+    self.horizontalBarActive, self.verticalBarActive = contentWidth > self.width, contentHeight > self.height
+
+    return self.horizontalBarActive, self.verticalBarActive
 end
 
 function NodeScrollContainer:draw( xO, yO, force )
@@ -169,9 +172,9 @@ end
 
 function NodeScrollContainer:postDraw()
     -- draw the scroll bars
+    local isH, isV = self:getActiveScrollbars( self:calculateContentSize() ) -- uses the content size to determine which scroll bars are active.
 
-    local contentWidth, contentHeight = self:calculateContentSize()
-    local isH, isV = self:getActiveScrollbars( contentWidth, contentHeight ) -- uses the content size to determine which scroll bars are active.
+    local contentWidth, contentHeight = self.contentWidth, self.contentHeight
     if isH or isV then
         local dWidth, dHeight = self:calculateDisplaySize( isH, isV )
 

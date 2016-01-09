@@ -151,7 +151,7 @@ panel.backgroundColour = colours.red
 button2 = panel + Button("Hello Again", 2, 3, 30, 5)
 app:requestStageFocus( stage2 ) -- The event eating issue is fixed so this can be here now.]]
 
-para = stage2 + TextContainer([[@tc-grey+align-center TextContainers
+_G.para = stage2 + TextContainer([[@tc-grey+align-center TextContainers
 
 @tc-lightBlue Text containers are a very helpful addition to DynaCode. They allow you to write text freely, with inline colour adjustments and alignment changes.
 
