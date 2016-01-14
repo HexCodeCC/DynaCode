@@ -14,6 +14,12 @@ abstract class "MultiLineTextDisplay" extends "NodeScrollContainer" {
     displayWidth = 0;
 }
 
+function MultiLineTextDisplay:initialise( ... )
+    self.super( ... )
+
+    self.displayWidth = self.width
+end
+
 function MultiLineTextDisplay:parseIdentifiers()
     local segments = {}
     local str = self.text
@@ -70,7 +76,6 @@ function MultiLineTextDisplay:parseIdentifiers()
 end
 
 function MultiLineTextDisplay:getActiveScrollbars( ... )
-    log("i", "Getting activeScrollBars")
     local h, v = self.super:getActiveScrollbars( ... )
     -- The scrollbar status is updated, has our display width been changed?
 
@@ -78,9 +83,11 @@ function MultiLineTextDisplay:getActiveScrollbars( ... )
         -- A scroll bar has been created/removed. Re-cache the text content to accomodate the new width.
         self.displayWidth = self.width - ( v and 1 or 0 )
         self.lastVerticalStatus = v
-    end
 
-    self.container:cacheSegmentInformation()
+        self.container:cacheSegmentInformation()
+        self.changed = true
+        log("i", "The alignments have changed, re-draw the node")
+    end
 
     return h, v
 end

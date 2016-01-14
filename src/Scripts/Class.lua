@@ -258,7 +258,6 @@ local function compileSuper( base, target, total, totalAlias, superNumber )
                         throw("Failed to fetch raw content for factory '"..key.."'")
                     end
 
-                    --sleep(1)
                     -- Adjust the super on the instance
                     local oSuper = instance.super
 

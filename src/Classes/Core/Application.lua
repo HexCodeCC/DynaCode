@@ -16,7 +16,7 @@ class "Application" alias "COLOUR_REDIRECT" mixin "MDaemon" {
 function Application:initialise( ... )
     -- Classes can be called with either a single table of arguments, or a series of required arguments. The latter only allows certain arguments.
     -- Here, we use the classUtil.lua functionality to parse the arguments passed to the application.
-    if not oError then oError = trace.hook() end
+    if not oError then oError = exceptionHandler.hook() end
 
     ParseClassArguments( self, { ... }, { { "width", "number" }, {"height", "number"} }, true )
 
@@ -98,7 +98,7 @@ function Application:draw( force )
     --if not self.changed then return end
 
     for i = #self.stages, 1, -1 do
-        self.stages[ i ]:draw( true )
+        self.stages[ i ]:draw( force )
     end
 
     -- Then draw the application to screen
@@ -184,15 +184,18 @@ function Application:run( thread )
 
     local _, err = xpcall( engine, function( err )
         log("f", "Engine error: '"..tostring( err ).."'")
-        local l = 3
-        if trace.getLastHookedError() == err then
-            l = l + 1
-            log("Error Handling", "Error '"..err.."' has been previously hooked by the trace system. Advancing traceback level by one (now " .. l .. ")")
+
+        local last = exceptionHandler.getLastHookedError()
+        if last then
+            log("eh", "Error '"..err.."' has been previously hooked by the trace system.")
         else
-            log("Error Handling", "Error '"..err.."' has not been hooked by the trace system. Last hook: "..tostring( trace.getLastHookedError() ))
+            log("eh", "Error '"..err.."' has not been hooked by the trace system. Last hook: "..tostring( last and last.rawException or nil ))
+            -- virtual machine exception (like syntax, attempt to call nil etc...)
+
+            exceptionHandler.spawnException( LuaVMException( err, 2 ) )
         end
 
-        log("Error Handling", "Gathering currently loaded classes")
+        log("eh", "Gathering currently loaded classes")
         local str = ""
         local ok, _err = pcall( function()
             for name, class in pairs( classLib.getClasses() ) do
@@ -201,15 +204,13 @@ function Application:run( thread )
         end )
 
         if ok then
-            log("Error Handling", "Loaded classes at the time of crash: \n"..tostring(str))
+            log("eh", "Loaded classes at the time of crash: \n"..tostring(str))
         else
-            log("Error Handling", "ERROR: Failed to gather currently loaded classes (error: "..tostring( _err )..")")
+            log("eh", "ERROR: Failed to gather currently loaded classes (error: "..tostring( _err )..")")
         end
 
-        log("Error Handling", "Generating error traceback")
-        trace.traceback( err, l )
-        log("Error Handling", "Unhooking traceback")
-        trace.unhook( oError )
+        log("eh", "Unhooking traceback")
+        exceptionHandler.unhook( oError )
 
         return err
     end )
@@ -218,11 +219,12 @@ function Application:run( thread )
         if self.errorHandler then
             self:errorHandler( err, true )
         else
+            local exception = exceptionHandler.getLastHookedError()
             -- crashed
             term.setTextColour( colours.yellow )
             print("DynaCode has crashed")
             term.setTextColour( colours.red )
-            print( err )
+            print( exception and exception.displayMessage or err )
             print("")
 
             local function crashProcess( preColour, pre, fn, errColour, errPre, okColour, okMessage, postColour )
@@ -248,7 +250,7 @@ function Application:run( thread )
 
             crashProcess( YELLOW, "Attempting to write crash information to log file", function()
                 log("f", "DynaCode crashed: "..err)
-                log("f", trace.getLastStack())
+                if exception then log("f", exception.stacktrace) end
             end, RED, "Failed to write crash information: ", LIME, "Wrote crash information to file (stacktrace)", 1 )
             if self.onError then self:onError( err ) end
         end

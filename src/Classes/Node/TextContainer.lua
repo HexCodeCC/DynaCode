@@ -8,8 +8,6 @@ function TextContainer:initialise( ... )
     self.container = FormattedTextObject( self, self.width )
 
     self.nodes[ 1 ] = self.container
-
-    self.container:cacheSegmentInformation()
 end
 
 function TextContainer:setText( text )

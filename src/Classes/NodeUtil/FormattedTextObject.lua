@@ -25,7 +25,7 @@ function FormattedTextObject:initialise( owner, width )
 end
 
 function FormattedTextObject:cacheSegmentInformation()
-    log("i", "Parsing segment information")
+    log("i", "Parsing segment information with width: "..tostring( self.owner.displayWidth ) )
     if not text then self.owner:parseIdentifiers() text = self.text end
     if not self.text then return error("Failed to parse text identifiers. No new text received.") end
 
@@ -202,7 +202,10 @@ end
 
 
 function FormattedTextObject:getHeight()
-    if not self.lines then self:cacheSegmentInformation() end
+    if not self.lines then
+        self:cacheSegmentInformation()
+        self.owner:getActiveScrollbars( self.width, self.owner.height )
+    end
 
     return #self.lines
 end

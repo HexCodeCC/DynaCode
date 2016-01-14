@@ -179,7 +179,7 @@ function Stage:draw( _force )
         for i = #nodes, 1, -1 do
             local node = nodes[i]
             if changed and node.changed or force then
-                node:draw( 0, 0, changed or force )
+                node:draw( 0, 0, force )
                 node.canvas:drawToCanvas( canvas, node.X, node.Y )
 
                 node.changed = false
@@ -473,4 +473,6 @@ function Stage:setScene( scene )
 
     self.activeScene = scene
     self.forceRedraw = true
+    self.changed = true
+    self.application.forceRedraw = true
 end

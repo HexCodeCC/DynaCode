@@ -112,11 +112,11 @@ function NodeScrollContainer:onMouseScroll( event )
 
     if v then
 		self.verticalScroll = math.max( math.min( self.verticalScroll + event.misc, contentHeight - dHeight ), 0 )
-        self.forceRedraw = true
+        --self.forceRedraw = true
         self.changed = true
 	elseif h then
 		self.horizontalScroll = math.max( math.min( self.horizontalScroll + event.misc, contentWidth - dWidth ), 0 )
-        self.forceRedraw = true
+        --self.forceRedraw = true
         self.changed = true
 	end
 end
@@ -127,12 +127,20 @@ function NodeScrollContainer:getActiveScrollbars( contentWidth, contentHeight )
     return self.horizontalBarActive, self.verticalBarActive
 end
 
+function NodeScrollContainer:preDraw( xO, yO )
+    self:getActiveScrollbars( self:calculateContentSize() ) -- Allows changes to content before draw. (those changes are then reflected in the draw)
+
+    local dWidth, dHeight = self:calculateDisplaySize( self.horizontalBarActive, self.verticalBarActive )
+    local h, v = self:getScrollSizes( self.contentWidth, self.contentHeight, dWidth, dHeight )
+end
+
 function NodeScrollContainer:draw( xO, yO, force )
     log("w", "Scroll Container Drawn. Force: "..tostring( force ))
     local nodes = self.nodes
     local manDraw = force or self.forceRedraw
     local canvas = self.canvas
     local drawTo = self.__drawChildrenToCanvas
+    local changed = self.changed
 
     canvas:clear()
 
@@ -150,13 +158,13 @@ function NodeScrollContainer:draw( xO, yO, force )
         local node = nodes[i]
         nC = node.changed
 
-        if self:inView( node ) and nC or (manDraw) then
+        if self:inView( node ) and ( nC or manDraw or changed ) then
             -- draw the node using our offset
-            node:draw( hO, vO, manDraw or force )
+            node:draw( hO, vO, manDraw )
             log("w", "Drawing node '"..tostring( node ).."' to canvas")
             if drawTo then node.canvas:drawToCanvas( canvas, node.X + hO, node.Y + vO ) end
 
-            if nC then node.changed = false end
+            node.changed = false
         end
     end
     self.forceRedraw = false
@@ -172,7 +180,7 @@ end
 
 function NodeScrollContainer:postDraw()
     -- draw the scroll bars
-    local isH, isV = self:getActiveScrollbars( self:calculateContentSize() ) -- uses the content size to determine which scroll bars are active.
+    local isH, isV = self.horizontalBarActive, self.verticalBarActive
 
     local contentWidth, contentHeight = self.contentWidth, self.contentHeight
     if isH or isV then

@@ -6,7 +6,7 @@ dofile("bin/DynaCode.lua")
 log:setLoggingEnabled( true )
 log:setLoggingPath("DynaCode.log")
 
---if true then dofile("test_code/classtest.lua") end
+if true then return dofile("test_code/test.lua") end
 
 myApplication = Application( term.getSize() )
 myStage = myApplication + Stage( "MyTestStage", 2, 2, 36, 10 )
