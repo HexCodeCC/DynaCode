@@ -20,11 +20,12 @@ class "FormattedTextObject" extends "Node" {
 }
 
 function FormattedTextObject:initialise( owner, width )
-    self.owner = class.isInstance( owner ) and owner or error("Cannot set owner of FormattedTextObject to '"..tostring( owner ).."'", 2)
+    self.owner = classLib.isInstance( owner ) and owner or error("Cannot set owner of FormattedTextObject to '"..tostring( owner ).."'", 2)
     self.width = type( width ) == "number" and width or error("Cannot set width of FormattedTextObject to '"..tostring( width ).."'", 2)
 end
 
 function FormattedTextObject:cacheSegmentInformation()
+    log("i", "Parsing segment information")
     if not text then self.owner:parseIdentifiers() text = self.text end
     if not self.text then return error("Failed to parse text identifiers. No new text received.") end
 
@@ -138,7 +139,7 @@ end
 
 function FormattedTextObject:cacheAlignments( _lines )
     local lines = _lines or self.lines
-    local width = self.width
+    local width = self.owner.displayWidth
 
     local line, alignment
     for i = 1, #lines do
@@ -160,7 +161,7 @@ end
 
 function FormattedTextObject:draw( xO, yO )
     local owner = self.owner
-    if not class.isInstance( owner ) then
+    if not classLib.isInstance( owner ) then
         return error("Cannot draw '"..tostring( self:type() ).."'. The instance has no owner.")
     end
 

@@ -3,7 +3,7 @@ abstract class "MDaemon" -- this class is used for mixin(s) only.
 function MDaemon:registerDaemon( service )
     -- name -> string
     -- service -> daemonService (class extending Daemon)
-    if not class.isInstance( service ) or not service.__daemon then
+    if not classLib.isInstance( service ) or not service.__daemon then
         return error("Cannot register daemon '"..tostring( service ).."' ("..type( service )..")")
     end
 

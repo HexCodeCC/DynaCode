@@ -29,7 +29,17 @@ abstract class "Node" alias "COLOUR_REDIRECT" {
 }
 
 function Node:initialise( ... )
-    print("i", "initialise node '"..tostring( self ).."'")
+    print("Initialise node '"..tostring( self ).."'")
+    local args = { ... }
+    for i = 1, #args do
+        print( i..". "..tostring(args[ i ]) )
+        if type( args[i] ) == "table" then
+            _G.invalid = args[ i ]
+            return error("Fatal Exception: Tables not supported")
+        end
+    end
+
+
     local X, Y, width, height = ParseClassArguments( self, { ... }, { { "X", "number" }, { "Y", "number" }, { "width", "number" }, { "height", "number" } }, false, true )
 
     -- Creates a NodeCanvas

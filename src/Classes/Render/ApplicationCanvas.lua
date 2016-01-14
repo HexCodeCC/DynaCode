@@ -26,7 +26,7 @@ local setTextColour, setBackgroundColour = term.setTextColour, term.setBackgroun
 
 class "ApplicationCanvas" extends "Canvas" {
     textColour = colors.red;
-    backgroundColour = 1;
+    backgroundColour = colours.cyan;
 
     old = {};
 }
@@ -34,6 +34,8 @@ class "ApplicationCanvas" extends "Canvas" {
 function ApplicationCanvas:initialise( ... )
     ParseClassArguments( self, { ... }, { {"owner", "Application"}, {"width", "number"}, {"height", "number"} }, true )
     AssertClass( self.owner, "Application", true, "Instance '"..self:type().."' requires an Application Instance as the owner" )
+
+    print( tostring( self.width )..", "..tostring( self.height ))
 
     self.super( self.width, self.height )
 end

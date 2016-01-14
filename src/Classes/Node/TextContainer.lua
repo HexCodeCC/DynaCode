@@ -1,5 +1,17 @@
 class "TextContainer" extends "MultiLineTextDisplay"
 
+function TextContainer:initialise( ... )
+    local text, X, Y, width, height = ParseClassArguments( self, { ... }, { {"text", "string"}, {"X", "number"}, {"Y", "number"}, {"width", "number"}, {"height", "number"} }, true, true )
+    self.super( X, Y, width, height )
+
+    self.text = text
+    self.container = FormattedTextObject( self, self.width )
+
+    self.nodes[ 1 ] = self.container
+
+    self.container:cacheSegmentInformation()
+end
+
 function TextContainer:setText( text )
     self.text = text
 
@@ -12,4 +24,9 @@ function TextContainer:setText( text )
 
         self.changed = true
     end
+end
+
+function TextContainer:setWidth( width )
+    self.super:setWidth( width )
+    if self.container then self.container:cacheSegmentInformation() end
 end

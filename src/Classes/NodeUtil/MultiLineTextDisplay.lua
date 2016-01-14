@@ -14,16 +14,6 @@ abstract class "MultiLineTextDisplay" extends "NodeScrollContainer" {
     displayWidth = 0;
 }
 
-function MultiLineTextDisplay:initialise( ... )
-    local text, X, Y, width, height = ParseClassArguments( self, { ... }, { {"text", "string"}, {"X", "number"}, {"Y", "number"}, {"width", "number"}, {"height", "number"} }, true, true )
-    self.super( X, Y, width, height )
-
-    self.text = text
-    self.container = FormattedTextObject( self, self.width )
-
-    self.nodes[ 1 ] = self.container
-end
-
 function MultiLineTextDisplay:parseIdentifiers()
     local segments = {}
     local str = self.text
@@ -80,15 +70,17 @@ function MultiLineTextDisplay:parseIdentifiers()
 end
 
 function MultiLineTextDisplay:getActiveScrollbars( ... )
+    log("i", "Getting activeScrollBars")
     local h, v = self.super:getActiveScrollbars( ... )
     -- The scrollbar status is updated, has our display width been changed?
 
     if self.lastVerticalStatus ~= v then
         -- A scroll bar has been created/removed. Re-cache the text content to accomodate the new width.
         self.displayWidth = self.width - ( v and 1 or 0 )
-        
-        self.container:cacheSegmentInformation()
+        self.lastVerticalStatus = v
     end
+
+    self.container:cacheSegmentInformation()
 
     return h, v
 end

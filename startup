@@ -1,174 +1,78 @@
-local tWidth, tHeight = term.getSize()
-local logging = true
-
-
-local function drawCentre( text, y, colour )
-    if colour then term.setTextColour( colour ) end
-    if text:len() <= tWidth then
-        term.setCursorPos( math.ceil( (tWidth / 2) - ( text:len() / 2 ) ), y )
-    else
-        term.setCursorPos( 1, y )
-    end
-    term.clearLine()
-    term.write( text )
-end
-
-shell.run("dobuild.lua", "/src", "bin/DynaCode.lua")
+--do dofile("src/Scripts/Class.lua") return dofile("test_code/classtest.lua") end
+-- Build and load DynaCode.
+shell.run("dobuild.lua", "src", "bin/DynaCode.lua")
 dofile("bin/DynaCode.lua")
 
+log:setLoggingEnabled( true )
+log:setLoggingPath("DynaCode.log")
 
-if logging then
-    if not log then error("DynaCode Logger not available.", 0) end
+--if true then dofile("test_code/classtest.lua") end
 
-    log:setLoggingEnabled( true )
-    log:setLoggingPath("DynaCode.log")
-end
-if type( trace ) ~= "table" then error("DynaCode Traceback system not available.", 0) end
+myApplication = Application( term.getSize() )
+myStage = myApplication + Stage( "MyTestStage", 2, 2, 36, 10 )
+myStage.title = "Test Window - Home"
 
---if true then dofile("classtest.lua") return end
+-- A stage requires a scene. Think of it like a theatrical performance. The application is your theatre, stages are well, the stage and scenes are the various scenes the stage can hold.
 
+-- So, lets make our first scene. Every scene must be bound to a stage in order to function.
+myFirstScene = Scene("my_first_scene", myStage)
 
-app = Application( term.getSize() )
-app.backgroundColour = colors.cyan
+-- Here I make a second scene which will be used later to demonstrate scene switching.
+mySecondScene = Scene("my_second_scene", myStage)
+aboutScene = Scene("about_scene", myStage)
 
-stage = app + Stage({
-    name = "TestStage";
-    X = 5;
-    Y = 5;
-    width = 15;
-    height = 8;
-    textColour = colors.lightGray;
-    titleTextColour = colors.white;
-    titleBackgroundColour = 128;
-    backgroundColour = colors.white;
-    shadowColour = colors.gray;
-    shadow = true;
-    title = "Test Window";
-    minHeight = 10;
+-- Now, we can add nodes to scenes.
+-- Lets add a button to myFirstScene
+myButton = myFirstScene + Button("Hello World", 1, 1, 13, 1)
+goToAbout = myFirstScene + Button({
+    text = "About";
+    X = 1;
+    Y = 3;
+    width = 7;
+    height = 1;
+    onTrigger = function( self, event )
+        self.stage.scene = aboutScene
+        myStage.title = "Test Window - About"
+    end;
+    backgroundColor = colours.yellow;
+    activeBackgroundColour = colours.orange;
 })
 
-stage2 = app + Stage({
-    name = "TestStage2";
-    X = 5;
+-- and a button to mySecondScene. You'll notice two different ways of defining buttons. Most DynaCode classes will support this feature and will allow you to define more than just required arguments.
+anotherButton = mySecondScene + Button {
+    X = 2;
     Y = 2;
-    width = 45;
-    height = 14;
-    textColour = colors.lightGray;
-    titleTextColour = colors.white;
-    titleBackgroundColour = 128;
-    backgroundColour = colors.white;
-    shadowColour = colors.gray;
-    shadow = true;
-    title = "Another Window";
-})
+    text = "Back";
+    width = 6;
+    height = 1;
+    backgroundColour = colours.green; -- As you can see, I specified backgroundColour which can't be done during initialisation with the other syntax.
+}
 
-label = stage + Label("Hello World!", 3, 1)
-input = stage + Input( 3, 2, 11, 1 )
-button = stage + Button( "Hello world", 4, 3, 9, 4 )
+local aboutContent = [[
+@align-center+tc-grey Hello there
+@tc-lightGrey It seems you found our about page. The text you are reading is contained in a @tc-blue  TextContainer
 
+@tc-lightGrey When the content in this container gets too big a handy scroll bar will appear that you can use to scroll through the text.
+]]
+-- lets add some text to the about page. For this I will use a text container.
+aboutMessage = aboutScene + TextContainer(aboutContent, 1, 1, 36, 8)
+backButton = aboutScene + Button("Go Back", 14, 9, 9, 1)
+function backButton:onTrigger()
+    myStage.scene = myFirstScene
+    myStage.title = "Test Window - Home"
+end
+-- Next we tell the stage to use our scene
+myStage.scene = myFirstScene -- This is the same as myStage:setScene( myFirstScene )
 
-app.hotkey:registerCombination("stop", "shift-ctrl-q", function()
-    app:finish()
-    print("Finished")
-end)
-
-app.hotkey:registerCombination("openLuaPrompt", "shift-ctrl-l", function()
-    app:finish( function() shell.run("lua") end )
-end)
-
-app:registerDaemon( MyDaemon("application_example_daemon_service") )
-
-function app:onRun()
-    -- will be called _every_ time the application is executed.
-    log("i", "Application starting")
+-- Now we'll make our button do something. Lets say close the program.
+function myButton:onTrigger()
+    myStage.scene = mySecondScene
+    myStage.title = "Test Window - Search"
+end
+function anotherButton:onTrigger()
+    myStage.scene = myFirstScene
+    myStage.title = "Test Window - Home"
 end
 
-local BLUE, GREY, LIGHT_GREY, WHITE = colours.blue, colours.grey, colours.lightGrey, 1
-function app:errorHandler( err, daemon )
-    log("f", "Fatal error caught: '"..err.."'. Daemon status: ".. ( daemon and "running" or "not running" ) )
-    term.setBackgroundColour( 1 )
-    term.clear()
-
-    drawCentre( "DynaCode Crash Handler", 4, BLUE )
-    drawCentre( "A fatal exception occured "..( daemon and "during runtime" or "during service start"), 5, GREY )
-
-    drawCentre( "Please report this issue with the error", 8, LIGHT_GREY )
-    drawCentre( "and steps to reproduce using the", 9 )
-    drawCentre( "GitHub issue page", 10 )
-
-    drawCentre( "Error: "..err, 12, colours.red )
-
-    local usingLog
-
-    if logging and type( log ) == "table" and type( log.getEnabled ) == "function" and log:getEnabled() then
-        drawCentre("Gathering stacktrace information", tHeight-2, GREY)
-        log("Stacktrace", "\n"..tostring(trace.getLastStack()))
-        drawCentre("", tHeight-2, GREY)
-        usingLog = true
-    else
-        drawCentre("Enable log to see stacktrace + details", tHeight-2, GREY)
-    end
-
-    if daemon then
-        drawCentre("Shutting down daemon services", 14, colours.grey)
-        local ok, err = pcall( function() self:stopDaemons( false ) end )
-        if err or not ok then
-            drawCentre( "Daemon Status: Failed to stop", 14, colours.red )
-            log("f", "Failed to stop daemon service. Error: "..err)
-        elseif ok then
-            drawCentre( "Daemon Status: Stopped", 14, colours.green)
-        end
-    else drawCentre( "Daemon Status: Failed to start (stopped)", 14, colours.orange ) end
-
-    if usingLog then
-        drawCentre("Press 'l' to open the log", tHeight - 1, GREY )
-        drawCentre("or press any other key to shutdown", tHeight, GREY )
-    else
-        drawCentre("Press any key to shutdown", tHeight, GREY )
-    end
-
-    while true do
-        local e = { coroutine.yield() }
-        sleep()
-        if e[1] == "key" then
-            if usingLog then
-                if e[2] == keys.l then
-                    shell.run("edit", log:getLoggingPath())
-                else
-                    os.shutdown()
-                end
-            else
-                os.shutdown()
-            end
-        end
-    end
-end
-
-
---[[panel = stage2 + Panel( 2, 2, 20, 10 )
-panel.backgroundColour = colours.red
-
-button2 = panel + Button("Hello Again", 2, 3, 30, 5)
-app:requestStageFocus( stage2 ) -- The event eating issue is fixed so this can be here now.]]
-
-_G.para = stage2 + TextContainer([[@tc-grey+align-center TextContainers
-
-@tc-lightBlue Text containers are a very helpful addition to DynaCode. They allow you to write text freely, with inline colour adjustments and alignment changes.
-
-Text containers require text, X, Y, width and height variables. If any text overflows outside of the width then it will wrap down to other lines or flow over multiple (if the word is longer than a new line would allow)
-
-If the amount of text lines exceeds the height then a scrollbar will automatically appear and allow you to scroll through your text.
-
-You can also change the @tc-black  text colour and @bg-blue  background colour or even @tc-white+bg-black  both at the same time.
-
-@tc-lightBlue+bg-white You can also adjust alignments. When the alignment is adjusted it will affect the entire line, not just the part after the declaration.
-
-@align-right+tc-grey I am over here on the righthand side of your screen!
-
-@align-left+tc-blue You'll never catch me alive!
-
-@align-center This-is-one-big-huge-super-long-word-that-will-wrap-over-multiple-lines.]], 2, 2, 43, 9)
-
---app:appendStagesFromDCML( "stages.dcml" )
-app:requestStageFocus( stage2 )
-app:run()
+-- Finally start our application
+myApplication:run()

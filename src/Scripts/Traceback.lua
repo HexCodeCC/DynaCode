@@ -30,7 +30,7 @@ function trace.traceback( message, _level )
         if find( err, "bios%.?.-:") or find( err, "shell.-:" ) or find( err, "xpcall.-:" ) then break end
 
         local name, line = err:match("(%w+%.?.-):(%d+).-")
-        stack = stack .. "> "..(name or "?")..": "..(line or "?").." ("..tostring( err )..")".."\n"
+        stack = stack .. "> "..(name or "?")..": "..(line or "?").."\n"
 
         level = level + 1
     end

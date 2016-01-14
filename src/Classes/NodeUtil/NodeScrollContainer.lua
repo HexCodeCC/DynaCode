@@ -150,7 +150,7 @@ function NodeScrollContainer:draw( xO, yO, force )
         local node = nodes[i]
         nC = node.changed
 
-        if self:inView( node ) and nC or manDraw then
+        if self:inView( node ) and nC or (manDraw) then
             -- draw the node using our offset
             node:draw( hO, vO, manDraw or force )
             log("w", "Drawing node '"..tostring( node ).."' to canvas")

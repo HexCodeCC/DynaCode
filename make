@@ -119,11 +119,11 @@ local function loadFromPack( name )
     end
 
     -- Execution complete, check class validity
-    class.runClassString( files[ name ], name, ignoreFile )
+    classLib.runClassString( files[ name ], name, ignoreFile )
     loaded[ name ] = true
 end
 
-class.setClassLoader( function( _c )
+classLib.setClassLoader( function( _c )
     loadFromPack( _c..".lua" )
 end )
 

@@ -1,12 +1,19 @@
 local insert = table.insert
 local len, sub, rep = string.len, string.sub, string.rep
 
-function ParseClassArguments( instance, args, order, require, raw )
+function ParseClassArguments( instance, arguments, order, require, raw )
+    --[[local _, err = pcall( error, "here", 3 )
+    print("Called for '"..tostring( instance ).."' from '"..err.."'")
+    log("w", "Called for '"..tostring( instance ).."' from '"..err.."'")
+    sleep(1)]]
     -- 'instance' is the class instance (self) that is calling the ParseClassArguments function.
     -- 'args' should be an array of the properties passed to the constructor.
     -- 'order' is an optional array that specifies the required arguments and the order in which they should be returned to the caller (see raw)
     -- 'require' is an optional boolean, if true all arguments specified in order must be defined, if false they are all optional.
     -- 'raw' is an optional boolean, if true the 'order' table results will be returned to the caller, if false the required arguments will be set like normal settings.
+
+    local args = arguments
+    _G.ARGS = args
 
     local types = {}
     local function checkType( key, value )
@@ -15,8 +22,9 @@ function ParseClassArguments( instance, args, order, require, raw )
         local _type = types[ key ]
 
         if _type and type( value ) ~= _type then
-            if not class.typeOf( value, _type, true ) then
-                return error("Expected type '".._type.."' for argument '"..key.."', got '"..type( value ).."' instead.", 2)
+            if not classLib.typeOf( value, _type, true ) then
+                _G.parseError = { key, value }
+                return error("Expected type '".._type.."' for argument '"..key.."', got '"..type( value ).."' instead while initialising '"..tostring( instance ).."'.", 2)
             end
         end
         return value
@@ -89,7 +97,7 @@ function ParseClassArguments( instance, args, order, require, raw )
 end
 
 function AssertClass( _class, _type, _instance, err )
-    if not class.typeOf( _class, _type, _instance ) then
+    if not classLib.typeOf( _class, _type, _instance ) then
         return error( err, 2 )
     end
     return _class

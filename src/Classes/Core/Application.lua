@@ -36,9 +36,9 @@ function Application:initialise( ... )
 
     --self.stages = {}
     self:__overrideMetaMethod( "__add", function( a, b ) -- only allows overriding certain metamethods.
-        if class.typeOf( a, "Application", true ) then
+        if classLib.typeOf( a, "Application", true ) then
             -- allows stages to be added into the instance via the sugar of (app + stage)
-            if class.typeOf( b, "Stage", true ) then
+            if classLib.typeOf( b, "Stage", true ) then
                 return self:addStage( b )
             else
                 return error("Invalid right hand assignment ("..tostring( b )..")")
@@ -83,7 +83,7 @@ function Application:addStage( stage )
 end
 
 function Application:removeStage( stageOrName )
-    local isStage = class.typeOf( stageOrName, "Stage", true )
+    local isStage = classLib.typeOf( stageOrName, "Stage", true )
     for i = 1, #self.stages do
         local stage = self.stages[ i ]
         if ( isStage and stage == stageOrName ) or ( not isStage and stage.name == stageOrName ) then
@@ -98,7 +98,7 @@ function Application:draw( force )
     --if not self.changed then return end
 
     for i = #self.stages, 1, -1 do
-        self.stages[ i ]:draw( force )
+        self.stages[ i ]:draw( true )
     end
 
     -- Then draw the application to screen
@@ -190,6 +190,20 @@ function Application:run( thread )
             log("Error Handling", "Error '"..err.."' has been previously hooked by the trace system. Advancing traceback level by one (now " .. l .. ")")
         else
             log("Error Handling", "Error '"..err.."' has not been hooked by the trace system. Last hook: "..tostring( trace.getLastHookedError() ))
+        end
+
+        log("Error Handling", "Gathering currently loaded classes")
+        local str = ""
+        local ok, _err = pcall( function()
+            for name, class in pairs( classLib.getClasses() ) do
+                str = str .. "- "..name.."\n"
+            end
+        end )
+
+        if ok then
+            log("Error Handling", "Loaded classes at the time of crash: \n"..tostring(str))
+        else
+            log("Error Handling", "ERROR: Failed to gather currently loaded classes (error: "..tostring( _err )..")")
         end
 
         log("Error Handling", "Generating error traceback")
@@ -312,7 +326,7 @@ function Application:requestStageFocus( stage )
 end
 
 function Application:setStageFocus( stage )
-    if not class.isInstance( stage, "Stage" ) then return error("Expected Class Instance Stage, not "..tostring( stage )) end
+    if not classLib.typeOf( stage, "Stage", true ) then return error("Expected Class Instance Stage, not "..tostring( stage )) end
 
     -- remove the current stage focus (if one)
     self:unSetStageFocus()
@@ -348,7 +362,7 @@ function Application:appendStagesFromDCML( path )
 
     for i = 1, #data do
         local stage = data[i]
-        if class.typeOf( stage, "Stage", true ) then
+        if classLib.typeOf( stage, "Stage", true ) then
             self:addStage( stage )
         else
             return error("The DCML parser has created a "..tostring( stage )..". This is not a stage and cannot be added as such. Please ensure the DCML file '"..tostring( path ).."' only creates stages with nodes inside of them, not nodes by themselves. Refer to the wiki for more information")

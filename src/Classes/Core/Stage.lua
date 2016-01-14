@@ -1,10 +1,17 @@
 local insert = table.insert
 local sub = string.sub
 
+local function getNodes( self )
+    local scene = self.activeScene
+    if not scene then return error("Stage '"..self.name.."' has no active scene", 2) end
+
+    return scene.nodes
+end
+
 DCML.registerTag("Stage", {
     childHandler = function( self, element ) -- self = instance (new)
         -- the stage has children, create them using the DCML parser and add them to the instance.
-        self.nodesToAdd = DCML.parse(element.content)
+        self.nodesToAdd = DCML.parse( element.content )
     end;
     onDCMLParseComplete = function( self )
         local nodes = self.nodesToAdd
@@ -43,15 +50,13 @@ class "Stage" alias "COLOUR_REDIRECT" {
 
     application = nil;
 
-    nodes = {};
+    scenes = {};
+    activeScene = nil;
 
     name = nil;
 
     textColour = 32768;
     backgroundColour = 1;
-
-    unfocusedTextColour = 128;
-    unfocusedBackgroundColour = 256;
 
     shadow = true;
     shadowColour = colours.grey;
@@ -90,15 +95,14 @@ function Stage:initialise( ... )
     self.height = height
 
     self:__overrideMetaMethod("__add", function( a, b )
-        if class.typeOf(a, "Stage", true) then
-            if class.isInstance( b ) and b.__node then
-                -- add b (node) to a (stage)
-                return self:addNode( b )
+        if classLib.typeOf(a, "Stage", true) then
+            if classLib.typeOf( b, "Scene", true ) then
+                return self:addScene( b )
             else
-                return error("Invalid right hand assignment. Should be instance of DynaCode node. "..tostring( b ))
+                error("Invalid right hand assignment. Should be instance of Scene "..tostring( b ))
             end
         else
-            return error("Invalid left hand assignment. Should be instance of Stage. "..tostring( b ))
+            error("Invalid left hand assignment. Should be instance of Stage. "..tostring( a ))
         end
     end)
 
@@ -157,24 +161,21 @@ end
 
 function Stage:draw( _force )
     -- Firstly, clear the stage buffer and re-draw it.
+    if not self.visible then return end
+
     local changed = self.changed
     local force = _force or self.forceRedraw
 
     if self.forceRedraw or force then
-        log("i", "Stage is being forced to redraw!")
-
         self.canvas:clear()
         self.canvas:redrawFrame()
         self.forceRedraw = false
     end
 
-    log("i", "Drawing stage "..tostring( name )..". Force: "..tostring( changed )..". Changed: "..tostring( self.changed ) )
-
     local canvas = self.canvas
-    -- order all nodes to re-draw themselves
 
     if changed or force then
-        local nodes = self.nodes
+        local nodes = getNodes( self )
         for i = #nodes, 1, -1 do
             local node = nodes[i]
             if changed and node.changed or force then
@@ -188,7 +189,7 @@ function Stage:draw( _force )
     end
 
     -- draw this stages contents to the application canvas
-    if self.visible then self.canvas:drawToCanvas( self.application.canvas, self.X, self.Y ) end
+    self.canvas:drawToCanvas( self.application.canvas, self.X, self.Y )
 end
 
 function Stage:appDrawComplete()
@@ -202,13 +203,6 @@ function Stage:appDrawComplete()
     end
 end
 
-function Stage:addNode( node )
-    -- add this node
-    node.stage = self
-    insert( self.nodes, node )
-    return node
-end
-
 function Stage:hitTest( x, y )
     return InArea( x, y, self.X, self.Y, self.X + self.width - 1, self.Y + self.height - ( self.borderless and 1 or 0 ) )
 end
@@ -218,14 +212,9 @@ function Stage:isPixel( x, y )
 
     if self.shadow then
         if self.focused then
-            if ( x == self.width + 1 and y == 1 ) or ( x == 1 and y == self.height + ( self.borderless and 0 or 1 ) + 1 ) then
-                return false -- pixel on corner of shadow
-            end
-            return true
+            return not ( x == self.width + 1 and y == 1 ) or ( x == 1 and y == self.height + ( self.borderless and 0 or 1 ) + 1 )
         else
-            if ( x == self.width + 1 ) or ( y == self.height + ( self.borderless and 0 or 1 ) + 1 ) then return false end
-
-            return true
+            return not ( x == self.width + 1 ) or ( y == self.height + ( self.borderless and 0 or 1 ) + 1 )
         end
     elseif not self.shadow then return true end
 
@@ -233,7 +222,7 @@ function Stage:isPixel( x, y )
 end
 
 function Stage:submitEvent( event )
-    local nodes = self.nodes
+    local nodes = getNodes( self )
     local main = event.main
 
     local oX, oY
@@ -255,9 +244,6 @@ function Stage:submitEvent( event )
 end
 
 function Stage:move( newX, newY )
-    newX = newX or self.X
-    newY = newY or self.Y
-
     self:removeFromMap()
     self.X = newX
     self.Y = newY
@@ -267,13 +253,10 @@ function Stage:move( newX, newY )
 end
 
 function Stage:resize( nW, nH )
-    newWidth = nW or self.width
-    newHeight = nH or self.height
-
     self:removeFromMap()
 
-    self.width = newWidth
-    self.height = newHeight
+    self.width = nW
+    self.height = nH
     self.canvas:redrawFrame()
 
     self:map()
@@ -357,7 +340,7 @@ function Stage:handleEvent( event )
                         event.Y = event.Y - 1
                     end
                     -- submit the event
-                    local nodes = self.nodes
+                    local nodes = getNodes( self )
 
                     for i = 1, #nodes do
                         local node = nodes[i]
@@ -406,34 +389,6 @@ function Stage:removeFromMap()
     self.visible = oV
 end
 
-local function getFromDCML( path )
-    return DCML.parse( DCML.loadFile( path ) )
-end
-function Stage:replaceWithDCML( path )
-    local data = getFromDCML( path )
-
-    for i = 1, #self.nodes do
-        local node = self.nodes[i]
-        node.stage = nil
-
-        table.remove( self.nodes, i )
-    end
-
-    for i = 1, #data do
-        data[i].stage = self
-        table.insert( self.nodes, data[i] )
-    end
-end
-
-function Stage:appendFromDCML( path )
-    local data = getFromDCML( path )
-
-    for i = 1, #data do
-        data[i].stage = self
-        table.insert( self.nodes, data[i] )
-    end
-end
-
 function Stage:removeKeyboardFocus( from )
     local current = self.currentKeyboardFocus
     if current and current == from then
@@ -463,16 +418,12 @@ function Stage:removeFromController( name )
 end
 
 function Stage:getCallback( name )
-    name = sub( name, 2 )
-    return self.controller[ name ]
+    return self.controller[ sub( name, 2 ) ]
 end
 
 function Stage:executeCallback( name, ... )
     local cb = self:getCallback( name )
-    if cb then
-        local args = { ... }
-        return cb( ... )
-    else
+    if cb then return cb( ... ) else
         return error("Failed to find callback "..tostring( sub(name, 2) ).." on controller (node.stage): "..tostring( self ))
     end
 end
@@ -508,4 +459,18 @@ end
 function Stage:setChanged( bool )
     self.changed = bool
     if bool then self.application.changed = true end
+end
+
+--[[ Scenes ]]--
+function Stage:setScene( scene )
+    if not classLib.typeOf( scene, "Scene", true ) then
+        return error("Cannot set scene '"..tostring( scene ).."'. The object must be a Scene instance.")
+    end
+
+    if scene.stage ~= self then
+        return error("Cannot set scene '"..tostring( scene ).."'. The scene belongs to another stage.")
+    end
+
+    self.activeScene = scene
+    self.forceRedraw = true
 end

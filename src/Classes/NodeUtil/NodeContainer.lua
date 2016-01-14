@@ -12,7 +12,7 @@ function NodeContainer:getNodeByType( _type )
 
     for i = 1, #nodes do
         local node = nodes[i]
-        if class.typeOf( node, _type, true ) then results[ #results + 1 ] = node end
+        if classLib.typeOf( node, _type, true ) then results[ #results + 1 ] = node end
     end
     return results
 end
@@ -30,6 +30,7 @@ end
 function NodeContainer:addNode( node )
     node.parent = self
     node.stage = self.stage
+    node.scene = self.scene
 
     self.nodes[ #self.nodes + 1 ] = node
 end
@@ -37,7 +38,7 @@ end
 function NodeContainer:removeNode( nodeOrName )
     local nodes = self.nodes
 
-    local isName = not ( class.isInstance( nodeOrName ) and class.__node )
+    local isName = not ( classLib.isInstance( nodeOrName ) and class.__node )
 
     for i = 1, #nodes do
         local node = nodes[i]

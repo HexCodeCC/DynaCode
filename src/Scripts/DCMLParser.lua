@@ -194,7 +194,7 @@ function Parser.parse( data )
                 if not aliasCache[ label ] then
                     log("i", "DCMLMatrix for "..label.." has instructed that DCML parsing should alias with the class '"..label.."'.__alias")
 
-                    local c = class.getClass( label )
+                    local c = classLib.getClass( label )
                     if not c then
                         error("Failed to fetch class for '"..label.."' while fetching alias information")
                     end
@@ -226,7 +226,7 @@ function Parser.parse( data )
 
 
             -- Create an instance of the tag
-            local instanceFn = getFunction( false, matrix.instanceHandler ) or class.getClass(label)
+            local instanceFn = getFunction( false, matrix.instanceHandler ) or classLib.getClass(label)
 
             local instance
             if instanceFn then
