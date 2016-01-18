@@ -1,4 +1,4 @@
-abstract class "NodeContainer" extends "Node" {
+abstract class "NodeContainer" extends "Node" mixin "MTemplateHolder" {
     acceptMouse = true;
     acceptKeyboard = true;
     acceptMisc = true;

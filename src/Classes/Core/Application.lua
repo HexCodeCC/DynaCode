@@ -16,7 +16,10 @@ class "Application" alias "COLOUR_REDIRECT" mixin "MDaemon" {
 function Application:initialise( ... )
     -- Classes can be called with either a single table of arguments, or a series of required arguments. The latter only allows certain arguments.
     -- Here, we use the classUtil.lua functionality to parse the arguments passed to the application.
-    if not oError then oError = exceptionHandler.hook() end
+    if not exceptionHook.isHooked() then
+        log("i", "Creating exception hook")
+        exceptionHook.hook()
+    end
 
     ParseClassArguments( self, { ... }, { { "width", "number" }, {"height", "number"} }, true )
 
@@ -185,14 +188,14 @@ function Application:run( thread )
     local _, err = xpcall( engine, function( err )
         log("f", "Engine error: '"..tostring( err ).."'")
 
-        local last = exceptionHandler.getLastHookedError()
+        local last = exceptionHook.getLastThrownException()
         if last then
             log("eh", "Error '"..err.."' has been previously hooked by the trace system.")
         else
             log("eh", "Error '"..err.."' has not been hooked by the trace system. Last hook: "..tostring( last and last.rawException or nil ))
             -- virtual machine exception (like syntax, attempt to call nil etc...)
 
-            exceptionHandler.spawnException( LuaVMException( err, 2 ) )
+            exceptionHook.spawnException( LuaVMException( err, 4, true ) )
         end
 
         log("eh", "Gathering currently loaded classes")
@@ -209,8 +212,10 @@ function Application:run( thread )
             log("eh", "ERROR: Failed to gather currently loaded classes (error: "..tostring( _err )..")")
         end
 
-        log("eh", "Unhooking traceback")
-        exceptionHandler.unhook( oError )
+        if exceptionHook.isHooked() then
+            log("eh", "Unhooking traceback")
+            exceptionHook.unhook()
+        end
 
         return err
     end )
@@ -219,12 +224,12 @@ function Application:run( thread )
         if self.errorHandler then
             self:errorHandler( err, true )
         else
-            local exception = exceptionHandler.getLastHookedError()
+            local exception = exceptionHook.getLastThrownException()
             -- crashed
             term.setTextColour( colours.yellow )
             print("DynaCode has crashed")
             term.setTextColour( colours.red )
-            print( exception and exception.displayMessage or err )
+            print( exception and exception.displayName or err )
             print("")
 
             local function crashProcess( preColour, pre, fn, errColour, errPre, okColour, okMessage, postColour )

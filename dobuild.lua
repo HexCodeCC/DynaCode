@@ -55,11 +55,13 @@ local interfaces = explore( fs.combine( SOURCE_DIRECTORY, "interfaces" ) )]]
 local export = {}
 for i = 1, #files do
     local path = files[ i ]
-    local h = fs.open( path, "r" )
-    export[ fs.getName( files[i] ) ] = h.readAll()
-    h.close()
+    
+    if fs.getName( path ) ~= ".DS_Store" then
+        local h = fs.open( path, "r" )
+        export[ fs.getName( files[i] ) ] = h.readAll()
+        h.close()
+    end
 end
-
 
 local final = ""
 final = final .. [[

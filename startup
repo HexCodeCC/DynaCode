@@ -1,4 +1,3 @@
---do dofile("src/Scripts/Class.lua") return dofile("test_code/classtest.lua") end
 -- Build and load DynaCode.
 shell.run("dobuild.lua", "src", "bin/DynaCode.lua")
 dofile("bin/DynaCode.lua")
@@ -6,73 +5,11 @@ dofile("bin/DynaCode.lua")
 log:setLoggingEnabled( true )
 log:setLoggingPath("DynaCode.log")
 
-if true then return dofile("test_code/test.lua") end
+myApp = Application( term.getSize() )
+myWindow = myApp + Stage( "myWindow", 2, 2, 30, 10 )
 
-myApplication = Application( term.getSize() )
-myStage = myApplication + Stage( "MyTestStage", 2, 2, 36, 10 )
-myStage.title = "Test Window - Home"
+homePage = Template( "homePageTemplate", myWindow )
 
--- A stage requires a scene. Think of it like a theatrical performance. The application is your theatre, stages are well, the stage and scenes are the various scenes the stage can hold.
+myWindow.activeTemplate = homePage
 
--- So, lets make our first scene. Every scene must be bound to a stage in order to function.
-myFirstScene = Scene("my_first_scene", myStage)
-
--- Here I make a second scene which will be used later to demonstrate scene switching.
-mySecondScene = Scene("my_second_scene", myStage)
-aboutScene = Scene("about_scene", myStage)
-
--- Now, we can add nodes to scenes.
--- Lets add a button to myFirstScene
-myButton = myFirstScene + Button("Hello World", 1, 1, 13, 1)
-goToAbout = myFirstScene + Button({
-    text = "About";
-    X = 1;
-    Y = 3;
-    width = 7;
-    height = 1;
-    onTrigger = function( self, event )
-        self.stage.scene = aboutScene
-        myStage.title = "Test Window - About"
-    end;
-    backgroundColor = colours.yellow;
-    activeBackgroundColour = colours.orange;
-})
-
--- and a button to mySecondScene. You'll notice two different ways of defining buttons. Most DynaCode classes will support this feature and will allow you to define more than just required arguments.
-anotherButton = mySecondScene + Button {
-    X = 2;
-    Y = 2;
-    text = "Back";
-    width = 6;
-    height = 1;
-    backgroundColour = colours.green; -- As you can see, I specified backgroundColour which can't be done during initialisation with the other syntax.
-}
-
-local aboutContent = [[
-@align-center+tc-grey Hello there
-@tc-lightGrey It seems you found our about page. The text you are reading is contained in a @tc-blue  TextContainer
-
-@tc-lightGrey When the content in this container gets too big a handy scroll bar will appear that you can use to scroll through the text.
-]]
--- lets add some text to the about page. For this I will use a text container.
-aboutMessage = aboutScene + TextContainer(aboutContent, 1, 1, 36, 8)
-backButton = aboutScene + Button("Go Back", 14, 9, 9, 1)
-function backButton:onTrigger()
-    myStage.scene = myFirstScene
-    myStage.title = "Test Window - Home"
-end
--- Next we tell the stage to use our scene
-myStage.scene = myFirstScene -- This is the same as myStage:setScene( myFirstScene )
-
--- Now we'll make our button do something. Lets say close the program.
-function myButton:onTrigger()
-    myStage.scene = mySecondScene
-    myStage.title = "Test Window - Search"
-end
-function anotherButton:onTrigger()
-    myStage.scene = myFirstScene
-    myStage.title = "Test Window - Home"
-end
-
--- Finally start our application
-myApplication:run()
+myApp:run()

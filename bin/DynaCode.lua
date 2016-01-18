@@ -158,14 +158,14 @@ function NodeScrollContainer:onMouseScroll( event )\
     local dWidth, dHeight = self:calculateDisplaySize( h, v )\
 \
     if v then\
-\009\009self.verticalScroll = math.max( math.min( self.verticalScroll + event.misc, contentHeight - dHeight ), 0 )\
+		self.verticalScroll = math.max( math.min( self.verticalScroll + event.misc, contentHeight - dHeight ), 0 )\
         --self.forceRedraw = true\
         self.changed = true\
-\009elseif h then\
-\009\009self.horizontalScroll = math.max( math.min( self.horizontalScroll + event.misc, contentWidth - dWidth ), 0 )\
+	elseif h then\
+		self.horizontalScroll = math.max( math.min( self.horizontalScroll + event.misc, contentWidth - dWidth ), 0 )\
         --self.forceRedraw = true\
         self.changed = true\
-\009end\
+	end\
 end\
 \
 function NodeScrollContainer:getActiveScrollbars( contentWidth, contentHeight )\
@@ -260,15 +260,28 @@ end",
 -- Because contained nodes will require a 'stage' and/or 'parent' property Templates will have to be registered to an owner.\
 -- The stage/parent will then be extracted from the owner and the template's owner will be locked.\
 \
-class \"Template\" {\
+class \"Template\" mixin \"MNodeManager\" {\
     nodes = {};\
 \
     owner = nil;\
-    ID = nil;\
+    name = nil;\
 }\
 \
-function Template:addNode()\
+function Template:initialise( name, owner, DCML )\
+    self.name = type( name ) == \"string\" and name or ParameterException(\"Failed to initialise template. Name '\"..tostring( name )..\"' is invalid.\")\
+    self.owner = classLib.isInstance( owner ) and owner or ParameterException(\"Failed to initialise template. Owner '\"..tostring( owner )..\"' is invalid.\")\
 \
+    if DCML then\
+        if type( DCML ) == \"table\" then\
+            for i = 1, #DCML do\
+                self:appendFromDCML( DCML[i] )\
+            end\
+        elseif type( DCML ) == \"string\" then\
+            self:appendFromDCML( DCML )\
+        else\
+            ParameterException(\"Failed to initialise template. DCML content '\"..tostring( DCML )..\"' is invalid type '\"..type( DCML )..\"'\")\
+        end\
+    end\
 end",
   [ "TimerManager.lua" ] = "class \"TimerManager\" {\
     timers = {};\
@@ -384,7 +397,10 @@ class \"Application\" alias \"COLOUR_REDIRECT\" mixin \"MDaemon\" {\
 function Application:initialise( ... )\
     -- Classes can be called with either a single table of arguments, or a series of required arguments. The latter only allows certain arguments.\
     -- Here, we use the classUtil.lua functionality to parse the arguments passed to the application.\
-    if not oError then oError = exceptionHandler.hook() end\
+    if not exceptionHook.isHooked() then\
+        log(\"i\", \"Creating exception hook\")\
+        exceptionHook.hook()\
+    end\
 \
     ParseClassArguments( self, { ... }, { { \"width\", \"number\" }, {\"height\", \"number\"} }, true )\
 \
@@ -553,14 +569,14 @@ function Application:run( thread )\
     local _, err = xpcall( engine, function( err )\
         log(\"f\", \"Engine error: '\"..tostring( err )..\"'\")\
 \
-        local last = exceptionHandler.getLastHookedError()\
+        local last = exceptionHook.getLastThrownException()\
         if last then\
             log(\"eh\", \"Error '\"..err..\"' has been previously hooked by the trace system.\")\
         else\
             log(\"eh\", \"Error '\"..err..\"' has not been hooked by the trace system. Last hook: \"..tostring( last and last.rawException or nil ))\
             -- virtual machine exception (like syntax, attempt to call nil etc...)\
 \
-            exceptionHandler.spawnException( LuaVMException( err, 2 ) )\
+            exceptionHook.spawnException( LuaVMException( err, 4, true ) )\
         end\
 \
         log(\"eh\", \"Gathering currently loaded classes\")\
@@ -577,8 +593,10 @@ function Application:run( thread )\
             log(\"eh\", \"ERROR: Failed to gather currently loaded classes (error: \"..tostring( _err )..\")\")\
         end\
 \
-        log(\"eh\", \"Unhooking traceback\")\
-        exceptionHandler.unhook( oError )\
+        if exceptionHook.isHooked() then\
+            log(\"eh\", \"Unhooking traceback\")\
+            exceptionHook.unhook()\
+        end\
 \
         return err\
     end )\
@@ -587,12 +605,12 @@ function Application:run( thread )\
         if self.errorHandler then\
             self:errorHandler( err, true )\
         else\
-            local exception = exceptionHandler.getLastHookedError()\
+            local exception = exceptionHook.getLastThrownException()\
             -- crashed\
             term.setTextColour( colours.yellow )\
             print(\"DynaCode has crashed\")\
             term.setTextColour( colours.red )\
-            print( exception and exception.displayMessage or err )\
+            print( exception and exception.displayName or err )\
             print(\"\")\
 \
             local function crashProcess( preColour, pre, fn, errColour, errPre, okColour, okMessage, postColour )\
@@ -2049,40 +2067,10 @@ function EventManager:shipToRegistrations( event )\
         r[2]( self, event )\
     end\
 end",
-  [ "ExceptionHook.lua" ] = "local find = string.find\
-local oError = false\
-_G.exceptionHandler = {}\
-local lastHookedError\
-\
-local CRASH_ON_MANUAL_ERRORS = true\
-\
-function exceptionHandler.hook()\
-    oError = _G.error\
-    _G.error = function( m, l )\
-        local ex = Exception( m, type( l ) == \"number\" and ( l == 0 and 0 or l + 2 ) or 2 )\
-        log(\"eh\", \"A manual error occurred: \" .. ex.stacktrace )\
-\
-\
-        if CRASH_ON_MANUAL_ERRORS then log(\"eh\", \"The previous error will propagate\") exceptionHandler.throwSystemException( ex ) else log(\"eh\", \"The previous error will not propagate. CRASH_ON_MANUAL_ERRORS is false\") end\
-    end\
-\
-    return oError\
-end\
-function exceptionHandler.unhook( o )\
-    _G.error = o or oError or error(\"Already unhooked\")\
-    oError = nil\
-end\
-function exceptionHandler.getLastHookedError() return lastHookedError end\
-function exceptionHandler.throwSystemException( exception, levelIncrement )\
-    log(\"eh\", \"Throwing DynaCode Exception '\"..tostring( exception )..\"' at level '\"..exception.level..\"'\")\
-    lastHookedError = exception\
-\
-    oError( \"haha\", exception.level + (levelIncrement or 0) )\
-end\
-function exceptionHandler.getRawError() return oError end\
-function exceptionHandler.spawnException( ex )\
-    lastHookedError = ex\
-end",
+  [ "ConstructorException.lua" ] = "class \"ConstructorException\" extends \"ExceptionBase\" {\
+    title = \"Constructor Exception\";\
+    subTitle = \"This exception was raised due to a problem during instance construction. This may be because of an invalid or missing value required by initialisation.\";\
+}",
   [ "Label.lua" ] = "DCML.registerTag(\"Label\", {\
     contentCanBe = \"text\";\
     argumentType = {\
@@ -2134,6 +2122,93 @@ function Label:setText( text )\
 \
     if not self.canvas then return end\
     self.canvas.width = self.width\
+end",
+  [ "KeyEvent.lua" ] = "local sub = string.sub\
+\
+class \"KeyEvent\" mixin \"Event\" {\
+    main = nil;\
+    sub = nil;\
+    key = nil;\
+    held = nil;\
+}\
+\
+function KeyEvent:initialise( raw )\
+    self.raw = raw\
+    local u = string.find( raw[1], \"_\" )\
+\
+    local t, m\
+    if u then\
+        t = sub( raw[1], u + 1, raw[1]:len() )\
+        m = sub( raw[1], 1, u - 1 )\
+    else\
+        t = raw[1]\
+        m = t\
+    end\
+\
+    self.main = m:upper()\
+    self.sub = t:upper()\
+    self.key = raw[2]\
+    self.held = raw[3]\
+end\
+\
+function KeyEvent:isKey( name )\
+    if keys[ name ] == self.key then return true end\
+end",
+  [ "ExceptionHook.lua" ] = "local oError\
+local last\
+\
+\
+_G.exceptionHook = {}\
+function exceptionHook.hook()\
+    if oError then\
+        Exception(\"Failed to create exception hook. A hook is already in use.\")\
+    end\
+\
+    oError = _G.error\
+    _G.error = function( m, l )\
+        Exception( m, type( l ) == \"number\" and ( l == 0 and 0 or l + 1 ) or 2 )\
+    end\
+    log(\"s\", \"Exception hook created\")\
+end\
+\
+function exceptionHook.unhook()\
+    if not oError then\
+        Exception(\"Failed to unhook exception hook. The hook doesn't exist.\")\
+    end\
+\
+    _G.error = oError\
+    log(\"s\", \"Exception hook removed\")\
+end\
+\
+function exceptionHook.isHooked()\
+    return type( oError ) == \"function\"\
+end\
+\
+function exceptionHook.getRawError()\
+    return oError or _G.error\
+end\
+\
+function exceptionHook.setRawError( fn )\
+    if type( fn ) == \"function\" then\
+        oError = fn\
+    else\
+        Exception(\"Failed to set exception hook raw error. The function is not valid\")\
+    end\
+end\
+\
+function exceptionHook.throwSystemException( exception )\
+    last = exception\
+    local oError = exceptionHook.getRawError()\
+\
+    oError( exception.displayName or \"?\", 0 )\
+end\
+\
+function exceptionHook.spawnException( exception )\
+    last = exception\
+end\
+\
+function exceptionHook.getLastThrownException()\
+    return last\
 end",
   [ "Logging.lua" ] = "local loggingEnabled\
 local loggingPath\
@@ -2217,37 +2292,6 @@ end\
 \
 setmetatable( log, {__call = log.log})\
 _G.log = log",
-  [ "KeyEvent.lua" ] = "local sub = string.sub\
-\
-class \"KeyEvent\" mixin \"Event\" {\
-    main = nil;\
-    sub = nil;\
-    key = nil;\
-    held = nil;\
-}\
-\
-function KeyEvent:initialise( raw )\
-    self.raw = raw\
-    local u = string.find( raw[1], \"_\" )\
-\
-    local t, m\
-    if u then\
-        t = sub( raw[1], u + 1, raw[1]:len() )\
-        m = sub( raw[1], 1, u - 1 )\
-    else\
-        t = raw[1]\
-        m = t\
-    end\
-\
-    self.main = m:upper()\
-    self.sub = t:upper()\
-    self.key = raw[2]\
-    self.held = raw[3]\
-end\
-\
-function KeyEvent:isKey( name )\
-    if keys[ name ] == self.key then return true end\
-end",
   [ "TextUtil.lua" ] = "local TextHelper = {}\
 function TextHelper.leadingTrim( text )\
     return (text:gsub(\"^%s*\", \"\"))\
@@ -2491,17 +2535,63 @@ end\
 \
 function Input:onFocusLost() self.focused = false; self.acceptKeyboard = false; self.changed = true end\
 function Input:onFocusGain() self.focused = true; self.acceptKeyboard = true; self.changed = true end",
-  [ "UnknownEvent.lua" ] = "class \"UnknownEvent\" mixin \"Event\" {\
-    main = false;\
-    sub = \"EVENT\";\
+  [ "MouseEvent.lua" ] = "local sub = string.sub\
+\
+class \"MouseEvent\" mixin \"Event\" {\
+    main = \"MOUSE\";\
+    sub = nil;\
+    X = nil;\
+    Y = nil;\
+    misc = nil; -- scroll direction or mouse button\
+\
+    inParentBounds = false;\
 }\
 \
-function UnknownEvent:initialise( raw )\
+function MouseEvent:initialise( raw )\
     self.raw = raw\
+    local t = sub( raw[1], string.find( raw[1], \"_\" ) + 1, raw[1]:len() )\
 \
-    self.main = raw[1]:upper()\
+    self.sub = t:upper()\
+    self.misc = raw[2]\
+    self.X = raw[3]\
+    self.Y = raw[4]\
+end\
+\
+function MouseEvent:inArea( x1, y1, x2, y2 )\
+    local x, y = self.X, self.Y\
+    if x >= x1 and x <= x2 and y >= y1 and y <= y2 then\
+        return true\
+    end\
+    return false\
+end\
+\
+function MouseEvent:onPoint( x, y )\
+    if self.X == x and self.Y == y then\
+        return true\
+    end\
+    return false\
+end\
+\
+function MouseEvent:getPosition() return self.X, self.Y end\
+\
+function MouseEvent:convertToRelative( parent )\
+    self.X, self.Y = self:getRelative( parent )\
+end\
+\
+function MouseEvent:getRelative( parent )\
+    -- similar to convertToRelative, however this leaves the event unchanged\
+    return self.X - parent.X + 1, self.Y - parent.Y + 1\
+end\
+\
+function MouseEvent:inBounds( parent )\
+    local X, Y = parent.X, parent.Y\
+    return self:inArea( X, Y, X + parent.width - 1, Y + parent.height - 1 )\
+end\
+\
+function MouseEvent:restore( x, y )\
+    self.X, self.Y = x, y\
 end",
-  [ "NodeContainer.lua" ] = "abstract class \"NodeContainer\" extends \"Node\" {\
+  [ "NodeContainer.lua" ] = "abstract class \"NodeContainer\" extends \"Node\" mixin \"MTemplateHolder\" {\
     acceptMouse = true;\
     acceptKeyboard = true;\
     acceptMisc = true;\
@@ -2566,67 +2656,104 @@ function NodeContainer:resolveDCMLChildren()\
     end\
     self.nodesToAdd = {}\
 end",
+  [ "UnknownEvent.lua" ] = "class \"UnknownEvent\" mixin \"Event\" {\
+    main = false;\
+    sub = \"EVENT\";\
+}\
+\
+function UnknownEvent:initialise( raw )\
+    self.raw = raw\
+\
+    self.main = raw[1]:upper()\
+end",
   [ "loadFirst.cfg" ] = "Logging.lua\
 ClassUtil.lua\
 TextUtil.lua\
 DCMLParser.lua",
-  [ "MouseEvent.lua" ] = "local sub = string.sub\
-\
-class \"MouseEvent\" mixin \"Event\" {\
-    main = \"MOUSE\";\
-    sub = nil;\
-    X = nil;\
-    Y = nil;\
-    misc = nil; -- scroll direction or mouse button\
-\
-    inParentBounds = false;\
+  [ "MTemplateHolder.lua" ] = "abstract class \"MTemplateHolder\" {\
+    templates = {};\
+    activeTemplate = nil;\
 }\
 \
-function MouseEvent:initialise( raw )\
-    self.raw = raw\
-    local t = sub( raw[1], string.find( raw[1], \"_\" ) + 1, raw[1]:len() )\
+function MTemplateHolder:registerTemplate( template )\
+    if classLib.typeOf( template, \"Template\", true ) then\
+        if not template.owner then\
+            -- Do any templates with the same name exist?\
+            if not self:getTemplateByName( template.name ) then\
+                template.owner = self\
 \
-    self.sub = t:upper()\
-    self.misc = raw[2]\
-    self.X = raw[3]\
-    self.Y = raw[4]\
-end\
-\
-function MouseEvent:inArea( x1, y1, x2, y2 )\
-    local x, y = self.X, self.Y\
-    if x >= x1 and x <= x2 and y >= y1 and y <= y2 then\
-        return true\
+                table.insert( self.templates, template )\
+                return true\
+            else\
+                ParameterException(\"Failed to register template '\"..tostring( template )..\"'. A template with the name '\"..template.name..\"' is already registered on this object (\"..tostring( self )..\").\")\
+            end\
+        else\
+            ParameterException(\"Failed to register template '\"..tostring( template )..\"'. The template belongs to '\"..tostring( template.owner )..\"'\")\
+        end\
+    else\
+        ParameterException(\"Failed to register object '\"..tostring( template )..\"' as template. The object is an invalid type.\")\
     end\
     return false\
 end\
 \
-function MouseEvent:onPoint( x, y )\
-    if self.X == x and self.Y == y then\
-        return true\
+function MTemplateHolder:unregisterTemplate( nameOrTemplate )\
+    local isName = type( nameOrTemplate ) == \"string\"\
+    local templates = self.templates\
+\
+    local template\
+    for i = 1, #templates do\
+        template = templates[ i ]\
+\
+        if (isName and template.name == nameOrTemplate) or (not isName and template == nameOrTemplate) then\
+            -- This is our guy!\
+            template.owner = nil\
+            table.remove( templates, i )\
+\
+            return true -- boom, job done\
+        end\
     end\
+\
+    return false -- we didn't find a template to un-register.\
+end\
+\
+function MTemplateHolder:getTemplateByName( name )\
+    local templates = self.templates\
+\
+    local template\
+    for i = 1, #templates do\
+        template = templates[ i ]\
+\
+        if template.name == name then\
+            return template\
+        end\
+    end\
+\
     return false\
 end\
 \
-function MouseEvent:getPosition() return self.X, self.Y end\
+function MTemplateHolder:setActiveTemplate( nameOrTemplate )\
+    if type( nameOrTemplate ) == \"string\" then\
+        local target = self:getTemplateByName( name )\
 \
-function MouseEvent:convertToRelative( parent )\
-    self.X, self.Y = self:getRelative( parent )\
+        if target then\
+            self.activeTemplate = target\
+        else\
+            ParameterException(\"Failed to set active template of '\"..tostring( self )..\"' to template with name '\"..nameOrTemplate..\"'. The template could not be found.\")\
+        end\
+    elseif classLib.typeOf( nameOrTemplate, \"Template\", true ) then\
+        self.activeTemplate = nameOrTemplate\
+    else\
+        ParameterException(\"Failed to set active template of '\"..tostring( self )..\"'. The target object is invalid: \"..tostring( nameOrTemplate ) )\
+    end\
 end\
 \
-function MouseEvent:getRelative( parent )\
-    -- similar to convertToRelative, however this leaves the event unchanged\
-    return self.X - parent.X + 1, self.Y - parent.Y + 1\
-end\
+function MTemplateHolder:getNodes()\
+    if not self.activeTemplate then\
+        ParameterException(\"Template container '\"..tostring( self )..\"' has no active template. Failed to retrieve nodes.\")\
+    end\
 \
-function MouseEvent:inBounds( parent )\
-    local X, Y = parent.X, parent.Y\
-    return self:inArea( X, Y, X + parent.width - 1, Y + parent.height - 1 )\
-end\
-\
-function MouseEvent:restore( x, y )\
-    self.X, self.Y = x, y\
+    return self.activeTemplate.nodes\
 end",
-  [ "MTemplateHolder.lua" ] = "abstract class \"MTemplateHolder\" {}",
   [ "MultiLineTextDisplay.lua" ] = "-- The MultiLineTextDisplay stores the parsed text in a FormattedTextObject class which is then used by the NodeScrollContainer to detect the need for and draw scrollbars to traverse the text.\
 \
 -- When any nodes extending this class are drawn the draw request will be forwarded to the FormattedTextObject where it will then decide (based on the size of the parent node) how to\
@@ -3180,32 +3307,25 @@ function Canvas:setHeight( height )\
     if not self.buffer then self.height = height return end\
     local width, buffer, cHeight = self.width, self.buffer, self.height\
 \
-\009while self.height < height do\
-\009\009for i = 1, width do\
-\009\009\009buffer[#buffer + 1] = px\
-\009\009end\
-\009\009self.height = self.height + 1\
-\009end\
+	while self.height < height do\
+		for i = 1, width do\
+			buffer[#buffer + 1] = px\
+		end\
+		self.height = self.height + 1\
+	end\
 \
-\009while self.height > height do\
-\009\009for i = 1, width do\
-\009\009\009remove( buffer, #buffer )\
-\009\009end\
-\009\009self.height = self.height - 1\
-\009end\
+	while self.height > height do\
+		for i = 1, width do\
+			remove( buffer, #buffer )\
+		end\
+		self.height = self.height - 1\
+	end\
     --self:clear()\
 end",
   [ "Stage.lua" ] = "local insert = table.insert\
 local sub = string.sub\
 \
-local function getNodes( self )\
-    local scene = self.activeScene\
-    if not scene then return error(\"Stage '\"..self.name..\"' has no active scene\", 2) end\
-\
-    return scene.nodes\
-end\
-\
-DCML.registerTag(\"Stage\", {\
+--[[DCML.registerTag(\"Stage\", {\
     childHandler = function( self, element ) -- self = instance (new)\
         -- the stage has children, create them using the DCML parser and add them to the instance.\
         self.nodesToAdd = DCML.parse( element.content )\
@@ -3232,9 +3352,9 @@ DCML.registerTag(\"Stage\", {\
         width = \"number\";\
         height = \"number\";\
     },\
-})\
+})]]\
 \
-class \"Stage\" alias \"COLOUR_REDIRECT\" {\
+class \"Stage\" mixin \"MTemplateHolder\" alias \"COLOUR_REDIRECT\" {\
     X = 1;\
     Y = 1;\
 \
@@ -3372,7 +3492,7 @@ function Stage:draw( _force )\
     local canvas = self.canvas\
 \
     if changed or force then\
-        local nodes = getNodes( self )\
+        local nodes = self.nodes\
         for i = #nodes, 1, -1 do\
             local node = nodes[i]\
             if changed and node.changed or force then\
@@ -3419,7 +3539,7 @@ function Stage:isPixel( x, y )\
 end\
 \
 function Stage:submitEvent( event )\
-    local nodes = getNodes( self )\
+    local nodes = self.nodes\
     local main = event.main\
 \
     local oX, oY\
@@ -3537,7 +3657,7 @@ function Stage:handleEvent( event )\
                         event.Y = event.Y - 1\
                     end\
                     -- submit the event\
-                    local nodes = getNodes( self )\
+                    local nodes = self.nodes\
 \
                     for i = 1, #nodes do\
                         local node = nodes[i]\
@@ -3656,22 +3776,6 @@ end\
 function Stage:setChanged( bool )\
     self.changed = bool\
     if bool then self.application.changed = true end\
-end\
-\
---[[ Scenes ]]--\
-function Stage:setScene( scene )\
-    if not classLib.typeOf( scene, \"Scene\", true ) then\
-        return error(\"Cannot set scene '\"..tostring( scene )..\"'. The object must be a Scene instance.\")\
-    end\
-\
-    if scene.stage ~= self then\
-        return error(\"Cannot set scene '\"..tostring( scene )..\"'. The scene belongs to another stage.\")\
-    end\
-\
-    self.activeScene = scene\
-    self.forceRedraw = true\
-    self.changed = true\
-    self.application.forceRedraw = true\
 end",
   [ "Event.lua" ] = "class \"Event\" {\
     raw = nil;\
@@ -3705,12 +3809,15 @@ end\
 \
 function Daemon:start() log(\"d\", \"WARNING: Daemon '\"..self.name..\"' (\"..self:type()..\") has no start function declared\") end\
 function Daemon:stop() log(\"d\", \"WARNING: Daemon '\"..self.name..\"' (\"..self:type()..\") has no end function declared\") end",
-  [ "LuaVMException.lua" ] = "class \"LuaVMException\" extends \"ExceptionBase\"\
-function LuaVMException:initialise( m, l )\
-    self.super( m, l, 6, m )\
-\
-    self.displayMessage = self:generateDisplayMessage(\"LuaVM Exception\")\
-end",
+  [ "LuaVMException.lua" ] = "class \"LuaVMException\" extends \"ExceptionBase\" {\
+    title = \"Virtual Machine Exception\";\
+    subTitle = \"This exception has been raised because the Lua VM has crashed.\\nThis is usually caused by errors like 'attempt to index nil', or 'attempt to perform __add on nil and number' etc...\";\
+    useMessageAsRaw = true;\
+}",
+  [ "ParameterException.lua" ] = "class \"ParameterException\" extends \"ExceptionBase\" {\
+    title = \"DynaCode Parameter Exception\";\
+    subTitle = \"This exception was caused because a parameter was not available or was invalid. This problem likely occurred at runtime.\";\
+}",
   [ "NodeCanvas.lua" ] = "local len, sub = string.len, string.sub\
 \
 class \"NodeCanvas\" extends \"Canvas\" {\
@@ -3943,72 +4050,148 @@ function MyDaemon:stop( graceful )\
     local event = self.owner.event\
     event:removeEventHandler(\"TERMINATE\", \"EVENT\", \"Terminate\")\
 end",
-  [ "ExceptionBase.lua" ] = "local find = string.find\
-local match = string.match\
-local sub = string.sub\
-\
-local defaultError = _G.error\
-\
-abstract class \"ExceptionBase\" {\
-    stacktrace = nil;\
-    level = 0;\
-    message = false;\
+  [ "MNodeManager.lua" ] = "abstract class \"MNodeManager\" {\
+    nodes = {};\
 }\
 \
-function ExceptionBase:initialise( m, l, levelOffset, raw )\
-    -- An exception has been thrown.\
-    local m = tostring( m )\
-    local levelOffset = type( levelOffset ) == \"number\" and levelOffset or 0\
+function MNodeManager:addNode( node )\
+    node.parent = self\
 \
-    self.level = type( l ) == \"number\" and ( l == 0 and 0 or l + 1 + levelOffset ) or 2 + levelOffset\
+    table.insert( self.nodes, node )\
 \
-    self.rawException = raw or (function() local _, err = pcall( defaultError, m, self.level == 0 and 0 or self.level + 1 ); return err end)()\
-    self.message = m\
-\
-    self.stacktrace = \"Stacktrace Follows:\\n## Error ##\\n\"..m..\"\\n\\n## Stacktrace ##\\n\"\
-    self:formStacktrace( 3 )\
+    return node\
 end\
 \
-function ExceptionBase:generateDisplayMessage( pre )\
-    local err = self.rawException\
+function MNodeManager:removeNode( nodeOrName )\
+    local isName = type( nodeOrName ) == \"string\"\
+    local nodes = self.nodes\
 \
-    local _, e, fileName, fileLine = find( err, \"(%w+%.?.-):(%d+).-[%s*]?[:*]?\" )\
-    if not e then return pre..\" (?): \"..err end\
+    local node\
+    for i = 1, #nodes do\
+        node = nodes[ i ]\
 \
-    return pre..\" (\"..(fileName or \"?\")..\":\"..(fileLine or \"?\")..\"):\"..tostring( sub( err, e + 1 ) )\
+        if (isName and node.name == nodeOrName) or (not isName and node == nodeOrName) then\
+            table.remove( nodes, i )\
+            return true\
+        end\
+    end\
+\
+    return false\
 end\
 \
-function ExceptionBase:formStacktrace( lModifier )\
-    if self.level == 0 then\
-        log(\"eh\", \"Cannot form stacktrace for Exception. The level on the Exception is zero.\")\
-        self.stacktrace = self.stacktrace .. \"Cannot create stacktrace. Exception is level zero.\\n\"\
+function MNodeManager:getNode( name )\
+    local nodes = self.nodes\
 \
+    local node\
+    for i = 1, #nodes do\
+        node = nodes[ i ]\
+\
+        if node.name == name then\
+            return node\
+        end\
+    end\
+\
+    return false\
+end\
+\
+function MNodeManager:clearNodes()\
+    for i = #self.nodes, 1, -1 do\
+        self:removeNode( self.nodes[ i ] )\
+    end\
+end\
+\
+function MNodeManager:appendFromDCML( path )\
+    local data = DCML.parse( DCML.readFile( path ) )\
+\
+    if data then for i = 1, #data do\
+        self:addNode( data[i] )\
+    end end\
+end\
+\
+function MNodeManager:replaceWithDCML( path )\
+    self:clearNodes()\
+    self:appendFromDCML( path )\
+end",
+  [ "ExceptionBase.lua" ] = "local _\
+\
+abstract class \"ExceptionBase\" {\
+    exceptionOffset = 1;\
+    levelOffset = 1;\
+    title = \"UNKNOWN_EXCEPTION\";\
+    subTitle = false;\
+\
+    message = nil;\
+    level = 1;\
+    raw = nil;\
+\
+    useMessageAsRaw = false;\
+\
+    stacktrace = \"\\nNo stacktrace has been generated\\n\"\
+}\
+\
+function ExceptionBase:initialise( m, l, handle )\
+    if l then self.level = l end\
+\
+    self.level = self.level ~= 0 and (self.level + (self.exceptionOffset * 3) + self.levelOffset) or self.level\
+    self.message = m or \"No error message provided\"\
+\
+    if self.useMessageAsRaw then\
+        self.raw = m\
+    else\
+        local ok, err = pcall( exceptionHook.getRawError(), m, self.level == 0 and 0 or self.level + 1 )\
+        self.raw = err or m\
+    end\
+\
+    self:generateStack( self.level == 0 and 0 or self.level + 4 )\
+    self:generateDisplayName()\
+\
+    if not handle then\
+        exceptionHook.throwSystemException( self )\
+    end\
+end\
+\
+function ExceptionBase:generateDisplayName()\
+    local err = self.raw\
+    local pre = self.title\
+\
+    local _, e, fileName, fileLine = err:find(\"(%w+%.?.-):(%d+).-[%s*]?[:*]?\")\
+    if not e then self.displayName = pre..\" (?): \"..err return end\
+\
+    self.displayName = pre..\" (\"..(fileName or \"?\")..\":\"..(fileLine or \"?\")..\"):\"..tostring( err:sub( e + 1 ) )\
+end\
+\
+function ExceptionBase:generateStack( level )\
+    local oError = exceptionHook.getRawError()\
+\
+    if level == 0 then\
+        log(\"w\", \"Cannot generate stacktrace for exception '\"..tostring( self )..\"'. Its level is zero\")\
         return\
     end\
-    local level = self.level + ( lModifier or 0 )\
 \
-    -- Trace this error\
-    local stack = self.stacktrace\
-    local oError = exceptionHandler.getRawError() or defaultError\
+    local stack = \"\\n'\"..tostring( self.title )..\"' details\\n##########\\n\\nError: \\n\"..self.message..\" (Level: \"..self.level..\", pcall: \"..tostring( self.raw )..\")\\n##########\\n\\nStacktrace: \\n\"\
+\
+    local currentLevel = level\
+    local message = self.message\
 \
     while true do\
-        local ok, err = pcall( oError, self.message, level )\
+        local _, err = pcall( oError, message, currentLevel )\
 \
-        if find( err, \"bios%.?.-:\") or find( err, \"shell.-:\" ) or find( err, \"xpcall.-:\" ) then break end\
+        if err:find(\"bios[%.lua]?.-:\") or err:find(\"shell.-:\") or err:find(\"xpcall.-:\") then\
+            stack = stack .. \"-- End --\\n\"\
+            break\
+        end\
 \
-        local name, line = match( err, \"(%w+%.?.-):(%d+).-\" )\
-        stack = stack .. \"> \"..(name or \"?\")..\": \"..(line or \"?\")..\"\\n\"\
+        local fileName, fileLine = err:match(\"(%w+%.?.-):(%d+).-\")\
+        stack = stack .. \"> \"..(fileName or \"?\")..\":\"..(fileLine or \"?\")..\"\\n\"\
 \
-        level = level + 1\
+        currentLevel = currentLevel + 1\
+    end\
+\
+    if self.subTitle then\
+        stack = stack .. \"\\n\"..self.subTitle\
     end\
 \
     self.stacktrace = stack\
-end\
-\
-function ExceptionBase:throw( m, l )\
-    log(\"eh\", \"Throwing exception: \"..tostring( m ))\
-\
-    exceptionHandler.throwSystemException( self )\
 end",
   [ "Node.lua" ] = "abstract class \"Node\" alias \"COLOUR_REDIRECT\" {\
     X = 1;\
@@ -4477,7 +4660,7 @@ function ParseClassArguments( instance, arguments, order, require, raw )\
         if _type and type( value ) ~= _type then\
             if not classLib.typeOf( value, _type, true ) then\
                 _G.parseError = { key, value }\
-                return error(\"Expected type '\".._type..\"' for argument '\"..key..\"', got '\"..type( value )..\"' instead while initialising '\"..tostring( instance )..\"'.\", 2)\
+                return ParameterException(\"Expected type '\".._type..\"' for argument '\"..key..\"', got '\"..type( value )..\"' instead while initialising '\"..tostring( instance )..\"'.\", 4)\
             end\
         end\
         return value\
@@ -4610,13 +4793,9 @@ function InArea( x, y, x1, y1, x2, y2 )\
     end\
     return false\
 end",
-  [ "Exception.lua" ] = "class \"Exception\" extends \"ExceptionBase\"\
-\
-function Exception:initialise( m, l )\
-    self.super( m, l, 6 )\
-\
-    self.displayMessage = self:generateDisplayMessage(\"DynaCode Generic Exception\")\
-end",
+  [ "Exception.lua" ] = "class \"Exception\" extends \"ExceptionBase\" {\
+    title = \"DynaCode Exception\";\
+}",
 }
 -- Start of unpacker. This script will load all packed files and verify their classes were created correctly.
 

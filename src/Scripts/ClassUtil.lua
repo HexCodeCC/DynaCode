@@ -24,7 +24,7 @@ function ParseClassArguments( instance, arguments, order, require, raw )
         if _type and type( value ) ~= _type then
             if not classLib.typeOf( value, _type, true ) then
                 _G.parseError = { key, value }
-                return error("Expected type '".._type.."' for argument '"..key.."', got '"..type( value ).."' instead while initialising '"..tostring( instance ).."'.", 2)
+                return ParameterException("Expected type '".._type.."' for argument '"..key.."', got '"..type( value ).."' instead while initialising '"..tostring( instance ).."'.", 4)
             end
         end
         return value

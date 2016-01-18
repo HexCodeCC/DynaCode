@@ -1,34 +1,56 @@
-local find = string.find
-local oError = false
-_G.exceptionHandler = {}
-local lastHookedError
-
-local CRASH_ON_MANUAL_ERRORS = true
-
-function exceptionHandler.hook()
-    oError = _G.error
-    _G.error = function( m, l )
-        local ex = Exception( m, type( l ) == "number" and ( l == 0 and 0 or l + 2 ) or 2 )
-        log("eh", "A manual error occurred: " .. ex.stacktrace )
+local oError
+local last
 
 
-        if CRASH_ON_MANUAL_ERRORS then log("eh", "The previous error will propagate") exceptionHandler.throwSystemException( ex ) else log("eh", "The previous error will not propagate. CRASH_ON_MANUAL_ERRORS is false") end
+_G.exceptionHook = {}
+function exceptionHook.hook()
+    if oError then
+        Exception("Failed to create exception hook. A hook is already in use.")
     end
 
-    return oError
+    oError = _G.error
+    _G.error = function( m, l )
+        Exception( m, type( l ) == "number" and ( l == 0 and 0 or l + 1 ) or 2 )
+    end
+    log("s", "Exception hook created")
 end
-function exceptionHandler.unhook( o )
-    _G.error = o or oError or error("Already unhooked")
-    oError = nil
-end
-function exceptionHandler.getLastHookedError() return lastHookedError end
-function exceptionHandler.throwSystemException( exception, levelIncrement )
-    log("eh", "Throwing DynaCode Exception '"..tostring( exception ).."' at level '"..exception.level.."'")
-    lastHookedError = exception
 
-    oError( "haha", exception.level + (levelIncrement or 0) )
+function exceptionHook.unhook()
+    if not oError then
+        Exception("Failed to unhook exception hook. The hook doesn't exist.")
+    end
+
+    _G.error = oError
+    log("s", "Exception hook removed")
 end
-function exceptionHandler.getRawError() return oError end
-function exceptionHandler.spawnException( ex )
-    lastHookedError = ex
+
+function exceptionHook.isHooked()
+    return type( oError ) == "function"
+end
+
+function exceptionHook.getRawError()
+    return oError or _G.error
+end
+
+function exceptionHook.setRawError( fn )
+    if type( fn ) == "function" then
+        oError = fn
+    else
+        Exception("Failed to set exception hook raw error. The function is not valid")
+    end
+end
+
+function exceptionHook.throwSystemException( exception )
+    last = exception
+    local oError = exceptionHook.getRawError()
+
+    oError( exception.displayName or "?", 0 )
+end
+
+function exceptionHook.spawnException( exception )
+    last = exception
+end
+
+function exceptionHook.getLastThrownException()
+    return last
 end

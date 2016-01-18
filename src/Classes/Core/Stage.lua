@@ -1,14 +1,7 @@
 local insert = table.insert
 local sub = string.sub
 
-local function getNodes( self )
-    local scene = self.activeScene
-    if not scene then return error("Stage '"..self.name.."' has no active scene", 2) end
-
-    return scene.nodes
-end
-
-DCML.registerTag("Stage", {
+--[[DCML.registerTag("Stage", {
     childHandler = function( self, element ) -- self = instance (new)
         -- the stage has children, create them using the DCML parser and add them to the instance.
         self.nodesToAdd = DCML.parse( element.content )
@@ -35,9 +28,9 @@ DCML.registerTag("Stage", {
         width = "number";
         height = "number";
     },
-})
+})]]
 
-class "Stage" alias "COLOUR_REDIRECT" {
+class "Stage" mixin "MTemplateHolder" alias "COLOUR_REDIRECT" {
     X = 1;
     Y = 1;
 
@@ -175,7 +168,7 @@ function Stage:draw( _force )
     local canvas = self.canvas
 
     if changed or force then
-        local nodes = getNodes( self )
+        local nodes = self.nodes
         for i = #nodes, 1, -1 do
             local node = nodes[i]
             if changed and node.changed or force then
@@ -222,7 +215,7 @@ function Stage:isPixel( x, y )
 end
 
 function Stage:submitEvent( event )
-    local nodes = getNodes( self )
+    local nodes = self.nodes
     local main = event.main
 
     local oX, oY
@@ -340,7 +333,7 @@ function Stage:handleEvent( event )
                         event.Y = event.Y - 1
                     end
                     -- submit the event
-                    local nodes = getNodes( self )
+                    local nodes = self.nodes
 
                     for i = 1, #nodes do
                         local node = nodes[i]
@@ -459,20 +452,4 @@ end
 function Stage:setChanged( bool )
     self.changed = bool
     if bool then self.application.changed = true end
-end
-
---[[ Scenes ]]--
-function Stage:setScene( scene )
-    if not classLib.typeOf( scene, "Scene", true ) then
-        return error("Cannot set scene '"..tostring( scene ).."'. The object must be a Scene instance.")
-    end
-
-    if scene.stage ~= self then
-        return error("Cannot set scene '"..tostring( scene ).."'. The scene belongs to another stage.")
-    end
-
-    self.activeScene = scene
-    self.forceRedraw = true
-    self.changed = true
-    self.application.forceRedraw = true
 end
