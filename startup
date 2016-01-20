@@ -8,8 +8,41 @@ log:setLoggingPath("DynaCode.log")
 myApp = Application( term.getSize() )
 myWindow = myApp + Stage( "myWindow", 2, 2, 30, 10 )
 
+-- Lets create two pages
 homePage = Template( "homePageTemplate", myWindow )
+aboutPage = Template( "aboutPageTemplate", myWindow )
 
+-- On the first, we will have a panel
+myPanel = homePage + Panel( 2, 1, 28, 9 )
+myPanel.backgroundColour = colours.yellow
+
+-- that contains a button
+myButton = myPanel + Button("Hello World", 2, 2, 37, 8)
+
+-- under the panel we'll have a label
+infoLabel = homePage + Label("'ctrl+b' to swap page", 5, 10)
+
+-- On the second page we'll have a text container.
+myText = aboutPage + TextContainer([[
+@align-center Hello friend, this is a @tc-blue  TextContainer@tc-grey . Pretty cool huh?
+
+This text will develop a scroll bar to allow for loooooads of text!
+
+The text can also be aligned to the left, right or center of the TextContainer.
+
+@tc-yellow Press 'ctrl+b' to return to the main page.]], 1, 1, 30, 9)
+
+-- Set the active template to our first page
 myWindow.activeTemplate = homePage
 
+-- and make some hotkeys
+myApp.hotkey:registerCombination("swapPage", "ctrl-b", function()
+    myWindow.activeTemplate = myWindow.activeTemplate == homePage and aboutPage or homePage
+end)
+
+myApp.hotkey:registerCombination("close", "ctrl-x", function()
+    myApp:finish()
+end)
+
+-- finally run the application
 myApp:run()

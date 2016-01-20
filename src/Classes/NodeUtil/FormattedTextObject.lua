@@ -25,12 +25,12 @@ function FormattedTextObject:initialise( owner, width )
 end
 
 function FormattedTextObject:cacheSegmentInformation()
-    log("i", "Parsing segment information with width: "..tostring( self.owner.displayWidth ) )
+    log("i", "Parsing segment information with width: "..tostring( self.owner.cache.displayWidth ) )
     if not text then self.owner:parseIdentifiers() text = self.text end
     if not self.text then return error("Failed to parse text identifiers. No new text received.") end
 
     local segments = self.segments
-    local width, text, lines, currentY, currentX = self.owner.displayWidth, self.text, {}, 1, 1
+    local width, text, lines, currentY, currentX = self.owner.cache.displayWidth, self.text, {}, 1, 1
     local textColour, backgroundColour, lineAlignment = false, false, "left"
 
     local function newline()
@@ -139,7 +139,7 @@ end
 
 function FormattedTextObject:cacheAlignments( _lines )
     local lines = _lines or self.lines
-    local width = self.owner.displayWidth
+    local width = self.owner.cache.displayWidth
 
     local line, alignment
     for i = 1, #lines do
@@ -204,7 +204,7 @@ end
 function FormattedTextObject:getHeight()
     if not self.lines then
         self:cacheSegmentInformation()
-        self.owner:getActiveScrollbars( self.width, self.owner.height )
+        self.owner.recacheAllNextDraw = true
     end
 
     return #self.lines

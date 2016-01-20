@@ -7,7 +7,10 @@ function TextContainer:initialise( ... )
     self.text = text
     self.container = FormattedTextObject( self, self.width )
 
-    self.nodes[ 1 ] = self.container
+    self:addNode( self.container )
+
+    self:cacheNodeSizes()
+    self:cacheDisplaySize()
 end
 
 function TextContainer:setText( text )

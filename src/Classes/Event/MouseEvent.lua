@@ -28,6 +28,10 @@ function MouseEvent:inArea( x1, y1, x2, y2 )
     return false
 end
 
+function MouseEvent:isInNode( node )
+    return self:inArea( node.X, node.Y, node.X + node.width - 1, node.Y + node.height - 1 )
+end
+
 function MouseEvent:onPoint( x, y )
     if self.X == x and self.Y == y then
         return true
