@@ -4,6 +4,7 @@ abstract class "MNodeManager" {
 
 function MNodeManager:addNode( node )
     node.parent = self
+    node.stage = self.stage
 
     table.insert( self.nodes, node )
 

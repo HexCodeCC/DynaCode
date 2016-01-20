@@ -70,15 +70,18 @@ function MTemplateHolder:setActiveTemplate( nameOrTemplate )
         end
     elseif classLib.typeOf( nameOrTemplate, "Template", true ) then
         self.activeTemplate = nameOrTemplate
+        self.changed = true
+        self.forceRedraw = true
     else
         ParameterException("Failed to set active template of '"..tostring( self ).."'. The target object is invalid: "..tostring( nameOrTemplate ) )
     end
 end
 
 function MTemplateHolder:getNodes()
-    if not self.activeTemplate then
-        ParameterException("Template container '"..tostring( self ).."' has no active template. Failed to retrieve nodes.")
+    if self.activeTemplate then
+        return self.activeTemplate.nodes
+        --ParameterException("Template container '"..tostring( self ).."' has no active template. Failed to retrieve nodes.")
     end
 
-    return self.activeTemplate.nodes
+    return self.nodes
 end

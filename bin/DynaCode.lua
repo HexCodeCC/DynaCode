@@ -271,6 +271,8 @@ function Template:initialise( name, owner, DCML )\
     self.name = type( name ) == \"string\" and name or ParameterException(\"Failed to initialise template. Name '\"..tostring( name )..\"' is invalid.\")\
     self.owner = classLib.isInstance( owner ) and owner or ParameterException(\"Failed to initialise template. Owner '\"..tostring( owner )..\"' is invalid.\")\
 \
+    self.isStageTemplate = self.owner.__type == \"Stage\"\
+\
     if DCML then\
         if type( DCML ) == \"table\" then\
             for i = 1, #DCML do\
