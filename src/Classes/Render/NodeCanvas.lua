@@ -7,7 +7,7 @@ class "NodeCanvas" extends "Canvas" {
 function NodeCanvas:initialise( ... )
     local node, width, height = ParseClassArguments( self, { ... }, { {"node", "table"}, {"width", "number"}, {"height", "number"} }, true, true )
 
-    if not class.isInstance( node ) then
+    if not classLib.isInstance( node ) then
         return error("Node argument (first unordered) is not a class instance! Should be a node class instance. '" .. tostring( node ) .. "'")
     elseif not node.__node then
         return error("Node argument (first unordered) is an invalid class instance. '"..tostring( node ).."'")

@@ -13,6 +13,8 @@ local loggingModes = {
     de = "Daemon Error";
     df = "Daemon Fatal";
     ds = "Daemon Success";
+
+    eh = "Exception Handling";
 }
 local clearWhenLow = true
 local clearWhen = 50000

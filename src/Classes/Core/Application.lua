@@ -16,7 +16,10 @@ class "Application" alias "COLOUR_REDIRECT" mixin "MDaemon" {
 function Application:initialise( ... )
     -- Classes can be called with either a single table of arguments, or a series of required arguments. The latter only allows certain arguments.
     -- Here, we use the classUtil.lua functionality to parse the arguments passed to the application.
-    if not oError then oError = trace.hook() end
+    if not exceptionHook.isHooked() then
+        log("i", "Creating exception hook")
+        exceptionHook.hook()
+    end
 
     ParseClassArguments( self, { ... }, { { "width", "number" }, {"height", "number"} }, true )
 
@@ -36,9 +39,9 @@ function Application:initialise( ... )
 
     --self.stages = {}
     self:__overrideMetaMethod( "__add", function( a, b ) -- only allows overriding certain metamethods.
-        if class.typeOf( a, "Application", true ) then
+        if classLib.typeOf( a, "Application", true ) then
             -- allows stages to be added into the instance via the sugar of (app + stage)
-            if class.typeOf( b, "Stage", true ) then
+            if classLib.typeOf( b, "Stage", true ) then
                 return self:addStage( b )
             else
                 return error("Invalid right hand assignment ("..tostring( b )..")")
@@ -83,7 +86,7 @@ function Application:addStage( stage )
 end
 
 function Application:removeStage( stageOrName )
-    local isStage = class.typeOf( stageOrName, "Stage", true )
+    local isStage = classLib.typeOf( stageOrName, "Stage", true )
     for i = 1, #self.stages do
         local stage = self.stages[ i ]
         if ( isStage and stage == stageOrName ) or ( not isStage and stage.name == stageOrName ) then
@@ -184,18 +187,35 @@ function Application:run( thread )
 
     local _, err = xpcall( engine, function( err )
         log("f", "Engine error: '"..tostring( err ).."'")
-        local l = 3
-        if trace.getLastHookedError() == err then
-            l = l + 1
-            log("Error Handling", "Error '"..err.."' has been previously hooked by the trace system. Advancing traceback level by one (now " .. l .. ")")
+
+        local last = exceptionHook.getLastThrownException()
+        if last then
+            log("eh", "Error '"..err.."' has been previously hooked by the trace system.")
         else
-            log("Error Handling", "Error '"..err.."' has not been hooked by the trace system. Last hook: "..tostring( trace.getLastHookedError() ))
+            log("eh", "Error '"..err.."' has not been hooked by the trace system. Last hook: "..tostring( last and last.rawException or nil ))
+            -- virtual machine exception (like syntax, attempt to call nil etc...)
+
+            exceptionHook.spawnException( LuaVMException( err, 4, true ) )
         end
 
-        log("Error Handling", "Generating error traceback")
-        trace.traceback( err, l )
-        log("Error Handling", "Unhooking traceback")
-        trace.unhook( oError )
+        log("eh", "Gathering currently loaded classes")
+        local str = ""
+        local ok, _err = pcall( function()
+            for name, class in pairs( classLib.getClasses() ) do
+                str = str .. "- "..name.."\n"
+            end
+        end )
+
+        if ok then
+            log("eh", "Loaded classes at the time of crash: \n"..tostring(str))
+        else
+            log("eh", "ERROR: Failed to gather currently loaded classes (error: "..tostring( _err )..")")
+        end
+
+        if exceptionHook.isHooked() then
+            log("eh", "Unhooking traceback")
+            exceptionHook.unhook()
+        end
 
         return err
     end )
@@ -204,11 +224,12 @@ function Application:run( thread )
         if self.errorHandler then
             self:errorHandler( err, true )
         else
+            local exception = exceptionHook.getLastThrownException()
             -- crashed
             term.setTextColour( colours.yellow )
             print("DynaCode has crashed")
             term.setTextColour( colours.red )
-            print( err )
+            print( exception and exception.displayName or err )
             print("")
 
             local function crashProcess( preColour, pre, fn, errColour, errPre, okColour, okMessage, postColour )
@@ -234,7 +255,7 @@ function Application:run( thread )
 
             crashProcess( YELLOW, "Attempting to write crash information to log file", function()
                 log("f", "DynaCode crashed: "..err)
-                log("f", trace.getLastStack())
+                if exception then log("f", exception.stacktrace) end
             end, RED, "Failed to write crash information: ", LIME, "Wrote crash information to file (stacktrace)", 1 )
             if self.onError then self:onError( err ) end
         end
@@ -312,7 +333,7 @@ function Application:requestStageFocus( stage )
 end
 
 function Application:setStageFocus( stage )
-    if not class.isInstance( stage, "Stage" ) then return error("Expected Class Instance Stage, not "..tostring( stage )) end
+    if not classLib.typeOf( stage, "Stage", true ) then return error("Expected Class Instance Stage, not "..tostring( stage )) end
 
     -- remove the current stage focus (if one)
     self:unSetStageFocus()
@@ -348,7 +369,7 @@ function Application:appendStagesFromDCML( path )
 
     for i = 1, #data do
         local stage = data[i]
-        if class.typeOf( stage, "Stage", true ) then
+        if classLib.typeOf( stage, "Stage", true ) then
             self:addStage( stage )
         else
             return error("The DCML parser has created a "..tostring( stage )..". This is not a stage and cannot be added as such. Please ensure the DCML file '"..tostring( path ).."' only creates stages with nodes inside of them, not nodes by themselves. Refer to the wiki for more information")

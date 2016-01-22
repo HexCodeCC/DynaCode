@@ -8,6 +8,861 @@
 ]]
 
 local files = {
+  [ "Panel.lua" ] = "DCML.registerTag(\"Panel\",{\
+childHandler=function(t,e)\
+t.nodesToAdd=DCML.parse(e.content)\
+end;\
+argumentType={\
+X=\"number\";\
+Y=\"number\";\
+width=\"number\";\
+height=\"number\";\
+backgroundColour=\"colour\";\
+textColour=\"colour\";\
+},\
+callbackGenerator=\"#generateNodeCallback\";\
+})\
+class\"Panel\"extends\"NodeScrollContainer\"{\
+width=2;\
+height=2;\
+__drawChildrenToCanvas=true;\
+}\
+function Panel:initialise(...)\
+local o,a,t,e=ParseClassArguments(self,{...},{\
+{\"X\",\"number\"},\
+{\"Y\",\"number\"},\
+{\"width\",\"number\"},\
+{\"height\",\"number\"}\
+},false,true)\
+self.super(o,a,t or self.width,e or self.height)\
+self:__overrideMetaMethod(\"__add\",function(t,e)\
+if classLib.typeOf(t,\"Panel\",true)then\
+if classLib.isInstance(e)and e.__node then\
+return self:addNode(e)\
+else\
+return error(\"Invalid right hand assignment. Should be instance of DynaCode node. \"..tostring(e))\
+end\
+else\
+return error(\"Invalid left hand assignment. Should be instance of Panel. \"..tostring(t))\
+end\
+end)\
+end",
+  [ "NodeScrollContainer.lua" ] = "class\"NodeScrollContainer\"abstract()extends\"NodeContainer\"{\
+yOffset=0;\
+xOffset=0;\
+cache={\
+nodeHeight=0;\
+nodeWidth=0;\
+xScrollPosition=0;\
+yScrollPosition=0;\
+xScrollSize=0;\
+yScrollSize=0;\
+xDisplayPosition=0;\
+yDisplayPosition=0;\
+xActive=false;\
+yActive=false;\
+lastMouse=0;\
+};\
+horizontalPadding=0;\
+verticalPadding=0;\
+currentScrollbar=false;\
+autoDraw=true;\
+trackColour=128;\
+barColour=256;\
+activeBarColour=colours.lightBlue;\
+}\
+function NodeScrollContainer:cacheAllInformation()\
+self:cacheNodeSizes()\
+self:cacheScrollbarInformation()\
+end\
+function NodeScrollContainer:cacheScrollbarInformation()\
+self:cacheRequiredScrollbars()\
+self:cacheDisplaySize()\
+self:cacheScrollSizes()\
+self:cacheScrollPositions()\
+end\
+function NodeScrollContainer:cacheDisplaySize()\
+local e=self.cache\
+local a,t=e.xActive,e.yActive\
+e.displayWidth,e.displayHeight=self.width-(t and 1 or 0),self.height-(a and 1 or 0)\
+end\
+function NodeScrollContainer:cacheNodeSizes()\
+local a,t=0,0\
+local o=self.nodes\
+local e\
+for i=1,#o do\
+e=o[i]\
+a=math.max(a,e.X+e.width-1)\
+t=math.max(t,e.Y+e.height-1)\
+end\
+local e=self.cache\
+e.nodeWidth=a\
+e.nodeHeight=t\
+end\
+function NodeScrollContainer:cacheRequiredScrollbars()\
+local e=self.cache\
+local a,t=e.nodeWidth>self.width,e.nodeHeight>self.height\
+e.xActive=a or(t and e.nodeWidth>self.width-1)\
+e.yActive=t or(a and e.nodeHeight>self.height-1)\
+end\
+function NodeScrollContainer:cacheScrollSizes()\
+local e=self.cache\
+local t,a=e.displayWidth,e.displayHeight\
+local t=math.ceil(t/e.nodeWidth*t-.5)\
+local a=math.ceil(a/e.nodeHeight*a-.5)\
+e.xScrollSize,e.yScrollSize=t,a\
+end\
+function NodeScrollContainer:cacheScrollPositions()\
+local e=self.cache\
+if e.xActive then\
+local a\
+local t=math.ceil(self.xOffset/e.nodeWidth*e.displayWidth)\
+if t<1 then\
+a=1\
+elseif t==1 and self.xOffset~=0 then\
+a=2\
+else\
+a=t\
+end\
+if self.xOffset==0 then\
+e.xDisplayPosition=1\
+elseif self.xOffset==e.nodeWidth-e.displayWidth then\
+e.xDisplayPosition=e.displayWidth-e.xScrollSize+1\
+else e.xDisplayPosition=t end\
+e.xScrollPosition=a\
+end\
+if e.yActive then\
+local t\
+local a=math.ceil(self.yOffset/e.nodeHeight*e.displayHeight)\
+if a<1 then\
+t=1\
+elseif a==1 and self.yOffset~=0 then\
+t=2\
+else\
+t=a\
+end\
+if self.yOffset==0 then\
+e.yDisplayPosition=1\
+elseif self.yOffset==e.nodeHeight-e.displayHeight then\
+e.yDisplayPosition=e.displayHeight-e.yScrollSize+1\
+else e.yDisplayPosition=a end\
+e.yScrollPosition=t\
+end\
+end\
+function NodeScrollContainer:drawScrollbars()\
+local a=self.canvas\
+local e=self.cache\
+local t,i,i,o=self.trackColour,self.activeBarColour,self.barColour,self.width\
+if e.xActive then\
+local o=self.currentScrollbar==\"x\"and self.activeBarColour or self.barColour\
+a:drawArea(1,self.height,e.displayWidth,1,self.trackColour,t)\
+a:drawArea(e.xDisplayPosition,self.height,e.xScrollSize,1,o,o)\
+end\
+if e.yActive then\
+local i=self.currentScrollbar==\"y\"and self.activeBarColour or self.barColour\
+a:drawArea(o,1,1,e.displayHeight,t,t)\
+a:drawArea(o,e.yDisplayPosition,1,e.yScrollSize,i,i)\
+end\
+if e.xActive and e.yActive then\
+a:drawArea(o,self.height,1,1,t,t)\
+end\
+end\
+function NodeScrollContainer:drawContent(a)\
+local o=self.nodes\
+local t=self.canvas\
+t:clear()\
+local i,n=-self.xOffset,-self.yOffset\
+local h=a or self.forceRedraw\
+local r=self.autoDraw\
+local e\
+for s=1,#o do\
+e=o[s]\
+if e.changed or e.forceRedraw or h then\
+e:draw(i,n,a)\
+if r then\
+e.canvas:drawToCanvas(t,e.X+i,e.Y+n)\
+end\
+end\
+end\
+end\
+function NodeScrollContainer:draw(t,t,e)\
+if self.recacheAllNextDraw then\
+self:cacheAllInformation()\
+self.recacheAllNextDraw=false\
+else\
+if self.recacheNodeInformationNextDraw then\
+self:cacheNodeSizes()\
+self.recacheNodeInformationNextDraw=false\
+end\
+if self.recacheScrollInformationNextDraw then\
+self:cacheScrollbarInformation()\
+self.recacheScrollInformationNextDraw=false\
+end\
+end\
+self:drawContent(e)\
+self:drawScrollbars(e)\
+end\
+function NodeScrollContainer:onAnyEvent(t)\
+local e,a,o=self.cache\
+if t.main==\"MOUSE\"then a,o=t:getRelative(self)end\
+if not((a or o)and t.sub==\"CLICK\"and(e.xActive and o==self.height or e.yActive and a==self.width))then\
+self:submitEvent(t)\
+end\
+if not t.handled then\
+local i=self.stage.application\
+local n=i.hotkey\
+if t.main==\"MOUSE\"then\
+local i=t.sub\
+if t:isInNode(self)then\
+self.stage:redirectKeyboardFocus(self)\
+if i==\"CLICK\"then\
+if e.xActive then\
+if o==self.height then\
+t.handled=true\
+if a>=e.xScrollPosition and a<=e.xScrollPosition+e.xScrollSize then\
+self.currentScrollbar=\"x\"\
+self.lastMouse=a\
+self.changed=true\
+end\
+end\
+end\
+if e.yActive then\
+if a==self.width then\
+t.handled=true\
+if o>=e.yScrollPosition and o<=e.yScrollPosition+e.yScrollSize-1 then\
+self.currentScrollbar=\"y\"\
+self.lastMouse=o\
+self.changed=true\
+end\
+end\
+end\
+elseif i==\"SCROLL\"then\
+if e.xActive and(not e.yActive or n.keys.shift)then\
+self.xOffset=math.max(math.min(self.xOffset+t.misc,e.nodeWidth-e.displayWidth),0)\
+self.changed=true\
+self:cacheScrollPositions()\
+elseif e.yActive then\
+self.yOffset=math.max(math.min(self.yOffset+t.misc,e.nodeHeight-e.displayHeight),0)\
+self.changed=true\
+self:cacheScrollPositions()\
+end\
+end\
+else\
+if self.focused then\
+self.stage:removeKeyboardFocus(self)\
+end\
+end\
+if t.handled then return end\
+if i==\"DRAG\"then\
+local i=self.currentScrollbar\
+if i==\"x\"then\
+local o,t=e.xScrollPosition+(a<self.lastMouse and-1 or 1)\
+log(\"w\",\"Last mouse location: \"..tostring(self.lastMouse)..\", Current mouse location: \"..tostring(a)..\", Current position: \"..tostring(e.xScrollPosition)..\", new position: \"..tostring(o))\
+if o<=1 then t=0 else\
+t=math.max(math.min(math.floor((o)*((e.nodeWidth-.5)/e.displayWidth)),e.nodeWidth-e.displayWidth),0)\
+end\
+log(\"w\",\"New offset from position: \"..tostring(t))\
+self.xOffset=t\
+self.lastMouse=a\
+elseif i==\"y\"then\
+local a=e.yScrollPosition+(o-self.lastMouse)\
+local t\
+if a<=1 then t=0 else\
+t=math.max(math.min(math.floor((a)*((e.nodeHeight-.5)/e.displayHeight)),e.nodeHeight-e.displayHeight),0)\
+end\
+self.yOffset=t\
+self.lastMouse=o\
+end\
+self.changed=true\
+self:cacheScrollPositions()\
+elseif i==\"UP\"then\
+self.currentScrollbar=nil\
+self.lastMouse=nil\
+self.changed=true\
+end\
+elseif self.focused and t.main==\"KEY\"then\
+if t.sub==\"KEY\"and n.keys.shift then\
+local function a(e,t)\
+self[e..\"Offset\"]=t\
+self.changed=true\
+self:cacheScrollPositions()\
+end\
+if t.key==keys.up then\
+a(\"y\",math.max(self.yOffset-self.height,0))\
+elseif t.key==keys.down then\
+a(\"y\",math.min(self.yOffset+self.height,e.nodeHeight-e.displayHeight))\
+elseif t.key==keys.left then\
+a(\"x\",math.max(self.xOffset-self.width,0))\
+elseif t.key==keys.right then\
+a(\"x\",math.min(self.xOffset+self.width,e.nodeWidth-e.displayWidth))\
+end\
+end\
+end\
+end\
+end\
+function NodeScrollContainer:submitEvent(e)\
+local i=e.main\
+local a,o,t\
+if i==\"MOUSE\"then\
+t=e.inParentBounds\
+e.inParentBounds=e:isInNode(self)\
+a,o=e:getPosition()\
+e:convertToRelative(self)\
+e.X=e.X+self.xOffset\
+e.Y=e.Y+self.yOffset\
+end\
+local n,s=self.nodes\
+for t=1,#n do\
+n[t]:handleEvent(e)\
+end\
+if i==\"MOUSE\"then e.X,e.Y,e.inParentBounds=a,o,t end\
+end\
+function NodeScrollContainer:onFocusLost()\
+self.focused=false;\
+self.acceptKeyboard=false;\
+end\
+function NodeScrollContainer:onFocusGain()\
+self.focused=true;\
+self.acceptKeyboard=true;\
+end\
+function NodeScrollContainer:getCursorInformation()return false end\
+function NodeScrollContainer:addNode(e)\
+self.super:addNode(e)\
+self.recacheAllNextDraw=true\
+end\
+function NodeScrollContainer:removeNode(e)\
+self.super:removeNode(e)\
+self.recacheAllNextDraw=true\
+end",
+  [ "Template.lua" ] = "class\"Template\"extends\"MNodeManager\"{\
+nodes={};\
+owner=nil;\
+name=nil;\
+}\
+function Template:initialise(a,t,e)\
+self.name=type(a)==\"string\"and a or ParameterException(\"Failed to initialise template. Name '\"..tostring(a)..\"' is invalid.\")\
+self.owner=classLib.isInstance(t)and t or ParameterException(\"Failed to initialise template. Owner '\"..tostring(t)..\"' is invalid.\")\
+self.isStageTemplate=self.owner.__type==\"Stage\"\
+if e then\
+if type(e)==\"table\"then\
+for t=1,#e do\
+self:appendFromDCML(e[t])\
+end\
+elseif type(e)==\"string\"then\
+self:appendFromDCML(e)\
+else\
+ParameterException(\"Failed to initialise template. DCML content '\"..tostring(e)..\"' is invalid type '\"..type(e)..\"'\")\
+end\
+end\
+self:__overrideMetaMethod(\"__add\",function(t,e)\
+if t==self then\
+if classLib.isInstance(e)and e.__node then\
+return self:addNode(e)\
+else\
+return error(\"Invalid right hand assignment. Should be instance of DynaCode node. \"..tostring(e))\
+end\
+end\
+end)\
+end\
+function Template:addNode(e)\
+if self.isStageTemplate then\
+e.stage=self.owner\
+else\
+e.stage=self.owner.stage or ParameterException(\"Failed to add node to template. Couldn't find 'stage' parameter on owner '\"..tostring(self.owner)..\"'\")\
+e.parent=self.owner\
+end\
+table.insert(self.nodes,e)\
+return e\
+end",
+  [ "TimerManager.lua" ] = "class\"TimerManager\"{\
+timers={};\
+}\
+function TimerManager:initialise(e)\
+self.application=AssertClass(e,\"Application\",true,\"TimerManager requires an application instance as its constructor argument. Not '\"..tostring(e)..\"'\")\
+end\
+function TimerManager:setTimer(a,t,i,s)\
+if not(type(a)==\"string\"and type(t)==\"number\"and type(i)==\"function\")then\
+return error(\"Expected string, number, function\")\
+end\
+local n=os.clock()+t\
+local e\
+local o=self.timers\
+for t=1,#o do\
+local t=o[t]\
+if t[1]==a then\
+return error(\"Timer name '\"..a..\"' is already in use.\")\
+end\
+if t[3]==n then\
+e=t[2]\
+end\
+end\
+e=e or os.startTimer(t)\
+o[#o+1]={a,e,n,i,t,s}\
+return e\
+end\
+function TimerManager:removeTimer(h)\
+local e=0\
+local a=self.timers\
+local i\
+local t\
+local s\
+local o={}\
+for n=#a,1,-1 do\
+local a=a[n]\
+if a[1]==h then\
+i=a\
+t=a[2]\
+s=n\
+e=1\
+elseif i and a[2]==t then\
+e=e+1\
+else\
+o[#o+1]=a\
+end\
+end\
+if not i then return false end\
+for a=1,#o do\
+if o[a][2]==t then\
+e=e+1\
+end\
+end\
+table.remove(self.timers,s)\
+if e==1 then\
+os.cancelTimer(t)\
+else\
+log(\"w\",(e-1)..\" timer(s) are still using the timer '\"..t..\"'\")\
+end\
+end\
+function TimerManager:update(a)\
+local t=self.timers\
+for e=#t,1,-1 do\
+if t[e][2]==a then\
+local e=table.remove(self.timers,e)\
+e[4](a,e)\
+local t=e[6]\
+local a=type(t)\
+if t and(a==\"string\"and t==\"inf\"or(a==\"number\"and t>1))then\
+self:setTimer(e[1],e[5],e[4],a==\"number\"and t-1 or\"inf\")\
+end\
+end\
+end\
+end",
+  [ "Application.lua" ] = "local e\
+class\"Application\"alias\"COLOUR_REDIRECT\"mixin\"MDaemon\"{\
+canvas=nil;\
+hotkey=nil;\
+timer=nil;\
+event=nil;\
+stages={};\
+changed=true;\
+running=false;\
+lastID=0;\
+}\
+function Application:initialise(...)\
+if not exceptionHook.isHooked()then\
+log(\"i\",\"Creating exception hook\")\
+exceptionHook.hook()\
+end\
+ParseClassArguments(self,{...},{{\"width\",\"number\"},{\"height\",\"number\"}},true)\
+self.canvas=ApplicationCanvas(self,self.width,self.height)\
+self.hotkey=HotkeyManager(self)\
+self.event=EventManager(self,{\
+[\"mouse_up\"]=MouseEvent;\
+[\"mouse_click\"]=MouseEvent;\
+[\"mouse_scroll\"]=MouseEvent;\
+[\"mouse_drag\"]=MouseEvent;\
+[\"key\"]=KeyEvent;\
+[\"key_up\"]=KeyEvent;\
+[\"char\"]=KeyEvent;\
+});\
+self.timer=TimerManager(self)\
+self:__overrideMetaMethod(\"__add\",function(t,e)\
+if classLib.typeOf(t,\"Application\",true)then\
+if classLib.typeOf(e,\"Stage\",true)then\
+return self:addStage(e)\
+else\
+return error(\"Invalid right hand assignment (\"..tostring(e)..\")\")\
+end\
+else\
+return error(\"Invalid left hand assignment (\"..tostring(t)..\")\")\
+end\
+end)\
+self:clearLayerMap()\
+end\
+function Application:clearLayerMap()\
+local e={}\
+for t=1,self.width*self.height do\
+e[t]=false\
+end\
+self.layerMap=e\
+end\
+function Application:setTextColour(e)\
+self.canvas.textColour=e\
+self.textColour=e\
+end\
+function Application:setBackgroundColour(e)\
+self.canvas.backgroundColour=e\
+self.backgroundColour=e\
+end\
+function Application:addStage(e)\
+e.application=self\
+e.mappingID=self.lastID+1\
+self.lastID=self.lastID+1\
+self.stages[#self.stages+1]=e\
+e:map()\
+return e\
+end\
+function Application:removeStage(e)\
+local t=classLib.typeOf(e,\"Stage\",true)\
+for a=1,#self.stages do\
+local o=self.stages[a]\
+if(t and o==e)or(not t and o.name==e)then\
+table.remove(self.stages,a)\
+self.changed=true\
+end\
+end\
+end\
+function Application:draw(e)\
+for t=#self.stages,1,-1 do\
+self.stages[t]:draw(e)\
+end\
+self.canvas:drawToScreen(e)\
+self.changed=false\
+end\
+function Application:run(e)\
+log(\"i\",\"Attempting to start application\")\
+self.running=true\
+self.hotkey:reset()\
+local function a()\
+local t=self.hotkey\
+local a=self.timer\
+if self.onRun then self:onRun()end\
+self:draw(true)\
+log(\"s\",\"Engine start successful. Running in protected mode\")\
+while self.running do\
+if self.reorderRequest then\
+log(\"i\",\"Reordering stage list\")\
+local t=self.reorderRequest\
+for e=1,#self.stages do\
+if self.stages[e]==t then\
+table.insert(self.stages,1,table.remove(self.stages,e))\
+self:setStageFocus(t)\
+break\
+end\
+end\
+self.reorderRequest=nil\
+end\
+term.setCursorBlink(false)\
+self:draw()\
+for e=1,#self.stages do\
+self.stages[e]:appDrawComplete()\
+end\
+local e=self.event:create({coroutine.yield()})\
+self.event:shipToRegistrations(e)\
+if e.main==\"KEY\"then\
+t:handleKey(e)\
+t:checkCombinations()\
+elseif e.main==\"TIMER\"then\
+a:update(e.raw[2])\
+end\
+for t=1,#self.stages do\
+if self.stages[t]then\
+self.stages[t]:handleEvent(e)\
+end\
+end\
+end\
+end\
+log(\"i\",\"Trying to start daemon services\")\
+local e,t=xpcall(function()self:startDaemons()end,function(e)\
+log(\"f\",\"Failed to start daemon services. Reason '\"..tostring(e)..\"'\")\
+if self.errorHandler then\
+self:errorHandler(e,false)\
+else\
+if self.onError then self:onError(e)end\
+error(\"Failed to start daemon service: \"..e)\
+end\
+end)\
+if e then\
+log(\"s\",\"Daemon service started\")\
+end\
+log(\"i\",\"Starting engine\")\
+local t,e=xpcall(a,function(e)\
+log(\"f\",\"Engine error: '\"..tostring(e)..\"'\")\
+local t=exceptionHook.getLastThrownException()\
+if t then\
+log(\"eh\",\"Error '\"..e..\"' has been previously hooked by the trace system.\")\
+else\
+log(\"eh\",\"Error '\"..e..\"' has not been hooked by the trace system. Last hook: \"..tostring(t and t.rawException or nil))\
+exceptionHook.spawnException(LuaVMException(e,4,true))\
+end\
+log(\"eh\",\"Gathering currently loaded classes\")\
+local t=\"\"\
+local a,o=pcall(function()\
+for e,a in pairs(classLib.getClasses())do\
+t=t..\"- \"..e..\"\\n\"\
+end\
+end)\
+if a then\
+log(\"eh\",\"Loaded classes at the time of crash: \\n\"..tostring(t))\
+else\
+log(\"eh\",\"ERROR: Failed to gather currently loaded classes (error: \"..tostring(o)..\")\")\
+end\
+if exceptionHook.isHooked()then\
+log(\"eh\",\"Unhooking traceback\")\
+exceptionHook.unhook()\
+end\
+return e\
+end)\
+if e then\
+if self.errorHandler then\
+self:errorHandler(e,true)\
+else\
+local t=exceptionHook.getLastThrownException()\
+term.setTextColour(colours.yellow)\
+print(\"DynaCode has crashed\")\
+term.setTextColour(colours.red)\
+print(t and t.displayName or e)\
+print(\"\")\
+local function n(e,s,h,i,n,t,o,a)\
+term.setTextColour(e)\
+print(s)\
+local s,e=pcall(h)\
+if e then\
+term.setTextColour(i)\
+print(n..e)\
+else\
+term.setTextColour(t)\
+print(o)\
+end\
+term.setTextColour(a)\
+end\
+local i,o,a=colours.yellow,colours.red,colours.lime\
+n(i,\"Attempting to stop daemon service and children\",function()self:stopDaemons(false)end,o,\"Failed to stop daemon service: \",a,\"Stopped daemon service\",1)\
+print(\"\")\
+n(i,\"Attempting to write crash information to log file\",function()\
+log(\"f\",\"DynaCode crashed: \"..e)\
+if t then log(\"f\",t.stacktrace)end\
+end,o,\"Failed to write crash information: \",a,\"Wrote crash information to file (stacktrace)\",1)\
+if self.onError then self:onError(e)end\
+end\
+end\
+end\
+function Application:finish(e)\
+log(\"i\",\"Stopping Daemons\")\
+self:stopDaemons(true)\
+log(\"i\",\"Stopping Application\")\
+self.running=false\
+os.queueEvent(\"stop\")\
+if type(e)==\"function\"then return e()end\
+end\
+function Application:mapWindow(r,s,n,d)\
+local e=self.stages\
+local l=self.layerMap\
+for t=#e,1,-1 do\
+local e=e[t]\
+local o,a=e.X,e.Y\
+local i,u=e.canvas.width,e.canvas.height\
+local t,h\
+t=o+i\
+h=a+u\
+local u=e.visible\
+local i=e.mappingID\
+if not(o>n or a>d or r>t or s>h)then\
+for h=math.max(a,s),math.min(h,d)do\
+local s=self.width*(h-1)\
+for t=math.max(o,r),math.min(t,n)do\
+local n=l[s+t]\
+if n~=i and u and(e:isPixel(t-o+1,h-a+1))then\
+l[s+t]=i\
+elseif n==i and not u then\
+l[s+t]=false\
+end\
+end\
+end\
+end\
+end\
+local e=self.canvas.buffer\
+local a=self.width\
+local i=self.layerMap\
+for t=s,d do\
+local o=a*(t-1)\
+for t=r,n do\
+local a=o+t\
+local t=i[o+t]\
+if t==false then\
+if e[a]then e[a]={false,false,false}end\
+end\
+end\
+end\
+end\
+function Application:requestStageFocus(e)\
+self.reorderRequest=e\
+end\
+function Application:setStageFocus(e)\
+if not classLib.typeOf(e,\"Stage\",true)then return error(\"Expected Class Instance Stage, not \"..tostring(e))end\
+self:unSetStageFocus()\
+e:onFocus()\
+self.focusedStage=e\
+end\
+function Application:unSetStageFocus(e)\
+local e=e or self.focusedStage\
+if self.focusedStage and self.focusedStage==e then\
+self.focusedStage:onBlur()\
+self.focusedStage=nil\
+end\
+end\
+function Application:getStageByName(a)\
+local e=self.stages\
+for t=1,#e do\
+local e=e[t]\
+if e.name==a then return e end\
+end\
+end\
+local function a(e)\
+return DCML.parse(DCML.loadFile(e))\
+end\
+function Application:appendStagesFromDCML(t)\
+local e=a(t)\
+for a=1,#e do\
+local e=e[a]\
+if classLib.typeOf(e,\"Stage\",true)then\
+self:addStage(e)\
+else\
+return error(\"The DCML parser has created a \"..tostring(e)..\". This is not a stage and cannot be added as such. Please ensure the DCML file '\"..tostring(t)..\"' only creates stages with nodes inside of them, not nodes by themselves. Refer to the wiki for more information\")\
+end\
+end\
+end",
+  [ "StageCanvas.lua" ] = "local a={\
+[1]=256;\
+[2]=256;\
+[4]=256;\
+[8]=1;\
+[16]=256;\
+[32]=128;\
+[64]=256;\
+[128]=128;\
+[256]=128;\
+[512]=256;\
+[1024]=128;\
+[2048]=128;\
+[4096]=128;\
+[8192]=256;\
+[16384]=128;\
+[32768]=128;\
+}\
+class\"StageCanvas\"extends\"Canvas\"{\
+frame=nil;\
+filter=nil;\
+cache={};\
+greyOutWhenNotFocused=true;\
+}\
+function StageCanvas:initialise(...)\
+local e,t=ParseClassArguments(self,{...},{{\"width\",\"number\"},{\"height\",\"number\"}},true,true)\
+AssertClass(self.stage,\"Stage\",true,\"StageCanvas requires stage to be a Stage instance, not: \"..tostring(self.stage))\
+self.super(e,t)\
+self:updateFilter()\
+end\
+function StageCanvas:updateFilter()\
+if self.stage.focused or not self.greyOutWhenNotFocused then\
+self.filter=\"NONE\"\
+else\
+self.filter=\"GREYSCALE\"\
+end\
+end\
+function StageCanvas:setFilter(e)\
+self.filter=e\
+end\
+function StageCanvas:getColour(e)\
+if self.filter==\"NONE\"then return e end\
+if self.filter==\"GREYSCALE\"then\
+return a[e]\
+end\
+end\
+function StageCanvas:redrawFrame()\
+local e=self.stage\
+local t=self.getColour\
+local d=not e.borderless\
+local c=OverflowText(e.title or\"\",e.width-(e.closeButton and 1 or 0))or\"\"\
+local s=e.shadow and e.focused\
+local r=e.shadowColour\
+local u=e.mouseMode and e.activeTitleTextColour or e.titleTextColour\
+local l=e.mouseMode and e.activeTitleBackgroundColour or e.titleBackgroundColour\
+local i=self.width\
+local h=self.height\
+local o={}\
+for a=0,h-1 do\
+local n=i*a\
+for t=1,i do\
+local n=n+t\
+if d and a==0 and(s and t<i or not s)then\
+if t==e.width and e.closeButton then\
+o[n]={\"X\",e.closeButtonTextColour,e.closeButtonBackgroundColour}\
+else\
+local e=string.sub(c,t,t)\
+o[n]={e~=\"\"and e or\" \",u,l}\
+end\
+elseif s and((t==i and a~=0)or(t~=1 and a==h-1))then\
+o[n]={\" \",r,r}\
+else\
+local e=true\
+if s and((t==i and a==0)or(t==1 and a==h-1))then\
+e=false\
+end\
+if e then\
+o[n]={false,false,false}\
+end\
+end\
+end\
+end\
+self.frame=o\
+end\
+function StageCanvas:drawToCanvas(e,t,o,a)\
+local f=self.buffer\
+local m=self.frame\
+local l=self.stage\
+local n=self.getColour\
+local y=self.stage.mappingID\
+local a=type(t)==\"number\"and t-1 or 0\
+local t=type(o)==\"number\"and o-1 or 0\
+local r=self.width\
+local i=self.height\
+local w=self.stage.application.layerMap\
+local o,u=e.height,e.width\
+local s=e.buffer\
+local d,h=self.textColour,self.backgroundColour\
+for i=0,i-1 do\
+local c=r*i\
+local e=e.width*(i+t)\
+if i+t+1>0 and i+t-1<o then\
+for o=1,r do\
+if o+a>0 and o+a-1<u then\
+local t=e+(o+a)\
+if w[t]==y then\
+local e=c+o\
+local a=f[e]\
+if a then\
+if not a[1]then\
+local e=m[e]\
+if e then\
+local a=e[1]\
+if o==r and i==0 and not l.borderless and l.closeButton and self.greyOutWhenNotFocused then\
+s[t]={a,e[2]or d,e[3]or h}\
+else\
+s[t]={a,n(self,e[2]or d),n(self,e[3]or h)}\
+end\
+end\
+else\
+s[t]={a[1]or\" \",n(self,a[2]or d),n(self,a[3]or h)}\
+end\
+else\
+s[t]={false,false,false}\
+end\
+end\
+end\
+end\
+end\
+end\
+end",
   [ "Button.lua" ] = "DCML.registerTag(\"Button\",{\
 contentCanBe=\"text\";\
 argumentType={\
@@ -39,8 +894,8 @@ activeBackgroundColour=colours.lightBlue;\
 acceptMouse=true;\
 }\
 function Button:initialise(...)\
-local e,t,i,o,a=ParseClassArguments(self,{...},{{\"text\",\"string\"},{\"X\",\"number\"},{\"Y\",\"number\"},{\"width\",\"number\"},{\"height\",\"number\"}},true,true)\
-self.super(t,i,o,a)\
+local e,t,o,a,i=ParseClassArguments(self,{...},{{\"text\",\"string\"},{\"X\",\"number\"},{\"Y\",\"number\"},{\"width\",\"number\"},{\"height\",\"number\"}},true,true)\
+self.super(t,o,a,i)\
 self.text=e\
 end\
 function Button:updateLines()\
@@ -62,18 +917,22 @@ function Button:onMouseDown(e)\
 if e.misc~=1 then return end\
 self.focused=true\
 self.active=true\
+e.handled=true\
 end\
 function Button:onMouseDrag(e)\
 if self.focused then\
 self.active=true\
+e.handled=true\
 end\
 end\
 function Button:onMouseMiss(e)\
 if self.focused and e.sub==\"DRAG\"then\
 self.active=false\
+e.handled=true\
 elseif e.sub==\"UP\"and(self.focused or self.active)then\
 self.active=false\
 self.focused=false\
+e.handled=true\
 end\
 end\
 function Button:onMouseUp(e)\
@@ -81,6 +940,7 @@ if self.active then\
 if self.onTrigger then self:onTrigger(e)end\
 self.active=false\
 self.focused=false\
+e.handled=true\
 end\
 end\
 function Button:setActive(e)\
@@ -90,179 +950,6 @@ end\
 function Button:setFocused(e)\
 self.focused=e\
 self.changed=true\
-end",
-  [ "Panel.lua" ] = "DCML.registerTag(\"Panel\",{\
-childHandler=function(t,e)\
-t.nodesToAdd=DCML.parse(e.content)\
-end;\
-argumentType={\
-X=\"number\";\
-Y=\"number\";\
-width=\"number\";\
-height=\"number\";\
-backgroundColour=\"colour\";\
-textColour=\"colour\";\
-},\
-callbackGenerator=\"#generateNodeCallback\";\
-})\
-class\"Panel\"extends\"NodeScrollContainer\"{\
-width=2;\
-height=2;\
-}\
-function Panel:initialise(...)\
-local o,a,t,e=ParseClassArguments(self,{...},{\
-{\"X\",\"number\"},\
-{\"Y\",\"number\"},\
-{\"width\",\"number\"},\
-{\"height\",\"number\"}\
-},false,true)\
-self.super(o,a,t or self.width,e or self.height)\
-self:__overrideMetaMethod(\"__add\",function(t,e)\
-if class.typeOf(t,\"Panel\",true)then\
-if class.isInstance(e)and e.__node then\
-return self:addNode(e)\
-else\
-return error(\"Invalid right hand assignment. Should be instance of DynaCode node. \"..tostring(e))\
-end\
-else\
-return error(\"Invalid left hand assignment. Should be instance of Panel. \"..tostring(t))\
-end\
-end)\
-end",
-  [ "NodeScrollContainer.lua" ] = "class\"NodeScrollContainer\"abstract()extends\"NodeContainer\"{\
-verticalScroll=0;\
-horizontalScroll=0;\
-verticalPadding=0;\
-horizontalPadding=0;\
-currentScrollbar=false;\
-}\
-function NodeScrollContainer:calculateDisplaySize(a,o)\
-local e,t=self.width,self.height\
-return(o and e-1 or e),(a and t-1 or t)\
-end\
-function NodeScrollContainer:calculateContentSize()\
-local a,t=0,0\
-local e=self.nodes\
-for o=1,#e do\
-local e=e[o]\
-local o,e=e.X+e.width-1,e.Y+e.height-1\
-t=o>t and o or t\
-a=e>a and e or a\
-end\
-return t,a\
-end\
-function NodeScrollContainer:getScrollPositions(h,n,e,t,i,s)\
-local a,o=math.floor(self.horizontalScroll/h*e-.5),math.ceil(self.verticalScroll/n*t+.5)\
-if a+i-1>=e or self.horizontalScroll==h then\
-if self.horizontalScroll==h-e then a=e-i+1 else a=e-i end\
-end\
-if o+s-1>=t or self.verticalScroll==n then\
-if self.verticalScroll==n-t then o=t-s+1 else o=t-s end\
-end\
-return a,o\
-end\
-function NodeScrollContainer:getScrollSizes(e,t,a,o)\
-return math.ceil(a/e*self.width-.5),math.ceil(o/t*self.height-.5)\
-end\
-function NodeScrollContainer:addNode(e)\
-self.super:addNode(e)\
-end\
-function NodeScrollContainer:removeNode(e)\
-self.super:removeNode(e)\
-end\
-function NodeScrollContainer:inView(e)\
-local e,t,n,i=e.X,e.Y,e.width,e.height\
-local o,a=self.horizontalScroll,self.verticalScroll\
-return e+n-o>0 and e-o<self.width and t-a<self.height and t+i-a>0\
-end\
-local e={\
-CLICK=\"onMouseDown\";\
-UP=\"onMouseUp\";\
-SCROLL=\"onMouseScroll\";\
-DRAG=\"onMouseDrag\";\
-}\
-function NodeScrollContainer:onAnyEvent(e)\
-local i,o=e.X,e.Y\
-local a=e.main==\"MOUSE\"\
-local t=self.nodes\
-if a then\
-e:convertToRelative(self)\
-e.Y=e.Y+self.verticalScroll\
-e.X=e.X+self.horizontalScroll\
-end\
-for a=1,#t do\
-t[a]:handleEvent(e)\
-end\
-if a then\
-e.X=i\
-e.Y=o\
-end\
-end\
-function NodeScrollContainer:onMouseScroll(e)\
-local i,o=self:calculateContentSize()\
-local a,t=self:getActiveScrollbars(i,o)\
-local s,n=self:calculateDisplaySize(a,t)\
-if t then\
-self.verticalScroll=math.max(math.min(self.verticalScroll+e.misc,o-n),0)\
-self.forceRedraw=true\
-self.changed=true\
-elseif a then\
-self.horizontalScroll=math.max(math.min(self.horizontalScroll+e.misc,i-s),0)\
-self.forceRedraw=true\
-self.changed=true\
-end\
-end\
-function NodeScrollContainer:getActiveScrollbars(e,t)\
-return e>self.width,t>self.height\
-end\
-function NodeScrollContainer:draw(t,a,o)\
-log(\"w\",\"Scroll Container Drawn. Force: \"..tostring(o))\
-local e=self.nodes\
-local n=o or self.forceRedraw\
-local h=self.canvas\
-h:clear()\
-local a,i=t or 0,a or 0\
-if self.preDraw then\
-self:preDraw(a,i)\
-end\
-local r,s=-self.horizontalScroll,-self.verticalScroll\
-local t\
-for a=#e,1,-1 do\
-local e=e[a]\
-t=e.changed\
-if self:inView(e)and t or n then\
-e:draw(r,s,n or o)\
-e.canvas:drawToCanvas(h,e.X+r,e.Y+s)\
-if t then e.changed=false end\
-end\
-end\
-self.forceRedraw=false\
-if self.postDraw then\
-self:postDraw(a,i)\
-end\
-self.changed=false\
-self.canvas:drawToCanvas((self.parent or self.stage).canvas,self.X+a,self.Y+i)\
-end\
-function NodeScrollContainer:postDraw()\
-local n,e=self:calculateContentSize()\
-local a,t=self:getActiveScrollbars(n,e)\
-if a or t then\
-local i,o=self:calculateDisplaySize(a,t)\
-local s,h=self:getScrollSizes(n,e,i,o)\
-local l,d=self:getScrollPositions(n,e,i,o,s,h)\
-local e=self.canvas\
-local r=a and t\
-local n=r and 1 or 0\
-if a then\
-e:drawArea(1,self.height,i,1,colours.red,colours.green)\
-e:drawArea(l,self.height,s-n,1,colours.black,colours.grey)\
-end\
-if t then\
-e:drawArea(self.width,1,1,o,colours.red,colours.green)\
-e:drawArea(self.width,d,1,h-n,colours.black,colours.grey)\
-end\
-if r then e:drawArea(self.width,self.height,1,1,colours.lightGrey,colours.lightGrey)end\
-end\
 end",
   [ "HotkeyManager.lua" ] = "local e,e,e,e=table.insert,table.remove,string.sub,string.len\
 local a={}\
@@ -364,306 +1051,704 @@ end\
 function HotkeyManager:reset()\
 self.keys={}\
 end",
-  [ "NodeContainer.lua" ] = "class\"NodeContainer\"abstract()extends\"Node\"{\
-acceptMouse=true;\
-acceptKeyboard=true;\
-acceptMisc=true;\
-nodes={};\
-forceRedraw=true;\
-}\
-function NodeContainer:getNodeByType(a)\
-local e,t={},self.nodes\
-for o=1,#t do\
-local t=t[o]\
-if class.typeOf(t,a,true)then e[#e+1]=t end\
+  [ "TextContainer.lua" ] = "class\"TextContainer\"extends\"MultiLineTextDisplay\"\
+function TextContainer:initialise(...)\
+local i,a,o,t,e=ParseClassArguments(self,{...},{{\"text\",\"string\"},{\"X\",\"number\"},{\"Y\",\"number\"},{\"width\",\"number\"},{\"height\",\"number\"}},true,true)\
+self.super(a,o,t,e)\
+self.text=i\
+self.container=FormattedTextObject(self,self.width)\
+self:addNode(self.container)\
+self:cacheNodeSizes()\
+self:cacheDisplaySize()\
 end\
-return e\
-end\
-function NodeContainer:getNodeByName(o)\
-local e,t={},self.nodes\
-for a=1,#t do\
-local t=t[a]\
-if t.name==o then e[#e+1]=t end\
-end\
-return e\
-end\
-function NodeContainer:addNode(e)\
-e.parent=self\
-e.stage=self.stage\
-self.nodes[#self.nodes+1]=e\
-end\
-function NodeContainer:removeNode(e)\
-local t=self.nodes\
-local o=not(class.isInstance(e)and class.__node)\
-for a=1,#t do\
-local t=t[a]\
-if(o and t.name==e)or(not o and t==e)then\
-t.parent=nil\
-return table.remove(self.nodes,a)\
+function TextContainer:setText(e)\
+self.text=e\
+if self.__init_complete then\
+self:parseIdentifiers()\
+self.container:cacheSegmentInformation()\
+self.verticalScroll=math.max(math.min(self.verticalScroll,self.container.height-1),0)\
+self.changed=true\
 end\
 end\
-end\
-function NodeContainer:resolveDCMLChildren()\
-local e=self.nodesToAdd\
-for t=1,#e do\
-local e=e[t]\
-self:addNode(e)\
-if e.nodesToAdd and type(e.resolveDCMLChildren)==\"function\"then\
-e:resolveDCMLChildren()\
-end\
-end\
-self.nodesToAdd={}\
+function TextContainer:setWidth(e)\
+self.super:setWidth(e)\
+if self.container then self.container:cacheSegmentInformation()end\
 end",
-  [ "ClassUtil.lua" ] = "local h=table.insert\
-local o,d,r=string.len,string.sub,string.rep\
-function ParseClassArguments(s,n,e,o,r)\
-local i={}\
-local function d(a,t)\
-if type(e)~=\"table\"then return end\
-local e=i[a]\
-if e and type(t)~=e then\
-if not class.typeOf(t,e,true)then\
-return error(\"Expected type '\"..e..\"' for argument '\"..a..\"', got '\"..type(t)..\"' instead.\",2)\
-end\
-end\
+  [ "scriptFiles.cfg" ] = "ClassUtil.lua\
+TextUtil.lua\
+DCMLParser.lua\
+Logging.lua\
+ExceptionHook.lua",
+  [ "Class.lua" ] = "local w,h=string.gsub,string.match\
+local a\
+local n={}\
+local c\
+local m={\
+ENABLE=false;\
+LOCATION=\"DynaCode-Dump.crash\"\
+}\
+local o\
+local s={\
+__class=true;\
+__instance=true;\
+__defined=true;\
+__definedProperties=true;\
+__definedMethods=true;\
+__extends=true;\
+__interfaces=true;\
+__type=true;\
+__mixins=true;\
+__super=true;\
+__initialSuperValues=true;\
+__alias=true;\
+}\
+local g=setmetatable({},{__index=function(a,e)\
+local t=\"set\"..e:sub(1,1):upper()..e:sub(2)\
+a[e]=t\
 return t\
+end})\
+local v=setmetatable({},{__index=function(a,e)\
+local t=\"get\"..e:sub(1,1):upper()..e:sub(2)\
+a[e]=t\
+return t\
+end})\
+local function e(e,t)\
+local t=type(t)==\"number\"and t+1 or 2\
+local e=e:sub(-1)~=\".\"and e..\".\"or e\
+return error(\"Class Exception: \"..e,t)\
 end\
-local a={}\
-if type(e)==\"table\"and o then\
-for t,e in ipairs(e)do\
-a[e[1]]=true\
+local function i(t)\
+local i=a\
+local o,e\
+o=c(t)\
+e=n[t]\
+if classLib.isClass(e)then\
+if not e:isSealed()then e:seal()end\
+else\
+return error(\"Target class '\"..tostring(t)..\"' failed to load\")\
 end\
+a=i\
+return e\
 end\
-local t={}\
-if type(e)==\"table\"then\
-for a,e in ipairs(e)do\
-h(t,e[1])\
-i[e[1]]=e[2]\
+local function f(t,a,o,s)\
+local a=n[t]\
+if not a or not classLib.isClass(a)then\
+if c then\
+return i(t)\
+else\
+e(o or\"Failed to fetch class '\"..tostring(t)..\"'. Class doesn't exist\",2)\
 end\
+elseif not a:isSealed()then\
+e(s or\"Failed to fetch class '\"..tostring(t)..\"'. Class is not compiled\",2)\
 end\
-local o={}\
-if#n==1 and type(n[1])==\"table\"then\
-for e,t in pairs(n[1])do\
-o[e]=d(e,t)\
-a[e]=nil\
+return a\
+end\
+local function u(e)\
+o=true\
+local e=e:getRaw()\
+o=false\
+return e\
+end\
+local function l(t)\
+local a=type(t)\
+local e\
+if a=='table'then\
+e={}\
+for a,t in next,t,nil do\
+e[l(a)]=l(t)\
 end\
 else\
-for i,n in ipairs(n)do\
-local e=t[i]\
-if not e then\
-return error(\"Instance '\"..s:type()..\"' only supports a max of \"..(i-1)..\" unordered arguments. Consider using a key-pair table instead, check the wiki page for this class to find out more.\")\
-end\
-o[e]=d(e,n)\
-a[e]=nil\
-end\
-end\
-if next(a)then\
-local t=\"Instance '\"..s:type()..\"' requires arguments:\\n\"\
-for o,e in ipairs(e)do\
-if a[e[1]]then\
-t=t..\"- \"..e[1]..\" (\"..e[2]..\")\\n\"\
-end\
-end\
-t=t..\"These arguments have not been defined.\"\
-return error(t)\
-end\
-for e,t in pairs(o)do\
-if(i[e]and not r)or not i[e]then\
-print(\"Setting \"..e)\
-s[e]=t\
-end\
-end\
-local t={}\
-if type(e)==\"table\"and r then\
-for a,e in ipairs(e)do\
-h(t,o[e[1]])\
-end\
-return unpack(t)\
-end\
-end\
-function AssertClass(e,o,a,t)\
-if not class.typeOf(e,o,a)then\
-return error(t,2)\
+e=t\
 end\
 return e\
 end\
-function AssertEnum(e,t,i)\
-local a\
-for o=1,#t do\
-if t[o]==e then\
-a=true\
+local function b(e)\
+local t=h(e,\"abstract class (\\\"%w*\\\")\")\
+if t then\
+e=w(e,\"abstract class \"..t,\"class \"..t..\" abstract()\")\
+end\
+return e\
+end\
+local function y(h,i,e)\
+local s\
+local t\
+local a,n,o=string.match(e,\"(.+)%:(%d+)%:(.*)\")\
+if a and n and o then\
+s=n\
+t=o\
+else\
+t=e\
+end\
+local t=[==[\
+--[[\
+    DynaCode Crash Report (0.1)\
+    =================\
+\
+    This file was generated because DynaCode's class system\
+    ran into a fatal exception while running this file.\
+\
+    Exception Details\
+    -----------------\
+    File: ]==]..tostring(a or i or\"?\")..[==[\
+\
+    Line Number: ]==]..tostring(s or\"?\")..[==[\
+\
+    Error: ]==]..tostring(t or\"?\")..[==[\
+\
+\
+    Raw: ]==]..tostring(e or\"?\")..[==[\
+\
+    -----------------\
+    The file that was being loaded when DynaCode crashed\
+    has been inserted above.\
+\
+    The file was pre-processed before loading, so as a result\
+    the code above may not match your original source\
+    exactly.\
+\
+    NOTE: This file is purely a crash report, editing this file\
+    will not have any affect. Please edit the source file (]==]..tostring(a or i or\"?\")..[==[)\
+]]]==]\
+local e=fs.open(m.LOCATION,\"w\")\
+e.write(h..\"-- END OF FILE --\")\
+e.write(\"\\n\\n\"..t)\
+e.close()\
+end\
+local function r(t)\
+if not a then\
+e(\"Failed to catch property table, no class is being built.\")\
+end\
+if type(t)==\"table\"then\
+for e,t in pairs(t)do\
+a[e]=t\
+end\
+elseif t~=nil then\
+e(\"Failed to catch property table, got: '\"..tostring(t)..\"'.\")\
+end\
+end\
+local function p(w,d,t,a,o)\
+local r,i={},{}\
+local n=t or{}\
+local h=a or{}\
+local c=o or 1\
+local a=u(f(d,true))\
+local function y(e,o,a,i)\
+local e=e\
+local t={}\
+while true do\
+if e.__defined[a]then\
+return true\
+else\
+t[#t+1]=e\
+if e.super~=o and e.super then e=e.super\
+else\
+for e=1,#t do t[e]:addSymbolicKey(a,i)end\
 break\
 end\
 end\
-if a then\
-return e\
+end\
+end\
+local function m(e,a)\
+local t=e\
+while true do\
+local e=t.super\
+if e then\
+if e.__defined[a]then return e[a]else t=e end\
+else break end\
+end\
+end\
+local i={}\
+for t,o in pairs(a)do\
+if not s[t]then\
+if type(o)==\"function\"then\
+if i[t]then\
+e(\"A factory for key '\"..t..\"' on super '\"..d.__type..\"' for '\"..w.__type..\"' already exists.\")\
+end\
+i[t]=function(a,o,...)\
+if not o then\
+e(\"Failed to fetch raw content for factory '\"..t..\"'\")\
+end\
+local i=a.super\
+local e=a:seekSuper(c+1)\
+a.super=e~=nil and e~=\"nil\"and e or nil\
+local e={o[t](a,...)}\
+a.super=i\
+return unpack(e)\
+end\
+if n[t]==nil then n[t]=i[t]end\
 else\
-return error(i,2)\
+if n[t]==nil then n[t]=o end\
+end\
+elseif t==\"__alias\"then\
+for e,t in pairs(o)do\
+if not h[e]then h[e]=t end\
 end\
 end\
-_G.COLOUR_REDIRECT={\
-textColor=\"textColour\";\
-backgroundColor=\"backgroundColour\";\
-disabledTextColor=\"disabledTextColour\";\
-disabledBackgroundColor=\"disabledBackgroundColour\"\
-}\
-_G.ACTIVATABLE={\
-activeTextColor=\"activeTextColour\";\
-activeBackgroundColor=\"activeBackgroundColour\"\
-}\
-_G.SELECTABLE={\
-selectedTextColor=\"selectedTextColour\";\
-selectedBackgroundColor=\"selectedBackgroundColour\"\
-}\
-function OverflowText(e,a)\
-if o(e)>a then\
-local t=o(e)-a\
-if t>3 then\
-if o(e)-t-3>=1 then\
-e=d(e,1,o(e)-t-3)..\"...\"\
-else e=r(\".\",a)end\
+end\
+local u={}\
+if a.__extends then\
+local e,o\
+r.super,e,o=p(w,a.__extends,n,h,c+1)\
+sym=true\
+for e,t in pairs(e)do\
+if not a[e]and not s[e]then\
+if type(t)==\"function\"then\
+u[e]=t\
 else\
-e=d(e,1,o(e)-t*2)..r(\".\",t)\
+a[e]=t\
 end\
 end\
-return e\
 end\
-function InArea(e,t,o,a,i,n)\
-if e>=o and e<=i and t>=a and t<=n then\
+for e,t in pairs(o)do\
+if not h[e]then\
+h[e]=t\
+end\
+end\
+sym=false\
+end\
+function r:create(h)\
+local a=l(a)\
+local o,n={},{}\
+local d\
+if r.super then\
+o.super=r.super:create(h)\
+end\
+d=true\
+for e,t in pairs(u)do\
+if not a[e]then a[e]=m(o,e)end\
+end\
+d=false\
+function o:addSymbolicKey(e,t)\
+d=true\
+a[e]=t\
+d=false\
+end\
+local r={}\
+local f=a.__defined\
+local l={}\
+function n:__index(t)\
+if type(a[t])==\"function\"then\
+if not l[t]then\
+l[t]=f[t]and i[t]or a[t]\
+end\
+local o=l[t]\
+if not o then\
+if f[t]then\
+e(\"Failed to create factory for key '\"..t..\"'. This error wasn't caught at compile time, please report immediately\")\
+else\
+e(\"Failed to find factory for key '\"..t..\"' on super '\"..tostring(self)..\"'. Was this function illegally created after compilation?\",0)\
+end\
+end\
+if not r[t]then\
+r[t]=function(e,...)\
+local e={...}\
+local e\
+if u[t]then\
+e={o(h,...)}\
+else\
+e={o(h,a,...)}\
+end\
+return unpack(e)\
+end\
+end\
+return r[t]\
+else\
+return a[t]\
+end\
+end\
+function n:__newindex(t,i)\
+if t==nil then\
+e(\"Failed to set nil key with value '\"..tostring(i)..\"'. Key names must have a value.\")\
+elseif s[t]then\
+e(\"Failed to set key '\"..t..\"'. Key is reserved.\")\
+end\
+a[t]=i==nil and m(self,t)or i\
+if not d then\
+local e=type(i)\
+a.__defined[t]=i~=nil or nil\
+a.__definedProperties[t]=i and e~=\"function\"or nil\
+a.__definedMethods[t]=i and e==\"function\"or nil\
+end\
+y(h,o,t,i)\
+end\
+function n:__tostring()\
+return\"Super #\"..c..\" '\"..a.__type..\"' of '\"..h:type()..\"'\"\
+end\
+function n:__call(...)\
+local e=type(o.initialise)==\"function\"and\"initialise\"or\"initialize\"\
+local t=o[e]\
+if type(t)==\"function\"then\
+o[e](o,...)\
+end\
+end\
+setmetatable(o,n)\
+return o\
+end\
+return r,n,h\
+end\
+local function k()\
+local t=u(a)\
+if not a then\
+e(\"Cannot compile class because no classes are being built.\")\
+end\
+local o=t.__mixins\
+local e\
+for t=1,#o do\
+local t=o[t]\
+e=\"Failed to mixin target '\"..tostring(t)..\"' into '\"..a.__type..\"'. \"\
+local e=f(t,true,e..\"The class doesn't exist\",e..\"The class has not been compiled.\")\
+if e then\
+for e,t in pairs(u(e))do\
+if not a[e]then\
+a[e]=t\
+end\
+end\
+end\
+end\
+if a.__extends then\
+local o,i,a=p(a,a.__extends)\
+local e=t.__alias\
+for a,o in pairs(a)do\
+if not e[a]then\
+e[a]=o\
+end\
+end\
+t.__super=o\
+t.__initialSuperValues=i\
+end\
+end\
+local function p(t,...)\
+local r\
+if type(t)~=\"string\"then\
+e(\"Failed to spawn class. Invalid name provided '\"..tostring(t)..\"'\")\
+elseif a then\
+e(\"Cannot spawn class '\"..t..\"' because a class is currently being built.\")\
+end\
+local a=f(t,true,\"Failed to spawn class '\"..t..\"'. The class doesn't exist\",\"Failed to spawn class '\"..t..\"'. The class is not compiled.\")\
+local o,i,t={},{}\
+t=l(u(a))\
+t.__instance=true\
+local l=t.__alias or{}\
+local function d(a)\
+local t=t\
+while true do\
+local e=t.super\
+if e then\
+if e.__defined[a]then return e[a]else t=e end\
+else return nil end\
+end\
+end\
+local a={}\
+function o:seekSuper(e)\
+return a[e]\
+end\
+local h\
+if t.__super then\
+t.super=t.__super:create(o)\
+h=t.super\
+local e=t.__initialSuperValues\
+for e,a in pairs(e)do\
+if not t.__defined[e]and not s[e]then\
+t[e]=d(e)\
+end\
+end\
+t.__initialSuperValues=nil\
+t.__super=nil\
+local e=t\
+local t=1\
+while true do\
+if not e.super then break end\
+a[t]=e.super\
+e=e.super\
+t=t+1\
+end\
+end\
+local n={}\
+function i:__index(a)\
+local a=l[a]or a\
+if a==nil then\
+e(\"Failed to get 'nil' key. Key names must have a value.\")\
+end\
+local e=v[a]\
+if type(t[e])==\"function\"and not n[a]then\
+local o=t.super\
+t.super=h\
+n[a]=true\
+local e={t[e](self)}\
+n[a]=nil\
+t.super=o\
+return unpack(e)\
+else\
+return t[a]\
+end\
+end\
+local n={}\
+function i:__newindex(a,o)\
+local a=l[a]or a\
+if a==nil then\
+e(\"Failed to set 'nil' key with value '\"..tostring(o)..\"'. Key names must have a value.\")\
+elseif s[a]then\
+e(\"Failed to set key '\"..a..\"'. Key is reserved.\")\
+elseif isSealed then\
+e(\"Failed to set key '\"..a..\"'. This class base is compiled.\")\
+end\
+local e=g[a]\
+if type(t[e])==\"function\"and not n[a]then\
+local i=t.super\
+t.super=h\
+n[a]=true\
+t[e](self,o)\
+n[a]=nil\
+t.super=i\
+else\
+t[a]=o\
+end\
+if o==nil then\
+t[a]=d(a)\
+end\
+if not r then\
+t.__defined[a]=o~=nil or nil\
+end\
+end\
+function i:__tostring()return\"[Instance] \"..t.__type end\
+function o:type()return t.__type end\
+function o:addSymbolicKey(e,t)\
+r=true;self[e]=t;r=false\
+end\
+local a={\
+[\"__index\"]=true;\
+[\"__newindex\"]=true;\
+}\
+function o:__overrideMetaMethod(e,t)\
+if a[e]then return error(\"Meta method '\"..tostring(e)..\"' cannot be overridden\")end\
+i[e]=t\
+end\
+function o:__lockMetaMethod(e)a[e]=true end\
+setmetatable(o,i)\
+local e=type(t.initialise)==\"function\"and\"initialise\"or\"initialize\"\
+if type(t[e])==\"function\"then\
+o[e](o,...)\
+end\
+return o\
+end\
+_G.class=function(t)\
+local l\
+local o=t:sub(1,1)\
+if o:upper()~=o then\
+e(\"Class name '\"..t..\"' is invalid. Class names must begin with a uppercase character.\")\
+end\
+if n[t]then\
+e(\"Class name '\"..t..\"' is already in use.\")\
+end\
+local h,d=false,false\
+local i={__defined={},__definedMethods={},__definedProperties={},__class=true,__mixins={},__alias={}}\
+i.__type=t\
+local o={}\
+local u,c,m=i.__defined,i.__definedMethods,i.__definedProperties\
+function o:seal()\
+if h then\
+e(\"Failed to seal class '\"..t..\"'. The class is already sealed.\")\
+end\
+k()\
+h=true\
+a=nil\
+end\
+function o:isSealed()\
+return h\
+end\
+function o:abstract(a)\
+if h then e(\"Cannot modify abstract state of sealed class '\"..t..\"'\")end\
+d=a\
+end\
+function o:isAbstract()\
+return d\
+end\
+function o:alias(t)\
+local a\
+if type(t)==\"table\"then\
+a=t\
+elseif type(t)==\"string\"and type(_G[t])==\"table\"then\
+a=_G[t]\
+end\
+local o=i.__alias\
+for t,a in pairs(a)do\
+if not s[t]then\
+o[t]=a\
+else\
+e(\"Cannot set redirects for reserved keys\")\
+end\
+end\
+end\
+function o:mixin(e)\
+i.__mixins[#i.__mixins+1]=e\
+end\
+function o:extend(a)\
+if type(a)~=\"string\"then\
+e(\"Failed to extend class '\"..t..\"'. Target '\"..tostring(a)..\"' is not valid.\")\
+elseif i.__extends then\
+e(\"Failed to extend class '\"..t..\"' to target '\"..a..\"'. The base class already extends '\"..i.__extends..\"'\")\
+end\
+i.__extends=a\
+end\
+function o:spawn(...)\
+if not h then\
+e(\"Failed to spawn class '\"..t..\"'. The class is not sealed\")\
+elseif d then\
+e(\"Failed to spawn class '\"..t..\"'. The class is abstract\")\
+end\
+return p(t,...)\
+end\
+function o:getRaw()\
+return i\
+end\
+function o:addSymbolicKey(t,e)\
+l=true\
+self[t]=e\
+l=false\
+end\
+local d={}\
+function d:__newindex(t,a)\
+if t==nil then\
+e(\"Failed to set nil key with value '\"..tostring(a)..\"'. Key names must have a value.\")\
+elseif s[t]then\
+e(\"Failed to set key '\"..t..\"'. Key is reserved.\")\
+elseif h then\
+e(\"Failed to set key '\"..t..\"'. This class base is compiled.\")\
+end\
+i[t]=a\
+if not l then\
+local e=type(a)\
+u[t]=a~=nil or nil\
+m[t]=a and e~=\"function\"or nil\
+c[t]=a and e==\"function\"or nil\
+end\
+end\
+d.__call=o.spawn\
+d.__tostring=function()return\"[Class Base] \"..t end\
+d.__index=i\
+setmetatable(o,d)\
+a=o\
+n[t]=o\
+_G[t]=o\
+return r\
+end\
+_G.extends=function(t)\
+if not a then\
+e(\"Failed to extend currently building class to target '\"..tostring(t)..\"'. No class is being built.\")\
+end\
+a:extend(t)\
+return r\
+end\
+_G.abstract=function()\
+if not a then\
+e(\"Failed to set abstract state of currently building class because no class is being built.\")\
+end\
+a:abstract(true)\
+return r\
+end\
+_G.mixin=function(t)\
+if not a then\
+e(\"Failed to mixin target class '\"..tostring(t)..\"' to currently building class because no class is being built.\")\
+end\
+a:mixin(t)\
+return r\
+end\
+_G.alias=function(t)\
+if not a then\
+e(\"Failed to add alias redirects because no class is being built.\")\
+end\
+a:alias(t)\
+return r\
+end\
+local e={}\
+function e.isClass(e)\
+return type(e)==\"table\"and e.__type and n[e.__type]and n[e.__type].__class\
+end\
+function e.isInstance(t)\
+return e.isClass(t)and t.__instance\
+end\
+function e.typeOf(t,o,a)\
+return((a and e.isInstance(t))or(not a and e.isClass(t)))and t.__type==o\
+end\
+function e.getClass(e)return n[e]end\
+function e.getClasses()return n end\
+function e.setClassLoader(e)\
+if type(e)~=\"function\"then return error(\"Cannot set missing class loader to variable of type '\"..type(e)..\"'\")end\
+c=e\
+end\
+function e.runClassString(t,e,h)\
+local i=m.ENABLE and\" The file being loaded at the time of the crash has been saved to '\"..m.LOCATION..\"'\"or\"\"\
+local a=b(t)\
+local function o(t)\
+y(a,e,t)\
+error(\"Exception while loading class string for file '\"..e..\"': \"..t..\".\"..i,0)\
+end\
+local s,t=loadstring(a,e)\
+if t then\
+o(t)\
+end\
+local s,t=pcall(s)\
+if t then\
+o(t)\
+end\
+local t=w(e,\"%..*\",\"\")\
+local o=n[t]\
+if not h then\
+if o then\
+if not o:isSealed()then o:seal()end\
+else\
+y(a,e,\"Failed to load class '\"..t..\"'\")\
+error(\"File '\"..e..\"' failed to load class '\"..t..\"'\"..i,0)\
+end\
+end\
+end\
+_G.classLib=e",
+  [ "EventManager.lua" ] = "class\"EventManager\"\
+function EventManager:initialise(e,t)\
+self.application=AssertClass(e,\"Application\",true,\"EventManager instance requires an Application Instance, not: \"..tostring(e))\
+self.matrix=type(t)==\"table\"and t or error(\"EventManager constructor (2) requires a table of event -> class types.\",2)\
+self.register={}\
+end\
+function EventManager:create(e)\
+local t=e[1]\
+local t=self.matrix[t]\
+if not t then\
+return UnknownEvent(e)\
+else\
+return t(e)\
+end\
+end\
+function EventManager:registerEventHandler(t,e,a,o)\
+local e=e..\"_\"..a\
+self.register[e]=self.register[e]or{}\
+table.insert(self.register[e],{\
+t,\
+o\
+})\
+end\
+function EventManager:removeEventHandler(t,e,o)\
+local a=t..\"_\"..e\
+local e=self.register[a]\
+if not e then return false end\
+for t=1,#e do\
+if e[t][1]==o then\
+table.remove(self.register[a],t)\
 return true\
 end\
-return false\
-end",
-  [ "ApplicationCanvas.lua" ] = "local f={\
-[1]=\"0\";\
-[2]=\"1\";\
-[4]=\"2\";\
-[8]=\"3\";\
-[16]=\"4\";\
-[32]=\"5\";\
-[64]=\"6\";\
-[128]=\"7\";\
-[256]=\"8\";\
-[512]=\"9\";\
-[1024]=\"a\";\
-[2048]=\"b\";\
-[4096]=\"c\";\
-[8192]=\"d\";\
-[16384]=\"e\";\
-[32768]=\"f\";\
-}\
-local c=type(term.blit)==\"function\"and term.blit or nil\
-local b=term.write\
-local u=term.setCursorPos\
-local h=table.concat\
-local p,w=term.setTextColour,term.setBackgroundColour\
-class\"ApplicationCanvas\"extends\"Canvas\"{\
-textColour=colors.red;\
-backgroundColour=1;\
-old={};\
-}\
-function ApplicationCanvas:initialise(...)\
-ParseClassArguments(self,{...},{{\"owner\",\"Application\"},{\"width\",\"number\"},{\"height\",\"number\"}},true)\
-AssertClass(self.owner,\"Application\",true,\"Instance '\"..self:type()..\"' requires an Application Instance as the owner\")\
-self.super(self.width,self.height)\
-end\
-function ApplicationCanvas:drawToScreen(g)\
-local t=1\
-local y=self.buffer\
-local v,r=self.width,self.height\
-local l=self.old\
-local n,i,o,s\
-local e,a\
-local m,d=self.textColour or 1,self.backgroundColour or 1\
-if c then\
-for r=1,r do\
-n,i,o,s={},{},{},false\
-for h=1,v do\
-e=y[t]\
-a=l[t]\
-n[#n+1]=e[1]or\" \"\
-i[#i+1]=f[e[2]or m]\
-o[#o+1]=f[e[3]or d]\
-if not a or e[1]~=a[1]or e[2]~=a[2]or e[3]~=a[3]then\
-s=true\
-l[t]={e[1],e[2],e[3]}\
-end\
-t=t+1\
-end\
-if s then\
-u(1,r)\
-c(h(n,\"\"),h(i,\"\"),h(o,\"\"))\
 end\
 end\
-else\
-local a\
-local n=self.old\
-local o,i=1,32768\
-p(o)\
-w(i)\
-for h=1,r do\
-for s=1,v do\
-e=y[t]\
-a=n[t]\
-if g or not a or not(a[1]==e[1]and a[2]==e[2]and a[3]==e[3])then\
-u(s,h)\
-local a=e[2]or m\
-if a~=o then p(a)o=a end\
-local a=e[3]or d\
-if a~=i then w(a)i=a end\
-b(e[1]or\" \")\
-n[t]={e[1],e[2],e[3]}\
-end\
-t=t+1\
-end\
-end\
+function EventManager:shipToRegistrations(e)\
+local t=self.register[e.main..\"_\"..e.sub]\
+if not t then return end\
+for a=1,#t do\
+local t=t[a]\
+t[2](self,e)\
 end\
 end",
-  [ "TextUtil.lua" ] = "local t={}\
-function t.leadingTrim(e)\
-return(e:gsub(\"^%s*\",\"\"))\
-end\
-function t.trailingTrim(t)\
-local e=#t\
-while e>0 and t:find(\"^%s\",e)do\
-e=e-1\
-end\
-return t:sub(1,e)\
-end\
-function t.whitespaceTrim(e)\
-return(e:gsub(\"^%s*(.-)%s*$\",\"%1\"))\
-end\
-_G.TextHelper=t",
-  [ "MyDaemon.lua" ] = "class\"MyDaemon\"extends\"Daemon\"\
-function MyDaemon:start()\
-local e=self.owner.event\
-e:registerEventHandler(\"Terminate\",\"TERMINATE\",\"EVENT\",function()\
-error(\"DaemonService '\"..self:type()..\"' named: '\"..self.name..\"' detected terminate event\",0)\
-end)\
-e:registerEventHandler(\"ContextMenuHandler\",\"MOUSE\",\"CLICK\",function(t,e)\
-if e.misc==2 then\
-log(\"di\",\"context popup\")\
-end\
-end)\
-end\
-function MyDaemon:stop(e)\
-log(e and\"di\"or\"de\",\"MyDaemon detected application close. \"..(e and\"graceful\"or\"not graceful\")..\".\")\
-local e=self.owner.event\
-e:removeEventHandler(\"TERMINATE\",\"EVENT\",\"Terminate\")\
-end",
-  [ "TextContainer.lua" ] = "class\"TextContainer\"extends\"MultiLineTextDisplay\"\
-function TextContainer:setText(e)\
-self.text=e\
-self.container.text=e\
-end",
-  [ "UnknownEvent.lua" ] = "class\"UnknownEvent\"mixin\"Event\"{\
-main=false;\
-sub=\"EVENT\";\
-}\
-function UnknownEvent:initialise(e)\
-self.raw=e\
-self.main=e[1]:upper()\
-end",
+  [ "ConstructorException.lua" ] = "class\"ConstructorException\"extends\"ExceptionBase\"{\
+title=\"Constructor Exception\";\
+subTitle=\"This exception was raised due to a problem during instance construction. This may be because of an invalid or missing value required by initialisation.\";\
+}",
   [ "Label.lua" ] = "DCML.registerTag(\"Label\",{\
 contentCanBe=\"text\";\
 argumentType={\
@@ -703,510 +1788,76 @@ self.text=e\
 if not self.canvas then return end\
 self.canvas.width=self.width\
 end",
-  [ "StageCanvas.lua" ] = "local a={\
-[1]=256;\
-[2]=256;\
-[4]=256;\
-[8]=1;\
-[16]=256;\
-[32]=128;\
-[64]=256;\
-[128]=128;\
-[256]=128;\
-[512]=256;\
-[1024]=128;\
-[2048]=128;\
-[4096]=128;\
-[8192]=256;\
-[16384]=128;\
-[32768]=128;\
+  [ "KeyEvent.lua" ] = "local i=string.sub\
+class\"KeyEvent\"mixin\"Event\"{\
+main=nil;\
+sub=nil;\
+key=nil;\
+held=nil;\
 }\
-class\"StageCanvas\"extends\"Canvas\"{\
-frame=nil;\
-filter=nil;\
-cache={};\
-greyOutWhenNotFocused=true;\
-}\
-function StageCanvas:initialise(...)\
-local e,t=ParseClassArguments(self,{...},{{\"width\",\"number\"},{\"height\",\"number\"}},true,true)\
-AssertClass(self.stage,\"Stage\",true,\"StageCanvas requires stage to be a Stage instance, not: \"..tostring(self.stage))\
-self.super(e,t)\
-self:updateFilter()\
-end\
-function StageCanvas:updateFilter()\
-if self.stage.focused or not self.greyOutWhenNotFocused then\
-self.filter=\"NONE\"\
-else\
-self.filter=\"GREYSCALE\"\
-end\
-end\
-function StageCanvas:setFilter(e)\
-self.filter=e\
-end\
-function StageCanvas:getColour(e)\
-if self.filter==\"NONE\"then return e end\
-if self.filter==\"GREYSCALE\"then\
-return a[e]\
-end\
-end\
-function StageCanvas:redrawFrame()\
-local e=self.stage\
-local t=self.getColour\
-local d=not e.borderless\
-local c=OverflowText(e.title or\"\",e.width-(e.closeButton and 1 or 0))or\"\"\
-local s=e.shadow and e.focused\
-local r=e.shadowColour\
-local u=e.titleTextColour\
-local l=e.titleBackgroundColour\
-local i=self.width\
-local h=self.height\
-local o={}\
-for a=0,h-1 do\
-local n=i*a\
-for t=1,i do\
-local n=n+t\
-if d and a==0 and(s and t<i or not s)then\
-if t==e.width and e.closeButton then\
-o[n]={\"X\",e.closeButtonTextColour,e.closeButtonBackgroundColour}\
-else\
-local e=string.sub(c,t,t)\
-o[n]={e~=\"\"and e or\" \",u,l}\
-end\
-elseif s and((t==i and a~=0)or(t~=1 and a==h-1))then\
-o[n]={\" \",r,r}\
-else\
-local e=true\
-if s and((t==i and a==0)or(t==1 and a==h-1))then\
-e=false\
-end\
-if e then\
-o[n]={false,false,false}\
-end\
-end\
-end\
-end\
-self.frame=o\
-end\
-function StageCanvas:drawToCanvas(e,t,o,a)\
-local f=self.buffer\
-local m=self.frame\
-local l=self.stage\
-local n=self.getColour\
-local y=self.stage.mappingID\
-local a=type(t)==\"number\"and t-1 or 0\
-local t=type(o)==\"number\"and o-1 or 0\
-local r=self.width\
-local i=self.height\
-local w=self.stage.application.layerMap\
-local o,u=e.height,e.width\
-local s=e.buffer\
-local d,h=self.textColour,self.backgroundColour\
-for i=0,i-1 do\
-local c=r*i\
-local e=e.width*(i+t)\
-if i+t+1>0 and i+t-1<o then\
-for o=1,r do\
-if o+a>0 and o+a-1<u then\
-local t=e+(o+a)\
-if w[t]==y then\
-local e=c+o\
-local a=f[e]\
-if a then\
-if not a[1]then\
-local e=m[e]\
-if e then\
-local a=e[1]\
-if o==r and i==0 and not l.borderless and l.closeButton and self.greyOutWhenNotFocused then\
-s[t]={a,e[2]or d,e[3]or h}\
-else\
-s[t]={a,n(self,e[2]or d),n(self,e[3]or h)}\
-end\
-end\
-else\
-s[t]={a[1]or\" \",n(self,a[2]or d),n(self,a[3]or h)}\
-end\
-else\
-s[t]={false,false,false}\
-end\
-end\
-end\
-end\
-end\
-end\
-end",
-  [ "Canvas.lua" ] = "local h=table.insert\
-local s=table.remove\
-class\"Canvas\"abstract()alias\"COLOUR_REDIRECT\"{\
-width=10;\
-height=6;\
-buffer=nil;\
-}\
-function Canvas:initialise(...)\
-local t,e=ParseClassArguments(self,{...},{{\"width\",\"number\"},{\"height\",\"number\"}},true,true)\
-self.width=t\
-self.height=e\
-self:clear()\
-end\
-function Canvas:clear(e,t)\
-local a=e or self.width\
-local t=t or self.height\
-local e={}\
-for t=1,a*t do\
-e[t]={false,false,false}\
-end\
-self.buffer=e\
-end\
-function Canvas:drawToCanvas(t,a,e)\
-if not t then return error(\"Requires canvas to draw to\")end\
-local r=self.buffer\
-local d=a or 0\
-local h=e or 0\
-local i,o,n,s,e\
-for a=0,self.height-1 do\
-o=self.width*a\
-n=t.width*(a+h)\
-for a=1,self.width do\
-i=o+a\
-s=n+(a+d)\
-e=r[i]\
-t.buffer[s]={e[1]or\" \",e[2]or self.textColour,e[3]or self.backgroundColour}\
-end\
-end\
-end\
-function Canvas:setWidth(e)\
-if not self.buffer then self.width=e return end\
-local a,t=self.height,self.buffer\
-if not self.width then error(\"found on \"..tostring(self)..\". Current width: \"..tostring(self.width)..\", new width: \"..tostring(e))end\
-while self.width<e do\
-for e=1,a do\
-h(t,(self.width+1)*e,{\"\",self.textColor,self.textColour})\
-end\
-self.width=self.width+1\
-end\
-while self.width>e do\
-for e=1,e do\
-s(t,self.width*e)\
-end\
-self.width=self.width-1\
-end\
-end\
-function Canvas:setHeight(t)\
-if not self.buffer then self.height=t return end\
-local a,e,o=self.width,self.buffer,self.height\
-while self.height<t do\
-for t=1,a do\
-e[#e+1]=px\
-end\
-self.height=self.height+1\
-end\
-while self.height>t do\
-for t=1,a do\
-s(e,#e)\
-end\
-self.height=self.height-1\
-end\
-end",
-  [ "Daemon.lua" ] = "class\"Daemon\"abstract(){\
-acceptMouse=false;\
-acceptMisc=false;\
-acceptKeyboard=false;\
-owner=nil;\
-__daemon=true;\
-}\
-function Daemon:initialise(e)\
-if not e then return error(\"Daemon '\"..self:type()..\"' cannot initialise without name\")end\
-self.name=e\
-end\
-function Daemon:start()log(\"d\",\"WARNING: Daemon '\"..self.name..\"' (\"..self:type()..\") has no start function declared\")end\
-function Daemon:stop()log(\"d\",\"WARNING: Daemon '\"..self.name..\"' (\"..self:type()..\") has no end function declared\")end",
-  [ "MultiLineTextDisplay.lua" ] = "class\"MultiLineTextDisplay\"abstract()extends\"NodeScrollContainer\"\
-function MultiLineTextDisplay:initialise(...)\
-ParseClassArguments(self,{...},{{\"text\",\"string\"},{\"X\",\"number\"},{\"Y\",\"number\"},{\"width\",\"number\"},{\"height\",\"number\"}},true,false)\
-self.container=FormattedTextObject(self)\
-end\
-function MultiLineTextDisplay:parseIdentifiers()\
-local e=self.text\
-local s={}\
-if not e then return error(\"Failed to parse identifiers. No text is set\")end\
-local n,h,r,i=false,false,false,0\
-while len(e)>0 do\
-local a,t=find(e,\"%@%w-%-%w+[[%+%w-%-%w+]+]?\")\
-if not a or not t then break end\
-local o=sub(e,a,t)\
-local d=t+i-len(o)\
-i=i+a-2-(sub(e,a-1,a-1)==\" \"and 1 or 0)-(sub(e,t+1,t+1)==\" \"and 1 or 0)\
-e=sub(e,t)\
-for e in gmatch(o,\"([^%+]+)\")do\
-e=sub(e,1,1)==\"@\"and sub(e,2)or e\
-local t,a=match(e,\"(%w-)%-\"),match(e,\"%-(%w+)\")\
-if not t or not a then error(\"identifier '\"..tostring(o)..\"' contains invalid syntax\")end\
-if t==\"tc\"then n=parseColour(a)\
-elseif t==\"bg\"then h=parseColour(a)\
-elseif t==\"align\"then r=a else\
-error(\"Unknown identifier target '\"..tostring(t)..\"' in identifier '\"..tostring(o)..\"' at part '\"..e..\"'\")\
-end\
-end\
-s[d]={n,h,r}\
-end\
-local t=self.container\
-t.segments,t.text=s,gsub(e,\"[ ]?%@%w-%-%w+[[%+%w-%-%w+]+]?[ ]?\",\"\")\
-end\
-function MultiLineTextDisplay:draw(e,t)\
-local a=self.container\
-if not a then return error(\"Failed to draw node '\"..self:type()..\"' because the MultiLineTextDisplay has no FormattedTextObject set\")end\
-self.container:draw(e,t)\
-end",
-  [ "loadFirst.cfg" ] = "Logging.lua\
-ClassUtil.lua\
-TextUtil.lua\
-DCMLParser.lua",
-  [ "MDaemon.lua" ] = "class\"MDaemon\"abstract()\
-function MDaemon:registerDaemon(e)\
-if not class.isInstance(e)or not e.__daemon then\
-return error(\"Cannot register daemon '\"..tostring(e)..\"' (\"..type(e)..\")\")\
-end\
-if not e.name then return error(\"Daemon '\"..e:type()..\"' has no name!\")end\
-log(\"di\",\"Registered daemon of type '\"..e:type()..\"' (name \"..e.name..\") to \"..self:type())\
-e.owner=self\
-table.insert(self.__daemons,e)\
-end\
-function MDaemon:removeDaemon(a)\
-if not a then return error(\"Cannot un-register daemon with no name to search\")end\
-local e=self.__daemons\
-for t=1,#e do\
-local e=e[t]\
-if e.name==a then\
-log(\"di\",\"Removed daemon of type '\"..e:type()..\"' (name \"..e.name..\") from \"..self:type()..\". Index \"..t)\
-table.remove(self.__daemons,t)\
-end\
-end\
-end\
-function MDaemon:get__daemons()\
-if type(self.__daemons)~=\"table\"then\
-self.__daemons={}\
-end\
-return self.__daemons\
-end\
-function MDaemon:startDaemons()\
-local e=self.__daemons\
-for t=1,#e do\
-e[t]:start()\
-end\
-end\
-function MDaemon:stopDaemons(t)\
-local e=self.__daemons\
-for a=1,#e do\
-e[a]:stop(t)\
-end\
-end",
-  [ "DCMLParser.lua" ] = "local h=string.sub\
-local function l(l)\
-function parseargs(t)\
-local e={}\
-string.gsub(t,\"([%-%w]+)=([\\\"'])(.-)%2\",function(t,o,a)\
-e[t]=a\
-end)\
-return e\
-end\
-function collect(s)\
-local e={}\
-local t={}\
-table.insert(e,t)\
-local o,h,a,n,r\
-local i,d=1,1\
-while true do\
-o,d,h,a,n,r=string.find(s,\"<(%/?)([%w:]+)(.-)(%/?)>\",i)\
-if not o then break end\
-local o=string.sub(s,i,o-1)\
-if not string.find(o,\"^%s*$\")then\
-t[\"content\"]=o\
-end\
-if r==\"/\"then\
-table.insert(t,{label=a,xarg=parseargs(n),empty=1})\
-elseif h==\"\"then\
-t={label=a,xarg=parseargs(n)}\
-table.insert(e,t)\
-else\
-local o=table.remove(e)\
-t=e[#e]\
-if#e<1 then\
-error(\"nothing to close with \"..a)\
-end\
-if o.label~=a then\
-error(\"trying to close \"..o.label..\" with \"..a)\
-end\
-if#e>1 then\
-if type(t.content)~=\"table\"then\
-t.content={}\
-end\
-t.content[#t.content+1]=o\
-t.hasChildren=true\
-else\
-table.insert(t,o)\
-end\
-end\
-i=d+1\
-end\
-local t=string.sub(s,i)\
-if not string.find(t,\"^%s*$\")then\
-table.insert(e[#e],t)\
-end\
-if#e>1 then\
-error(\"unclosed \"..e[#e].label)\
-end\
-return e[1]\
-end\
-return collect(l)\
-end\
-local o={}\
-local i={}\
-function i.registerTag(e,t)\
-if type(e)~=\"string\"or type(t)~=\"table\"then return error(\"Expected string, table\")end\
-o[e]=t\
-end\
-function i.removeTag(e)\
-o[e]=nil\
-end\
-function i.setMatrix(e)\
-if type(e)~=\"table\"then\
-return error(\"Expected table\")\
-end\
-end\
-function i.loadFile(e)\
-if not fs.exists(e)then\
-return error(\"Cannot load DCML content from path '\"..tostring(e)..\"' because the file doesn't exist\")\
-elseif fs.isDir(e)then\
-return error(\"Cannot load DCML content from path '\"..tostring(e)..\"' because the path is a directory\")\
-end\
-local e=fs.open(e,\"r\")\
-local t=e.readAll()\
-e.close()\
-return l(t)\
-end\
-local function n(t,e)\
-if type(e)==\"function\"then\
-return e\
-elseif type(e)==\"string\"and h(e,1,1)==\"#\"then\
-if not t then\
-return false\
-else\
-local e=t[h(e,2)]\
-if type(e)==\"function\"then\
-return e\
-end\
-end\
-end\
-end\
-local function r(o,e,t,a)\
-if type(a.argumentType)~=\"table\"then a.argumentType={}end\
-t=o and o[t]or t\
-local t=a.argumentType[t]\
-local o=type(e)\
-local a\
-if o==t or not t then\
-a=e\
-else\
-if t==\"string\"then\
-a=tostring(e)\
-elseif t==\"number\"then\
-local t=tonumber(e)\
-if not t then\
-return error(\"Failed to convert '\"..tostring(e)..\"' from type '\"..o..\"' to number when parsing DCML\")\
-end\
-a=t\
-elseif t==\"boolean\"then\
-a=e:lower()==\"true\"\
-elseif t==\"color\"or t==\"colour\"then\
-local t=colours[e]or colors[e]\
-if not t then\
-return error(\"Failed to convert '\"..tostring(e)..\"' from type '\"..o..\"' to colour when parsing DCML\")\
-end\
-a=t\
-else\
-return error(\"Cannot parse type '\"..tostring(t)..\"' using DCML\")\
-end\
-end\
-return a\
-end\
-local s={}\
-function i.parse(e)\
-local h={}\
-for t=1,#e do\
-local a=e[t]\
-local t=a.label\
-local e=o[t]\
-if type(e)~=\"table\"then\
-return error(\"No DCMLMatrix for tag with label '\"..tostring(t)..\"'\")\
-end\
-local i=n(false,e.customHandler)\
-if i then\
-table.insert(h,i(a,o))\
-else\
-local i={}\
-local o=e.aliasHandler\
-if type(o)==\"table\"then\
-i=o\
-elseif type(o)==\"function\"then\
-i=o()\
-elseif o==true then\
-if not s[t]then\
-log(\"i\",\"DCMLMatrix for \"..t..\" has instructed that DCML parsing should alias with the class '\"..t..\"'.__alias\")\
-local e=class.getClass(t)\
-if not e then\
-error(\"Failed to fetch class for '\"..t..\"' while fetching alias information\")\
-end\
-s[t]=e.__alias\
-end\
-i=s[t]\
-end\
-local s={}\
-local o=n(false,e.argumentHandler)\
+function KeyEvent:initialise(e)\
+self.raw=e\
+local o=string.find(e[1],\"_\")\
+local t,a\
 if o then\
-s=o(a)\
+t=i(e[1],o+1,e[1]:len())\
+a=i(e[1],1,o-1)\
 else\
-local o=e.callbacks or{}\
-for t,a in pairs(a.xarg)do\
-if not o[t]then\
-s[t]=r(i,a,t,e)\
+t=e[1]\
+a=t\
 end\
+self.main=a:upper()\
+self.sub=t:upper()\
+self.key=e[2]\
+self.held=e[3]\
 end\
-if a.content and not a.hasChildren and e.contentCanBe then\
-s[e.contentCanBe]=r(i,a.content,e.contentCanBe,e)\
-end\
-end\
-local i=n(false,e.instanceHandler)or class.getClass(t)\
-local o\
-if i then\
-o=i(s)\
-end\
-if not o then\
-return error(\"Failed to generate instance for DCML tag '\"..t..\"'\")\
-end\
-if a.hasChildren and e.childHandler then\
-local e=n(o,e.childHandler)\
+function KeyEvent:isKey(e)\
+if keys[e]==self.key then return true end\
+end",
+  [ "ExceptionHook.lua" ] = "local e\
+local t\
+_G.exceptionHook={}\
+function exceptionHook.hook()\
 if e then\
-e(o,a)\
+Exception(\"Failed to create exception hook. A hook is already in use.\")\
+end\
+e=_G.error\
+_G.error=function(t,e)\
+Exception(t,type(e)==\"number\"and(e==0 and 0 or e+1)or 2)\
+end\
+log(\"s\",\"Exception hook created\")\
+end\
+function exceptionHook.unhook()\
+if not e then\
+Exception(\"Failed to unhook exception hook. The hook doesn't exist.\")\
+end\
+_G.error=e\
+log(\"s\",\"Exception hook removed\")\
+end\
+function exceptionHook.isHooked()\
+return type(e)==\"function\"\
+end\
+function exceptionHook.getRawError()\
+return e or _G.error\
+end\
+function exceptionHook.setRawError(t)\
+if type(t)==\"function\"then\
+e=t\
+else\
+Exception(\"Failed to set exception hook raw error. The function is not valid\")\
 end\
 end\
-local i=n(o,e.callbackGenerator)\
-if i and type(e.callbacks)==\"table\"then\
-for e,t in pairs(e.callbacks)do\
-if a.xarg[e]then\
-o[t]=i(o,e,a.xarg[e])\
+function exceptionHook.throwSystemException(e)\
+t=e\
+local t=exceptionHook.getRawError()\
+t(e.displayName or\"?\",0)\
 end\
+function exceptionHook.spawnException(e)\
+t=e\
 end\
-elseif e.callbacks then\
-log(\"w\",\"Couldn't generate callbacks for '\"..t..\"' during DCML parse. Callback generator not defined\")\
-end\
-if e.onDCMLParseComplete then\
-e.onDCMLParseComplete(o)\
-end\
-table.insert(h,o)\
-end\
-end\
-return h\
-end\
-_G.DCML=i",
+function exceptionHook.getLastThrownException()\
+return t\
+end",
   [ "Logging.lua" ] = "local a\
 local t\
 local i={\
@@ -1220,6 +1871,7 @@ dw=\"Daemon Warning\";\
 de=\"Daemon Error\";\
 df=\"Daemon Fatal\";\
 ds=\"Daemon Success\";\
+eh=\"Exception Handling\";\
 }\
 local h=true\
 local s=5e4\
@@ -1249,8 +1901,8 @@ local t=fs.open(t,\"a\")\
 t.write(\"[\"..os.clock()..\"][\"..(i[e]or e)..\"] > \"..o..\"\\n\")\
 t.close()\
 end\
-function e:registerMode(e,t)\
-i[e]=t\
+function e:registerMode(t,e)\
+i[t]=e\
 end\
 function e:setLoggingEnabled(e)\
 a=e\
@@ -1260,6 +1912,7 @@ function e:setLoggingPath(e)\
 t=e\
 self:clearLog(true)\
 end\
+function e:getLoggingPath()return t end\
 function e:clearLog(a)\
 if not t then return end\
 local e=fs.open(t,\"w\")\
@@ -1270,135 +1923,21 @@ e.close()\
 end\
 setmetatable(e,{__call=e.log})\
 _G.log=e",
-  [ "FormattedTextObject.lua" ] = "local l,f,m=string.len,string.match,string.sub\
-local function u(t)\
-local a=l(t)\
-local e=0\
-return(function()\
-e=e+1\
-if e<=a then return m(t,e,e)end\
-end)\
+  [ "TextUtil.lua" ] = "local t={}\
+function t.leadingTrim(e)\
+return(e:gsub(\"^%s*\",\"\"))\
 end\
-class\"FormattedTextObject\"{\
-segments={};\
-cache={\
-height=nil;\
-text=nil;\
-};\
-}\
-function FormattedTextObject:initialise(t,e)\
-self.owner=class.isInstance(t)and t or error(\"Cannot set owner of FormattedTextObject to '\"..tostring(t)..\"'\",2)\
-self.width=type(e)==\"number\"and e or error(\"Cannot set width of FormattedTextObject to '\"..tostring(e)..\"'\",2)\
+function t.trailingTrim(t)\
+local e=#t\
+while e>0 and t:find(\"^%s\",e)do\
+e=e-1\
 end\
-function FormattedTextObject:cacheSegmentInformation()\
-if not text then self.owner:parseIdentifiers()text=self.text end\
-if not self.text then return error(\"Failed to parse text identifiers. No new text received.\")end\
-local w=self.segments\
-local n,o,a,t,e=self.width,self.text,{},0,0\
-local s,d,h=false,false,\"left\"\
-local function i()\
-e=1\
-a[t][2]=AssertEnum(h,{\"left\",\"center\",\"centre\",\"right\"},\"Failed FormattedTextObject caching: '\"..tostring(h)..\"' is an invalid alignment setting.\")\
-t=t+1\
-a[t]={\
-{},\
-false\
-}\
-return a[t]\
+return t:sub(1,e)\
 end\
-i()\
-local c=0\
-local function r()\
-c=c+1\
-local e=w[c]\
-if e then\
-s=e[1]or s\
-d=e[2]or d\
-h=e[3]or h\
+function t.whitespaceTrim(e)\
+return(e:gsub(\"^%s*(.-)%s*$\",\"%1\"))\
 end\
-end\
-local function h(o)\
-a[t][e+1]={\
-o,\
-s,\
-d\
-}\
-e=e+1\
-end\
-while l(o)>0 do\
-local c=f(o,\"^[ \\t]+\")\
-if c then\
-local t=a[t]\
-for a in u(c)do\
-r()\
-t[#t+1]={\
-a,\
-s,\
-d\
-}\
-e=e+1\
-if e>n then t=i()end\
-end\
-o=m(o,l(c)+1)\
-end\
-local t=f(o,\"^[^ \\t\\n]+\")\
-local a=l(t)\
-if e+a<=n then\
-for e in u(t)do\
-r()\
-h(e)\
-end\
-elseif a<=n then\
-i()\
-for e in u(t)do\
-r()\
-h(e)\
-end\
-else\
-if e>n then i()end\
-for t in u(t)do\
-r()\
-h(t)\
-if e>n then i()end\
-end\
-end\
-end\
-self:cacheAlignments(a)\
-end\
-function FormattedTextObject:cacheAlignments(e)\
-local a=e or self.lines\
-local o=self.width\
-local e,t\
-for i=1,#a do\
-e=a[i]\
-t=e[2]\
-if t==\"left\"then\
-e[3]=1\
-elseif t==\"center\"then\
-e[3]=math.ceil((o/2)-(#e/2))\
-elseif t==\"right\"then\
-e[3]=o-#e\
-else return error(\"Invalid alignment property '\"..tostring(t)..\"'\")end\
-end\
-self.lines=a\
-return self.lines\
-end\
-function FormattedTextObject:draw(e,e)\
-local e=self.owner\
-if class.isInstance(e)then\
-return error(\"Cannot draw '\"..tostring(self:type())..\"'. The instance has no owner.\")\
-end\
-local e=e.canvas\
-end\
-function FormattedTextObject:getCache()\
-if not self.cache then\
-self:cacheText()\
-end\
-return self.cache\
-end\
-function FormattedTextObject:getHeight()\
-return self.cache.height\
-end",
+_G.TextHelper=t",
   [ "Input.lua" ] = "DCML.registerTag(\"Input\",{\
 argumentType={\
 X=\"number\";\
@@ -1577,912 +2116,901 @@ return self.selected==0,a+e-1,t,self.activeTextColour\
 end\
 function Input:onFocusLost()self.focused=false;self.acceptKeyboard=false;self.changed=true end\
 function Input:onFocusGain()self.focused=true;self.acceptKeyboard=true;self.changed=true end",
-  [ "scriptFiles.cfg" ] = "ClassUtil.lua\
-TextUtil.lua\
-DCMLParser.lua\
-Logging.lua",
-  [ "Application.lua" ] = "class\"Application\"alias\"COLOUR_REDIRECT\"mixin\"MDaemon\"{\
-canvas=nil;\
-hotkey=nil;\
-timer=nil;\
-event=nil;\
-stages={};\
-changed=true;\
-running=false;\
-lastID=0;\
+  [ "MouseEvent.lua" ] = "local t=string.sub\
+class\"MouseEvent\"mixin\"Event\"{\
+main=\"MOUSE\";\
+sub=nil;\
+X=nil;\
+Y=nil;\
+misc=nil;\
+inParentBounds=false;\
 }\
-function Application:initialise(...)\
-ParseClassArguments(self,{...},{{\"width\",\"number\"},{\"height\",\"number\"}},true)\
-self.canvas=ApplicationCanvas(self,self.width,self.height)\
-self.hotkey=HotkeyManager(self)\
-self.event=EventManager(self,{\
-[\"mouse_up\"]=MouseEvent;\
-[\"mouse_click\"]=MouseEvent;\
-[\"mouse_scroll\"]=MouseEvent;\
-[\"mouse_drag\"]=MouseEvent;\
-[\"key\"]=KeyEvent;\
-[\"key_up\"]=KeyEvent;\
-[\"char\"]=KeyEvent;\
-});\
-self.timer=TimerManager(self)\
-self:__overrideMetaMethod(\"__add\",function(t,e)\
-if class.typeOf(t,\"Application\",true)then\
-if class.typeOf(e,\"Stage\",true)then\
-return self:addStage(e)\
-else\
-return error(\"Invalid right hand assignment (\"..tostring(e)..\")\")\
+function MouseEvent:initialise(e)\
+self.raw=e\
+local t=t(e[1],string.find(e[1],\"_\")+1,e[1]:len())\
+self.sub=t:upper()\
+self.misc=e[2]\
+self.X=e[3]\
+self.Y=e[4]\
 end\
-else\
-return error(\"Invalid left hand assignment (\"..tostring(t)..\")\")\
+function MouseEvent:inArea(a,n,o,i)\
+local t,e=self.X,self.Y\
+if t>=a and t<=o and e>=n and e<=i then\
+return true\
 end\
-end)\
-self:clearLayerMap()\
+return false\
 end\
-function Application:clearLayerMap()\
-local e={}\
-for t=1,self.width*self.height do\
-e[t]=false\
+function MouseEvent:isInNode(e)\
+return self:inArea(e.X,e.Y,e.X+e.width-1,e.Y+e.height-1)\
 end\
-self.layerMap=e\
+function MouseEvent:onPoint(e,t)\
+if self.X==e and self.Y==t then\
+return true\
 end\
-function Application:setTextColour(e)\
-self.canvas.textColour=e\
-self.textColour=e\
+return false\
 end\
-function Application:setBackgroundColour(e)\
-self.canvas.backgroundColour=e\
-self.backgroundColour=e\
+function MouseEvent:getPosition()return self.X,self.Y end\
+function MouseEvent:convertToRelative(e)\
+self.X,self.Y=self:getRelative(e)\
 end\
-function Application:addStage(e)\
-e.application=self\
-e.mappingID=self.lastID+1\
-self.lastID=self.lastID+1\
-self.stages[#self.stages+1]=e\
-e:map()\
-return e\
+function MouseEvent:getRelative(e)\
+return self.X-e.X+1,self.Y-e.Y+1\
 end\
-function Application:removeStage(e)\
-local t=class.typeOf(e,\"Stage\",true)\
-for a=1,#self.stages do\
-local o=self.stages[a]\
-if(t and o==e)or(not t and o.name==e)then\
-table.remove(self.stages,a)\
-self.changed=true\
-end\
-end\
-end\
-function Application:draw(e)\
-for t=#self.stages,1,-1 do\
-self.stages[t]:draw(e)\
-end\
-self.canvas:drawToScreen(e)\
-self.changed=false\
-end\
-function Application:run(e)\
-log(\"i\",\"Attempting to start application\")\
-self.running=true\
-self.hotkey:reset()\
-local function o()\
-local a=self.hotkey\
-local o=self.timer\
-if self.onRun then self:onRun()end\
-self:draw(true)\
-log(\"s\",\"Engine start successful. Running in protected mode\")\
-while self.running do\
-if self.reorderRequest then\
-log(\"i\",\"Reordering stage list\")\
-local e=self.reorderRequest\
-for t=1,#self.stages do\
-if self.stages[t]==e then\
-table.insert(self.stages,1,table.remove(self.stages,t))\
-self:setStageFocus(e)\
-break\
-end\
-end\
-self.reorderRequest=nil\
-end\
-term.setCursorBlink(false)\
-self:draw()\
-for e=1,#self.stages do\
-self.stages[e]:appDrawComplete()\
-end\
-local e=self.event:create({coroutine.yield()})\
-self.event:shipToRegistrations(e)\
-if e.main==\"KEY\"then\
-a:handleKey(e)\
-a:checkCombinations()\
-elseif e.main==\"TIMER\"then\
-o:update(e.raw[2])\
-end\
-for t=1,#self.stages do\
-if self.stages[t]then\
-self.stages[t]:handleEvent(e)\
-end\
-end\
-end\
-end\
-log(\"i\",\"Trying to start daemon services\")\
-local t,e=pcall(function()self:startDaemons()end)\
-if e then\
-log(\"f\",\"Failed to start daemon services. Reason '\"..tostring(e)..\"'\")\
-if self.errorHandler then\
-self:errorHandler(e,false)\
-else\
-if self.onError then self:onError(e)end\
-error(\"Failed to start daemon service: \"..e)\
-end\
-elseif ok then\
-log(\"s\",\"Daemon service started\")\
-end\
-log(\"i\",\"Starting engine\")\
-local t,e=pcall(o)\
-if not t and e then\
-log(\"f\",\"Engine error: '\"..tostring(e)..\"'\")\
-if self.errorHandler then\
-self:errorHandler(e,true)\
-else\
-term.setTextColour(colours.yellow)\
-print(\"DynaCode has crashed\")\
-term.setTextColour(colours.red)\
-print(e)\
-print(\"\")\
-local function i(a,e,s,h,i,n,o,t)\
-term.setTextColour(a)\
-print(e)\
-local a,e=pcall(s)\
-if e then\
-term.setTextColour(h)\
-print(i..e)\
-else\
-term.setTextColour(n)\
-print(o)\
-end\
-term.setTextColour(t)\
-end\
-local t,a,o=colours.yellow,colours.red,colours.lime\
-i(t,\"Attempting to stop daemon service and children\",function()self:stopDaemons(false)end,a,\"Failed to stop daemon service: \",o,\"Stopped daemon service\",1)\
-print(\"\")\
-i(t,\"Attempting to write crash information to log file\",function()\
-log(\"f\",\"DynaCode crashed: \"..e)\
-end,a,\"Failed to write crash information: \",o,\"Wrote crash information to file\",1)\
-if self.onError then self:onError(e)end\
-end\
-end\
-end\
-function Application:finish(e)\
-log(\"i\",\"Stopping Daemons\")\
-self:stopDaemons(true)\
-log(\"i\",\"Stopping Application\")\
-self.running=false\
-os.queueEvent(\"stop\")\
-if type(e)==\"function\"then e()end\
-end\
-function Application:mapWindow(n,i,r,s)\
-local e=self.stages\
-local d=self.layerMap\
-for t=#e,1,-1 do\
-local e=e[t]\
-local a,o=e.X,e.Y\
-local u,h=e.canvas.width,e.canvas.height\
-local l,t\
-l=a+u\
-t=o+h\
-local u=e.visible\
-local h=e.mappingID\
-if not(a>r or o>s or n>l or i>t)then\
-for s=math.max(o,i),math.min(t,s)do\
-local i=self.width*(s-1)\
-for t=math.max(a,n),math.min(l,r)do\
-local n=d[i+t]\
-if n~=h and u and(e:isPixel(t-a+1,s-o+1))then\
-d[i+t]=h\
-elseif n==h and not u then\
-d[i+t]=false\
-end\
-end\
-end\
-end\
-end\
-local e=self.canvas.buffer\
-local a=self.width\
-local h=self.layerMap\
-for t=i,s do\
-local a=a*(t-1)\
-for o=n,r do\
-local t=a+o\
-local a=h[a+o]\
-if a==false then\
-if e[t]then e[t]={false,false,false}end\
-end\
-end\
-end\
-end\
-function Application:requestStageFocus(e)\
-self.reorderRequest=e\
-end\
-function Application:setStageFocus(e)\
-if not class.isInstance(e,\"Stage\")then return error(\"Expected Class Instance Stage, not \"..tostring(e))end\
-self:unSetStageFocus()\
-e:onFocus()\
-self.focusedStage=e\
-end\
-function Application:unSetStageFocus(e)\
-local e=e or self.focusedStage\
-if self.focusedStage and self.focusedStage==e then\
-self.focusedStage:onBlur()\
-self.focusedStage=nil\
-end\
-end\
-function Application:getStageByName(a)\
-local e=self.stages\
+function MouseEvent:inBounds(e)\
+local t,a=e.X,e.Y\
+return self:inArea(t,a,t+e.width-1,a+e.height-1)\
+end",
+  [ "NodeContainer.lua" ] = "class\"NodeContainer\"abstract()extends\"Node\"mixin\"MTemplateHolder\"mixin\"MNodeManager\"{\
+acceptMouse=true;\
+acceptKeyboard=true;\
+acceptMisc=true;\
+forceRedraw=true;\
+}\
+function NodeContainer:resolveDCMLChildren()\
+local e=self.nodesToAdd\
 for t=1,#e do\
 local e=e[t]\
-if e.name==a then return e end\
+self:addNode(e)\
+if e.nodesToAdd and type(e.resolveDCMLChildren)==\"function\"then\
+e:resolveDCMLChildren()\
 end\
 end\
-local function e(e)\
-return DCML.parse(DCML.loadFile(e))\
-end\
-function Application:appendStagesFromDCML(t)\
-local e=e(t)\
-for a=1,#e do\
-local e=e[a]\
-if class.typeOf(e,\"Stage\",true)then\
-self:addStage(e)\
+self.nodesToAdd={}\
+end",
+  [ "UnknownEvent.lua" ] = "class\"UnknownEvent\"mixin\"Event\"{\
+main=false;\
+sub=\"EVENT\";\
+}\
+function UnknownEvent:initialise(e)\
+self.raw=e\
+self.main=e[1]:upper()\
+end",
+  [ "loadFirst.cfg" ] = "Logging.lua\
+ClassUtil.lua\
+TextUtil.lua\
+DCMLParser.lua",
+  [ "MTemplateHolder.lua" ] = "class\"MTemplateHolder\"abstract(){\
+templates={};\
+activeTemplate=nil;\
+}\
+function MTemplateHolder:registerTemplate(e)\
+if classLib.typeOf(e,\"Template\",true)then\
+if not e.owner then\
+if not self:getTemplateByName(e.name)then\
+e.owner=self\
+table.insert(self.templates,e)\
+return true\
 else\
-return error(\"The DCML parser has created a \"..tostring(e)..\". This is not a stage and cannot be added as such. Please ensure the DCML file '\"..tostring(t)..\"' only creates stages with nodes inside of them, not nodes by themselves. Refer to the wiki for more information\")\
+ParameterException(\"Failed to register template '\"..tostring(e)..\"'. A template with the name '\"..e.name..\"' is already registered on this object (\"..tostring(self)..\").\")\
+end\
+else\
+ParameterException(\"Failed to register template '\"..tostring(e)..\"'. The template belongs to '\"..tostring(e.owner)..\"'\")\
+end\
+else\
+ParameterException(\"Failed to register object '\"..tostring(e)..\"' as template. The object is an invalid type.\")\
+end\
+return false\
+end\
+function MTemplateHolder:unregisterTemplate(t)\
+local i=type(t)==\"string\"\
+local a=self.templates\
+local e\
+for o=1,#a do\
+e=a[o]\
+if(i and e.name==t)or(not i and e==t)then\
+e.owner=nil\
+table.remove(a,o)\
+return true\
+end\
+end\
+return false\
+end\
+function MTemplateHolder:getTemplateByName(o)\
+local t=self.templates\
+local e\
+for a=1,#t do\
+e=t[a]\
+if e.name==o then\
+return e\
+end\
+end\
+return false\
+end\
+function MTemplateHolder:setActiveTemplate(e)\
+if type(e)==\"string\"then\
+local t=self:getTemplateByName(name)\
+if t then\
+self.activeTemplate=t\
+else\
+ParameterException(\"Failed to set active template of '\"..tostring(self)..\"' to template with name '\"..e..\"'. The template could not be found.\")\
+end\
+elseif classLib.typeOf(e,\"Template\",true)then\
+self.activeTemplate=e\
+self.changed=true\
+self.forceRedraw=true\
+else\
+ParameterException(\"Failed to set active template of '\"..tostring(self)..\"'. The target object is invalid: \"..tostring(e))\
+end\
+end\
+function MTemplateHolder:getNodes()\
+if self.activeTemplate then\
+return self.activeTemplate.nodes\
+end\
+return self.nodes\
+end",
+  [ "MultiLineTextDisplay.lua" ] = "local s,a,t,c,y,o=string.len,string.find,string.sub,string.match,string.gmatch,string.gsub\
+local function m(e)\
+return colours[e]or colors[e]or error(\"Invalid colour '\"..e..\"'\")\
+end\
+class\"MultiLineTextDisplay\"abstract()extends\"NodeScrollContainer\"{\
+lastHorizontalStatus=false;\
+lastVerticalStatus=false;\
+}\
+function MultiLineTextDisplay:initialise(...)\
+self.super(...)\
+self.autoDraw=false\
+self.cache.displayWidth=self.width\
+end\
+function MultiLineTextDisplay:parseIdentifiers()\
+local f={}\
+local e=self.text\
+local n=0\
+local w=o(e,\"[ ]?%@%w-%-%w+[[%+%w-%-%w+]+]?[ ]?\",\"\")\
+local l,u,d=false,false,false\
+while s(e)>0 do\
+local i,a=a(e,\"%@%w-%-%w+[[%+%w-%-%w+]+]?\")\
+local r,h,o\
+if not i or not a then break end\
+r=t(e,i-1,i-1)==\" \"\
+h=t(e,a+1,a+1)==\" \"\
+o=t(e,i,a)\
+local s=a+n-s(o)\
+n=n+i-2-(r and 1 or 0)-(h and 1 or 0)\
+e=t(e,a)\
+for e in y(o,\"([^%+]+)\")do\
+if t(e,1,1)==\"@\"then\
+e=t(e,2)\
+end\
+local t,a=c(e,\"(%w-)%-\"),c(e,\"%-(%w+)\")\
+if not t or not a then error(\"identifier '\"..tostring(o)..\"' contains invalid syntax\")end\
+if t==\"tc\"then\
+l=m(a)\
+elseif t==\"bg\"then\
+u=m(a)\
+elseif t==\"align\"then\
+d=a\
+else\
+error(\"Unknown identifier target '\"..tostring(t)..\"' in identifier '\"..tostring(o)..\"' at part '\"..e..\"'\")\
+end\
+end\
+f[s]={l,u,d}\
+end\
+local e=self.container\
+e.segments,e.text=f,w\
+end\
+function MultiLineTextDisplay:cacheRequiredScrollbars()\
+self.super:cacheRequiredScrollbars()\
+self.cache.xActive=false\
+end\
+function MultiLineTextDisplay:cacheDisplaySize()\
+self.super:cacheDisplaySize()\
+self.container:cacheSegmentInformation()\
+end",
+  [ "ApplicationCanvas.lua" ] = "local f={\
+[1]=\"0\";\
+[2]=\"1\";\
+[4]=\"2\";\
+[8]=\"3\";\
+[16]=\"4\";\
+[32]=\"5\";\
+[64]=\"6\";\
+[128]=\"7\";\
+[256]=\"8\";\
+[512]=\"9\";\
+[1024]=\"a\";\
+[2048]=\"b\";\
+[4096]=\"c\";\
+[8192]=\"d\";\
+[16384]=\"e\";\
+[32768]=\"f\";\
+}\
+local c=type(term.blit)==\"function\"and term.blit or nil\
+local b=term.write\
+local u=term.setCursorPos\
+local h=table.concat\
+local p,w=term.setTextColour,term.setBackgroundColour\
+class\"ApplicationCanvas\"extends\"Canvas\"{\
+textColour=colors.red;\
+backgroundColour=colours.cyan;\
+old={};\
+}\
+function ApplicationCanvas:initialise(...)\
+ParseClassArguments(self,{...},{{\"owner\",\"Application\"},{\"width\",\"number\"},{\"height\",\"number\"}},true)\
+AssertClass(self.owner,\"Application\",true,\"Instance '\"..self:type()..\"' requires an Application Instance as the owner\")\
+print(tostring(self.width)..\", \"..tostring(self.height))\
+self.super(self.width,self.height)\
+end\
+function ApplicationCanvas:drawToScreen(g)\
+local t=1\
+local y=self.buffer\
+local v,r=self.width,self.height\
+local l=self.old\
+local n,i,o,s\
+local e,a\
+local m,d=self.textColour or 1,self.backgroundColour or 1\
+if c then\
+for r=1,r do\
+n,i,o,s={},{},{},false\
+for h=1,v do\
+e=y[t]\
+a=l[t]\
+n[#n+1]=e[1]or\" \"\
+i[#i+1]=f[e[2]or m]\
+o[#o+1]=f[e[3]or d]\
+if not a or e[1]~=a[1]or e[2]~=a[2]or e[3]~=a[3]then\
+s=true\
+l[t]={e[1],e[2],e[3]}\
+end\
+t=t+1\
+end\
+if s then\
+u(1,r)\
+c(h(n,\"\"),h(i,\"\"),h(o,\"\"))\
+end\
+end\
+else\
+local a\
+local n=self.old\
+local o,i=1,32768\
+p(o)\
+w(i)\
+for h=1,r do\
+for s=1,v do\
+e=y[t]\
+a=n[t]\
+if g or not a or not(a[1]==e[1]and a[2]==e[2]and a[3]==e[3])then\
+u(s,h)\
+local a=e[2]or m\
+if a~=o then p(a)o=a end\
+local a=e[3]or d\
+if a~=i then w(a)i=a end\
+b(e[1]or\" \")\
+n[t]={e[1],e[2],e[3]}\
+end\
+t=t+1\
+end\
 end\
 end\
 end",
-  [ "Class.lua" ] = "local p,u=string.gsub,string.match\
-local f={\
-ENABLE=false;\
-LOCATION=\"DynaCrash-Dump.crash\"\
-}\
-local y;\
-local d={\
-__type=true;\
-__defined=true;\
-__class=true;\
-__extends=true;\
-__instance=true;\
-__alias=true;\
+  [ "MDaemon.lua" ] = "class\"MDaemon\"abstract()\
+function MDaemon:registerDaemon(e)\
+if not classLib.isInstance(e)or not e.__daemon then\
+return error(\"Cannot register daemon '\"..tostring(e)..\"' (\"..type(e)..\")\")\
+end\
+if not e.name then return error(\"Daemon '\"..e:type()..\"' has no name!\")end\
+log(\"di\",\"Registered daemon of type '\"..e:type()..\"' (name \"..e.name..\") to \"..self:type())\
+e.owner=self\
+table.insert(self.__daemons,e)\
+end\
+function MDaemon:removeDaemon(a)\
+if not a then return error(\"Cannot un-register daemon with no name to search\")end\
+local e=self.__daemons\
+for t=1,#e do\
+local e=e[t]\
+if e.name==a then\
+log(\"di\",\"Removed daemon of type '\"..e:type()..\"' (name \"..e.name..\") from \"..self:type()..\". Index \"..t)\
+table.remove(self.__daemons,t)\
+end\
+end\
+end\
+function MDaemon:get__daemons()\
+if type(self.__daemons)~=\"table\"then\
+self.__daemons={}\
+end\
+return self.__daemons\
+end\
+function MDaemon:startDaemons()\
+local e=self.__daemons\
+for t=1,#e do\
+e[t]:start()\
+end\
+end\
+function MDaemon:stopDaemons(t)\
+local e=self.__daemons\
+for a=1,#e do\
+e[a]:stop(t)\
+end\
+end",
+  [ "FormattedTextObject.lua" ] = "local n,f,m=string.len,string.match,string.sub\
+local function u(t)\
+local a=n(t)\
+local e=0\
+return(function()\
+e=e+1\
+if e<=a then return m(t,e,e)end\
+end)\
+end\
+class\"FormattedTextObject\"extends\"Node\"{\
+segments={};\
+cache={\
+height=nil;\
+text=nil;\
 };\
-local i=_G;\
-local c\
-local o\
-local e\
-local n={}\
-local t={}\
-local k=setmetatable({},{__index=function(a,e)\
-local t=\"set\"..e:sub(1,1):upper()..e:sub(2)\
-a[e]=t\
-return t\
-end})\
-local m=setmetatable({},{__index=function(a,e)\
-local t=\"get\"..e:sub(1,1):upper()..e:sub(2)\
-a[e]=t\
-return t\
-end})\
-local function h(e,t,...)\
-if type(e)==\"function\"then\
-return e(...)\
-else\
-return error(t)\
+}\
+function FormattedTextObject:initialise(e,t)\
+self.owner=classLib.isInstance(e)and e or error(\"Cannot set owner of FormattedTextObject to '\"..tostring(e)..\"'\",2)\
+self.width=type(t)==\"number\"and t or error(\"Cannot set width of FormattedTextObject to '\"..tostring(t)..\"'\",2)\
 end\
+function FormattedTextObject:cacheSegmentInformation()\
+log(\"i\",\"Parsing segment information with width: \"..tostring(self.owner.cache.displayWidth))\
+if not text then self.owner:parseIdentifiers()text=self.text end\
+if not self.text then return error(\"Failed to parse text identifiers. No new text received.\")end\
+local w=self.segments\
+local s,e,o,t,a=self.owner.cache.displayWidth,self.text,{},1,1\
+local l,c,i=false,false,\"left\"\
+local function r()\
+a=1\
+o[t].align=AssertEnum(i,{\"left\",\"center\",\"centre\",\"right\"},\"Failed FormattedTextObject caching: '\"..tostring(i)..\"' is an invalid alignment setting.\")\
+t=t+1\
+o[t]={\
+align=i\
+}\
+return o[t]\
 end\
-local function l(e)\
-c=true\
-local e=e:getRaw()\
-c=false\
-return e\
-end\
-local function s(a)\
-local i=o\
-local s,e\
-s=h(y,\"MISSING_CLASS_LOADER method not defined. Cannot load missing target class '\"..tostring(a)..\"'\",a)\
-e=n[a]\
-if t.isClass(e)then\
-if not e:isSealed()then e:seal()end\
-else\
-return error(\"Target class '\"..tostring(a)..\"' failed to load\")\
-end\
-o=i\
-return e\
-end\
-local function w(a,o)\
-local e=n[a]\
-if t.isClass(e)then\
-if e:isSealed()or not o then\
-return e\
-elseif o then\
-return error(\"Failed to fetch target class '\"..a..\"'. Target isn't sealed.\")\
-end\
-else\
-return s(a)\
-end\
-end\
-local function r(e)\
-if type(e)==\"table\"then\
-for t,e in pairs(e)do\
-if type(e)==\"function\"then return error(\"Cannot set function indexes in class properties!\")end\
-o[t]=e\
-end\
-elseif type(e)~=\"nil\"then\
-return error(\"Unknown object trailing class declaration '\"..tostring(e)..\" (\"..type(e)..\")'\")\
-end\
-end\
-local function h(t,a)\
-local o=type(t)\
-local e\
-if o=='table'then\
-e={}\
-for t,o in next,t,nil do\
-if not a or(a and not d[t])then\
-e[h(t)]=h(o)\
-end\
-end\
-else\
-e=t\
-end\
-return e\
-end\
-local function b(e)\
-local t=u(e,\"abstract class (\\\"%w*\\\")\")\
-if t then\
-e=p(e,\"abstract class \"..t,\"class \"..t..\" abstract()\")\
-end\
-return e\
-end\
-local function v(h,i,e)\
-local o\
-local a\
-local t,n,s=string.match(e,\"(.+)%:(%d+)%:(.*)\")\
-if t and n and s then\
-o=n\
-a=s\
-else\
-a=e\
-end\
-local t=[==[\
---[[\
-    DynaCode Crash Report (0.1)\
-    =================\
-\
-    This file was generated because DynaCode's class system\
-    ran into a fatal exception while running this file.\
-\
-    Exception Details\
-    -----------------\
-    File: ]==]..tostring(t or i or\"?\")..[==[\
-\
-    Line Number: ]==]..tostring(o or\"?\")..[==[\
-\
-    Error: ]==]..tostring(a or\"?\")..[==[\
-\
-\
-    Raw: ]==]..tostring(e or\"?\")..[==[\
-\
-    -----------------\
-    The file that was being loaded when DynaCode crashed\
-    has been inserted above.\
-\
-    The file was pre-processed before loading, so as a result\
-    the code above may not match your original source\
-    exactly.\
-\
-    NOTE: This file is purely a crash report, editing this file\
-    will not have any affect. Please edit the source file (]==]..tostring(t or i or\"?\")..[==[)\
-]]]==]\
-local e=fs.open(f.LOCATION,\"w\")\
-e.write(h..\"-- END OF FILE --\")\
-e.write(\"\\n\\n\"..t)\
-e.close()\
-end\
-local function u(t,e,a)\
-local s=a or{}\
-local e=w(e,true)\
-local e=h(l(e))\
-local a,n={},{}\
-local i\
-for e,t in pairs(e)do\
-if not s[e]and not d[e]then\
-s[e]=t\
-end\
-end\
-if e.__extends then\
-local o\
-a.super,o=u(t,e.__extends,s)\
-i=true\
-for t,a in pairs(o)do\
-if not e.__defined[t]then e[t]=a end\
-end\
-i=false\
-end\
-local function d(o)\
-local t=a\
-while true do\
-local e=t.super\
+o[t]={\
+align=i\
+}\
+local h=0\
+local function d()\
+local e=w[h]\
 if e then\
-if e.__defined[o]then return e[o]else t=e end\
+l=e[1]or l\
+c=e[2]or c\
+i=e[3]or i\
+end\
+h=h+1\
+end\
+local function w(e)\
+local i=o[t]\
+o[t][#i+1]={\
+e,\
+l,\
+c\
+}\
+a=a+1\
+end\
+while n(e)>0 do\
+local i=f(e,\"^[\\n]+\")\
+if i then\
+for t=1,n(i)do\
+r()\
+h=h+1\
+end\
+e=m(e,n(i)+1)\
+end\
+local i=f(e,\"^[ \\t]+\")\
+if i then\
+local t=o[t]\
+for o in u(i)do\
+d()\
+t[#t+1]={\
+o,\
+l,\
+c\
+}\
+a=a+1\
+if a>s then t=r()end\
+end\
+e=m(e,n(i)+1)\
+end\
+local t=f(e,\"%S+\")\
+if t then\
+local o=n(t)\
+e=m(e,o+1)\
+if a+o<=s then\
+for e in u(t)do\
+d()\
+w(e)\
+end\
+elseif o<=s then\
+r()\
+for e in u(t)do\
+d()\
+w(e)\
+end\
+else\
+if a>s then r()end\
+for e in u(t)do\
+d()\
+w(e)\
+if a>s then r()end\
+end\
+end\
 else break end\
 end\
-end\
-local function r(o,i)\
-local e=t\
-local t={}\
-while true do\
-if e.__defined[o]then\
-return true\
-else\
-t[#t+1]=e\
-if e.super~=a and e.super then e=e.super\
-else\
-for e=1,#t do t[e]:addSymbolicKey(o,i)end\
-break\
-end\
-end\
-end\
-end\
-local h={}\
-function n:__index(o)\
-if type(e[o])==\"function\"then\
-if not h[o]then h[o]=function(i,...)\
-local i=t.super\
-t.super=a.super\
-local e={e[o](t,...)}\
-t.super=i\
-return unpack(e)\
-end end\
-return h[o]\
-else\
-return e[o]\
-end\
-end\
-function n:__newindex(a,t)\
-e[a]=t==nil and d(a)or t\
-if not i then e.__defined[a]=t~=nil or nil end\
-r(a,t)\
-end\
-function n:__tostring()return\"[Super] \"..e.__type..\" of \"..tostring(t)end\
-function n:__call(...)\
-local a=(type(e.initialise)==\"function\"and\"initialise\"or(type(e.initialize)==\"function\"and\"initialize\"or false))\
-if a then\
-return e[a](t,...)\
-end\
-end\
-function a:addSymbolicKey(t,e)\
-i=true;self[t]=e;i=false\
-end\
-setmetatable(a,n)\
-return a,s\
-end\
-local function g(e,...)\
-local e=h(l(e))\
-e.__instance=true\
-local t,a={},{}\
-local n=e.__alias or{}\
-local o\
-t.raw=e\
-local function s(a)\
-local t=t\
-while true do\
-local e=t.super\
-if e then\
-if e.__defined[a]then\
-return e[a]\
-else\
-t=e\
-end\
-else\
-return nil\
-end\
-end\
-end\
-local i\
-if e.__extends then\
-t.super,i=u(t,e.__extends)\
-for t,a in pairs(i)do\
-if not e.__defined[t]and not d[t]then\
-e[t]=a\
-end\
-end\
-end\
-local i={}\
-function a:__index(t)\
-local t=n[t]or t\
-local a=m[t]\
-if type(e[a])==\"function\"and not i[t]then\
-i[t]=true\
-local e={e[a](self)}\
-i[t]=nil\
-return unpack(e)\
-else\
-return e[t]\
-end\
-end\
-local i={}\
-function a:__newindex(t,a)\
-local t=n[t]or t\
-local n=k[t]\
-if type(e[n])==\"function\"and not i[t]then\
-i[t]=true\
-e[n](self,a)\
-i[t]=nil\
-else\
-e[t]=a\
-end\
-if a==nil then\
-e[t]=s(t)\
-end\
-if not o then\
-e.__defined[t]=a~=nil or nil\
-end\
-end\
-function a:__tostring()return\"[Instance] \"..e.__type end\
-function t:type()return e.__type end\
-function t:addSymbolicKey(e,t)\
-o=true;self[e]=t;o=false\
-end\
-local o={\
-[\"__index\"]=true;\
-[\"__newindex\"]=true;\
-}\
-function t:__overrideMetaMethod(e,t)\
-if o[e]then return error(\"Meta method '\"..tostring(e)..\"' cannot be overridden\")end\
-a[e]=t\
-end\
-function t:__lockMetaMethod(e)o[e]=true end\
-setmetatable(t,a)\
-local a=(type(e.initialise)==\"function\"and\"initialise\"or(type(e.initialize)==\"function\"and\"initialize\"or false))\
-if a then e[a](t,...)end\
-return t\
-end\
-function t.forge(s)\
-local t={}\
-t.__class=true\
-t.__type=s\
-t.__defined={}\
-local e={}\
-local m,a,h,u=false,false,{},false\
-function e:isSealed()return a end\
-function e:isAbstract()return m end\
-function e:seal()\
-if a then return error(\"Class is already sealed\")end\
-if#h>0 then\
-for e=1,#h do\
-local e=h[e]\
-local e=w(e)\
-local e=l(e)\
-for e,a in pairs(e)do\
-if not t[e]and not d[e]then\
-t[e]=a\
-end\
-end\
-end\
-end\
-local i=self.__alias or{}\
-local t=self\
-local e,n\
-while true do\
-e=t.__extends\
-if e then\
-n=l(w(e,true))\
-local a=n.__alias\
-if a then\
-for e,t in pairs(a)do\
-if not i[e]then i[e]=t end\
-end\
-end\
-t=e\
-else\
-break\
-end\
-end\
-self.__alias=i\
-a=true\
-if o==self then t=self o=nil end\
-end\
-function e:spawn(...)\
-if not a then return error(\"Cannot spawn instance of '\"..s..\"'. Class is un-sealed\")end\
-if m then return error(\"Cannot spawn instance of '\"..s..\"'. Class is abstract\")end\
-return g(self,...)\
-end\
-function e:getRaw()\
-if not c then return error(\"Cannot fetch raw content of class (DISABLED)\")end\
-return t\
-end\
-function e:type()\
-return self.__type\
-end\
-function e:symIndex(e,t)\
-u=true;self[e]=t;u=false\
-end\
-function e:extend(e)\
-if a then return error(\"Cannot extend base class after being sealed\")end\
-self:symIndex(\"__extends\",e)\
-end\
-function e:mixin(e)\
-if a then return error(\"Cannot add mixin targets to class base after being sealed\")end\
-h[#h+1]=e\
-end\
-function e:abstract(e)\
-if a then return error(\"Cannot modify abstract state of class base after being sealed\")end\
-m=e\
-end\
-function e:alias(e)\
-if a then return error(\"Cannot set alias table of class base after being sealed\")end\
-if not t.__alias then\
-t.__alias=e\
-else\
-for a,e in pairs(e)do\
-t.__alias[a]=e\
-end\
-end\
-end\
-local h={}\
-function h:__newindex(e,o)\
-if a then return error(\"Cannot create new indexes on class base after being sealed\")end\
-t[e]=o\
-if not u then\
-t.__defined[e]=o~=nil or nil\
-end\
-end\
-h.__index=t\
-function h:__tostring()\
-return(a and\"[Sealed] \"or\"[Un-sealed] \")..s\
-end\
-function h:__call(...)return self:spawn(...)end\
-setmetatable(e,h)\
-o=e\
-i[s]=e\
-n[s]=e\
-return r\
-end\
-function t.getClass(e)return n[e]end\
-function t.setClassLoader(e)\
-if type(e)~=\"function\"then return error(\"Cannot set missing class loader to variable of type '\"..type(e)..\"'\")end\
-y=e\
-end\
-function t.isClass(e)\
-return type(e)==\"table\"and type(e.type)==\"function\"and n[e:type()]and e.__class\
-end\
-function t.isInstance(e)\
-return t.isClass(e)and e.__instance\
-end\
-function t.typeOf(e,a,o)\
-if not t.isClass(e)or(o and not t.isInstance(e))then return false end\
-return e:type()==a\
-end\
-function t.runClassString(t,e,h)\
-local i=f.ENABLE and\" The file being loaded at the time of the crash has been saved to '\"..f.LOCATION..\"'\"or\"\"\
-local t=b(t)\
-local function o(a)\
-v(t,e,a)\
-error(\"Exception while loading class string for file '\"..e..\"': \"..a..\".\"..i,0)\
-end\
-local s,a=loadstring(t,e)\
-if a then\
-o(a)\
-end\
-local s,a=pcall(s)\
-if a then\
-o(a)\
-end\
-local o=p(e,\"%..*\",\"\")\
-local a=n[o]\
-if not h then\
-if a then\
-if not a:isSealed()then a:seal()end\
-else\
-v(t,e,\"Failed to load class '\"..o..\"'\")\
-error(\"File '\"..e..\"' failed to load class '\"..o..\"'\"..i,0)\
-end\
-end\
-end\
-setmetatable(t,{\
-__call=function(a,e)return t.forge(e)end\
-})\
-i.class=t\
-i.extends=function(e)\
-if type(e)~=\"string\"then return error(\"Failed to extend building class to target '\"..tostring(e)..\"'. Invalid target\")end\
-o:extend(e)\
-return r\
-end\
-i.mixin=function(e)\
-if type(e)~=\"string\"then return error(\"Failed to mix target class '\"..tostring(e)..\"' into the building class. Invalid target\")end\
-o:mixin(e)\
-return r\
-end\
-i.abstract=function()\
-o:abstract(true)\
-return r\
-end\
-i.alias=function(e)\
-if type(e)==\"string\"then\
-if type(i[e])==\"table\"then\
-e=i[e]\
-else\
-return error(\"Cannot load table for alias from WORK_ENV: \"..tostring(e))\
-end\
-elseif type(e)~=\"table\"then\
-return error(\"Cannot set alias to '\"..tostring(e)..\"'. Invalid type\")\
-end\
-o:alias(e)\
-return r\
-end",
-  [ "Node.lua" ] = "class\"Node\"abstract()alias\"COLOUR_REDIRECT\"{\
-X=1;\
-Y=1;\
-width=0;\
-height=0;\
-visible=true;\
-enabled=true;\
-changed=true;\
-stage=nil;\
-canvas=nil;\
-__node=true;\
-eventConfig={\
-[\"MouseEvent\"]={\
-acceptAll=false\
-};\
-acceptAll=false;\
-acceptMisc=false;\
-acceptKeyboard=false;\
-acceptMouse=false;\
-manuallyHandle=false;\
-}\
-}\
-function Node:initialise(...)\
-local o,a,t,e=ParseClassArguments(self,{...},{{\"X\",\"number\"},{\"Y\",\"number\"},{\"width\",\"number\"},{\"height\",\"number\"}},false,true)\
-self.canvas=NodeCanvas(self,t or 1,e and(e-1)or 0)\
-self.X=o\
-self.Y=a\
-self.width=t or 1\
-self.height=e or 1\
-end\
-function Node:draw(e,t)\
-if self.preDraw then\
-self:preDraw(e,t)\
-end\
-if self.postDraw then\
-self:postDraw(e,t)\
-end\
-end\
-function Node:setX(e)\
-self.X=e\
-end\
-function Node:setY(e)\
-self.Y=e\
-end\
-function Node:setWidth(e)\
-self.width=e\
-end\
-function Node:setHeight(e)\
-self.height=e\
-end\
-function Node:setBackgroundColour(e)\
-self.backgroundColour=e\
-end\
-function Node:setTextColour(e)\
-self.textColour=e\
-end\
-function Node:onParentChanged()\
-self.changed=true\
-end\
-local function t(e,t,...)\
-if type(e[t])==\"function\"then\
-e[t](e,...)\
-end\
-end\
-local a={\
-CLICK=\"onMouseDown\";\
-UP=\"onMouseUp\";\
-SCROLL=\"onMouseScroll\";\
-DRAG=\"onMouseDrag\";\
-}\
-function Node:handleEvent(e)\
-if e.handled then return end\
-if not self.manuallyHandle then\
-if e.main==\"MOUSE\"and self.acceptMouse then\
-if e:inArea(self.X,self.Y,self.X+self.width-1,self.Y+self.height-1)then\
-t(self,a[e.sub]or error(\"No click matrix entry for \"..tostring(e.sub)),e)\
-else\
-t(self,\"onMouseMiss\",e)\
-end\
-elseif e.main==\"KEY\"and self.acceptKeyboard then\
-t(self,e.sub==\"UP\"and\"onKeyUp\"or\"onKeyDown\",e)\
-elseif e.main==\"CHAR\"and self.acceptKeyboard then\
-t(self,\"onChar\",e)\
-elseif self.acceptMisc then\
-t(self,\"onUnknownEvent\",e)\
-end\
-t(self,\"onAnyEvent\",e)\
-else\
-t(self,\"onEvent\",e)\
-end\
-end\
-function Node:setChanged(e)\
-self.changed=e\
-if e then\
-local e=self.parent or self.stage\
-if e then\
-e.changed=true\
-end\
-end\
-end\
-function Node:getTotalOffset()\
-local e,t=0,0\
-if self.parent then\
-local a,o=self.parent:getTotalOffset()\
-e=e+a-1\
-t=t+o-1\
-elseif self.stage then\
-e=e+self.stage.X\
-t=t+self.stage.Y\
-end\
-e=e+self.X\
-t=t+self.Y\
-return e,t\
-end\
-function Node.generateNodeCallback(e,t,a)\
-return(function(...)\
-local t=e.stage\
-if not t then\
-return error(\"Cannot link to node '\"..e:type()..\"' stage.\")\
-end\
-t:executeCallback(a,...)\
-end)\
-end",
-  [ "EventManager.lua" ] = "class\"EventManager\"\
-function EventManager:initialise(e,t)\
-self.application=AssertClass(e,\"Application\",true,\"EventManager instance requires an Application Instance, not: \"..tostring(e))\
-self.matrix=type(t)==\"table\"and t or error(\"EventManager constructor (2) requires a table of event -> class types.\",2)\
-self.register={}\
-end\
-function EventManager:create(e)\
-local t=e[1]\
-local t=self.matrix[t]\
-if not t then\
-return UnknownEvent(e)\
-else\
-return t(e)\
-end\
-end\
-function EventManager:registerEventHandler(t,e,a,o)\
-local e=e..\"_\"..a\
-self.register[e]=self.register[e]or{}\
-table.insert(self.register[e],{\
-t,\
-o\
-})\
-end\
-function EventManager:removeEventHandler(t,e,o)\
-local a=t..\"_\"..e\
-local e=self.register[a]\
-if not e then return false end\
-for t=1,#e do\
-if e[t][1]==o then\
-table.remove(self.register[a],t)\
-return true\
-end\
-end\
-end\
-function EventManager:shipToRegistrations(e)\
-local t=self.register[e.main..\"_\"..e.sub]\
-if not t then return end\
+o[t].align=i\
+self:cacheAlignments(o)\
+end\
+function FormattedTextObject:cacheAlignments(e)\
+local a=e or self.lines\
+local o=self.owner.cache.displayWidth\
+local e,t\
+for i=1,#a do\
+e=a[i]\
+t=e.align\
+if t==\"left\"then\
+e.X=1\
+elseif t==\"center\"then\
+e.X=math.ceil((o/2)-(#e/2))+1\
+elseif t==\"right\"then\
+e.X=o-#e+1\
+else return error(\"Invalid alignment property '\"..tostring(t)..\"'\")end\
+end\
+self.lines=a\
+return self.lines\
+end\
+function FormattedTextObject:draw(e,s)\
+local t=self.owner\
+if not classLib.isInstance(t)then\
+return error(\"Cannot draw '\"..tostring(self:type())..\"'. The instance has no owner.\")\
+end\
+local e=t.canvas\
+if not e then return error(\"Object '\"..tostring(t)..\"' has no canvas\")end\
+local n=e.buffer\
+if not self.lines then\
+self:cacheSegmentInformation()\
+end\
+local t=self.lines\
+local a=self.owner.width\
+local o,a,a\
 for a=1,#t do\
 local t=t[a]\
-t[2](self,e)\
+local i=t.X\
+o=e.width*(a-0)\
+for o=1,#t do\
+local t=t[o]or{\" \",colours.red,colours.red}\
+if t then\
+n[(e.width*(a-1+s))+(o+i-1)]={t[1],t[2],t[3]}\
+end\
+end\
+end\
+end\
+function FormattedTextObject:getCache()\
+if not self.cache then\
+self:cacheText()\
+end\
+return self.cache\
+end\
+function FormattedTextObject:getHeight()\
+if not self.lines then\
+self:cacheSegmentInformation()\
+self.owner.recacheAllNextDraw=true\
+end\
+return#self.lines\
+end\
+function FormattedTextObject:getCanvas()\
+return self.owner.canvas\
+end",
+  [ "Canvas.lua" ] = "local h=table.insert\
+local s=table.remove\
+class\"Canvas\"abstract()alias\"COLOUR_REDIRECT\"{\
+width=10;\
+height=6;\
+buffer=nil;\
+}\
+function Canvas:initialise(...)\
+local t,e=ParseClassArguments(self,{...},{{\"width\",\"number\"},{\"height\",\"number\"}},true,true)\
+self.width=t\
+self.height=e\
+self:clear()\
+end\
+function Canvas:clear(e,t)\
+local a=e or self.width\
+local t=t or self.height\
+local e={}\
+for t=1,a*t do\
+e[t]={false,false,false}\
+end\
+self.buffer=e\
+end\
+function Canvas:drawToCanvas(t,a,e)\
+if not t then return error(\"Requires canvas to draw to\")end\
+local r=self.buffer\
+local d=a or 0\
+local h=e or 0\
+local i,o,n,s,e\
+for a=0,self.height-1 do\
+o=self.width*a\
+n=t.width*(a+h)\
+for a=1,self.width do\
+i=o+a\
+s=n+(a+d)\
+e=r[i]\
+t.buffer[s]={e[1]or\" \",e[2]or self.textColour,e[3]or self.backgroundColour}\
+end\
+end\
+end\
+function Canvas:setWidth(e)\
+if not self.buffer then self.width=e return end\
+local a,t=self.height,self.buffer\
+if not self.width then error(\"found on \"..tostring(self)..\". Current width: \"..tostring(self.width)..\", new width: \"..tostring(e))end\
+while self.width<e do\
+for e=1,a do\
+h(t,(self.width+1)*e,{\"\",self.textColor,self.textColour})\
+end\
+self.width=self.width+1\
+end\
+while self.width>e do\
+for e=1,e do\
+s(t,self.width*e)\
+end\
+self.width=self.width-1\
+end\
+end\
+function Canvas:setHeight(t)\
+if not self.buffer then self.height=t return end\
+local a,e,o=self.width,self.buffer,self.height\
+while self.height<t do\
+for t=1,a do\
+e[#e+1]=px\
+end\
+self.height=self.height+1\
+end\
+while self.height>t do\
+for t=1,a do\
+s(e,#e)\
+end\
+self.height=self.height-1\
 end\
 end",
+  [ "Stage.lua" ] = "local e=table.insert\
+local n=string.sub\
+local o=true\
+class\"Stage\"mixin\"MTemplateHolder\"alias\"COLOUR_REDIRECT\"{\
+X=1;\
+Y=1;\
+width=10;\
+height=6;\
+borderless=false;\
+canvas=nil;\
+application=nil;\
+scenes={};\
+activeScene=nil;\
+name=nil;\
+textColour=32768;\
+backgroundColour=1;\
+shadow=true;\
+shadowColour=colours.grey;\
+focused=false;\
+closeButton=true;\
+closeButtonTextColour=1;\
+closeButtonBackgroundColour=colours.red;\
+titleBackgroundColour=128;\
+titleTextColour=1;\
+activeTitleBackgroundColour=colours.lightBlue;\
+activeTitleTextColour=1;\
+controller={};\
+mouseMode=nil;\
+visible=true;\
+resizable=true;\
+movable=true;\
+closeable=true;\
+}\
+function Stage:initialise(...)\
+local o,a,i,t,e=ParseClassArguments(self,{...},{{\"name\",\"string\"},{\"X\",\"number\"},{\"Y\",\"number\"},{\"width\",\"number\"},{\"height\",\"number\"}},true,true)\
+self.X=a\
+self.Y=i\
+self.name=o\
+self.canvas=StageCanvas({width=t;height=e;textColour=self.textColour;backgroundColour=self.backgroundColour,stage=self})\
+self.width=t\
+self.height=e\
+self:__overrideMetaMethod(\"__add\",function(t,e)\
+if classLib.typeOf(t,\"Stage\",true)then\
+if classLib.typeOf(e,\"Scene\",true)then\
+return self:addScene(e)\
+else\
+error(\"Invalid right hand assignment. Should be instance of Scene \"..tostring(e))\
+end\
+else\
+error(\"Invalid left hand assignment. Should be instance of Stage. \"..tostring(t))\
+end\
+end)\
+self:updateCanvasSize()\
+self.mouseMode=false\
+end\
+function Stage:updateCanvasSize()\
+if not self.canvas then return end\
+local e=0\
+if self.shadow and self.focused then e=1 end\
+self.canvas.width=self.width+e\
+self.canvas.height=self.height+e+(not self.borderless and 1 or 0)\
+self.canvas:clear()\
+end\
+function Stage:setShadow(e)\
+self.shadow=e\
+self:updateCanvasSize()\
+end\
+function Stage:setBorderless(e)\
+self.borderless=e\
+self:updateCanvasSize()\
+end\
+function Stage:setHeight(e)\
+local t=self.maxHeight\
+local a=self.minHeight\
+e=t and e>t and t or e\
+e=a and e<a and a or e\
+self.height=e>0 and e or 1\
+self:updateCanvasSize()\
+end\
+function Stage:setWidth(e)\
+local a=self.maxWidth\
+local t=self.minWidth\
+e=a and e>a and a or e\
+e=t and e<t and t or e\
+self.width=e>0 and e or 1\
+self:updateCanvasSize()\
+end\
+function Stage:setApplication(e)\
+AssertClass(e,\"Application\",true,\"Stage requires Application Instance as its application. Not '\"..tostring(e)..\"'\")\
+self.application=e\
+end\
+function Stage:draw(e)\
+if not self.visible then return end\
+local a=self.changed\
+local t=e or self.forceRedraw\
+local e=self.mouseMode\
+if t then\
+self.canvas:clear()\
+self.canvas:redrawFrame()\
+self.forceRedraw=false\
+end\
+local i=self.canvas\
+if(a or t)and(o and not e or not o)then\
+local e=self.nodes\
+for o=#e,1,-1 do\
+local e=e[o]\
+if a and e.changed or t then\
+e:draw(0,0,t)\
+e.canvas:drawToCanvas(i,e.X,e.Y)\
+e.changed=false\
+end\
+end\
+self.changed=false\
+end\
+self.canvas:drawToCanvas(self.application.canvas,self.X,self.Y)\
+end\
+function Stage:appDrawComplete()\
+if self.currentKeyboardFocus and self.focused then\
+local o,a,e,t=self.currentKeyboardFocus:getCursorInformation()\
+if not o then return end\
+term.setTextColour(t)\
+term.setCursorPos(a,e)\
+term.setCursorBlink(true)\
+end\
+end\
+function Stage:hitTest(e,t)\
+return InArea(e,t,self.X,self.Y,self.X+self.width-1,self.Y+self.height-(self.borderless and 1 or 0))\
+end\
+function Stage:isPixel(t,e)\
+local a=self.canvas\
+if self.shadow then\
+if self.focused then\
+return not(t==self.width+1 and e==1)or(t==1 and e==self.height+(self.borderless and 0 or 1)+1)\
+else\
+return not(t==self.width+1)or(e==self.height+(self.borderless and 0 or 1)+1)\
+end\
+elseif not self.shadow then return true end\
+return false\
+end\
+function Stage:submitEvent(e)\
+local i=self.nodes\
+local a=e.main\
+local t,o\
+if a==\"MOUSE\"then\
+t,o=e.X,e.Y\
+e:convertToRelative(self)\
+if not self.borderless then\
+e.Y=e.Y-1\
+end\
+end\
+for t=1,#i do\
+i[t]:handleEvent(e)\
+end\
+if a==\"MOUSE\"then\
+e.X,e.Y=t,o\
+end\
+end\
+function Stage:move(e,t)\
+self:removeFromMap()\
+self.X=e\
+self.Y=t\
+self:map()\
+self.application.changed=true\
+end\
+function Stage:resize(e,t)\
+self:removeFromMap()\
+self.width=e\
+self.height=t\
+self.canvas:redrawFrame()\
+self:map()\
+self.forceRedraw=true\
+self.application.changed=true\
+end\
+function Stage:focus()\
+if self.focused then return end\
+self.application:requestStageFocus(self)\
+end\
+function Stage:close()\
+self:removeFromMap()\
+self.application:removeStage(self)\
+end\
+function Stage:handleEvent(e)\
+if e.handled then return end\
+local o=self.borderless and 0 or 1\
+if e.main==\"MOUSE\"then\
+if e.sub==\"CLICK\"then\
+if e:inArea(self.X,self.Y,self.X+self.width-1,self.Y+self.height-(self.borderless and 1 or 0))then\
+local t,a=e:getRelative(self)\
+self:focus()\
+if a==1 then\
+if t==self.width then\
+return self:close()\
+else\
+self.mouseMode=\"move\"\
+self.lastX,self.lastY=e.X,e.Y\
+return\
+end\
+elseif a==self.height+o and t==self.width then\
+self.mouseMode=\"resize\"\
+return\
+end\
+end\
+elseif e.sub==\"UP\"and self.mouseMode then\
+self.mouseMode=false\
+return\
+elseif e.sub==\"DRAG\"and self.mouseMode then\
+if self.mouseMode==\"move\"then\
+self:move(self.X+(e.X-self.lastX),self.Y+(e.Y-self.lastY))\
+self.lastMouseEvent=os.clock()\
+self.lastX,self.lastY=e.X,e.Y\
+elseif self.mouseMode==\"resize\"then\
+self:resize(e.X-self.X+1,e.Y-self.Y+(self.borderless and 1 or 0))\
+self.lastMouseEvent=os.clock()\
+end\
+end\
+self:submitEvent(e)\
+else self:submitEvent(e)end\
+end\
+function Stage:setMouseMode(e)\
+self.mouseMode=e\
+self.canvas:redrawFrame()\
+end\
+function Stage:mapNode(e,e,e,e)\
+end\
+function Stage:map()\
+local e=self.canvas\
+self.application:mapWindow(self.X,self.Y,self.X+e.width-1,self.Y+e.height-1)\
+end\
+function Stage:removeFromMap()\
+local e=self.visible\
+self.visible=false\
+self:map()\
+self.visible=e\
+end\
+function Stage:removeKeyboardFocus(t)\
+local e=self.currentKeyboardFocus\
+if e and e==t then\
+if e.onFocusLost then e:onFocusLost(self,node)end\
+self.currentKeyboardFocus=false\
+end\
+end\
+function Stage:redirectKeyboardFocus(e)\
+self:removeKeyboardFocus(self.currentKeyboardFocus)\
+self.currentKeyboardFocus=e\
+if e.onFocusGain then self.currentKeyboardFocus:onFocusGain(self)end\
+end\
+function Stage:addToController(e,t)\
+if type(e)~=\"string\"or type(t)~=\"function\"then\
+return error(\"Expected string, function\")\
+end\
+self.controller[e]=t\
+end\
+function Stage:removeFromController(e)\
+self.controller[e]=nil\
+end\
+function Stage:getCallback(e)\
+return self.controller[n(e,2)]\
+end\
+function Stage:executeCallback(e,...)\
+local t=self:getCallback(e)\
+if t then return t(...)else\
+return error(\"Failed to find callback \"..tostring(n(e,2))..\" on controller (node.stage): \"..tostring(self))\
+end\
+end\
+function Stage:onFocus()\
+self.forceRedraw=true\
+self.focused=true\
+self.changed=true\
+self:removeFromMap()\
+self:updateCanvasSize()\
+self:map()\
+self.canvas:updateFilter()\
+self.canvas:redrawFrame()\
+end\
+function Stage:onBlur()\
+self.forceRedraw=true\
+self.focused=false\
+self.changed=true\
+self:removeFromMap()\
+self:updateCanvasSize()\
+self:map()\
+self.canvas:updateFilter()\
+self.canvas:redrawFrame()\
+end\
+function Stage:setChanged(e)\
+self.changed=e\
+if e then self.application.changed=true end\
+end",
+  [ "Event.lua" ] = "class\"Event\"{\
+raw=nil;\
+handled=false;\
+__event=true;\
+}\
+function Event:isType(e,t)\
+if e==self.main and t==self.sub then\
+return true\
+end\
+return false\
+end",
+  [ "Daemon.lua" ] = "class\"Daemon\"abstract(){\
+acceptMouse=false;\
+acceptMisc=false;\
+acceptKeyboard=false;\
+owner=nil;\
+__daemon=true;\
+}\
+function Daemon:initialise(e)\
+if not e then return error(\"Daemon '\"..self:type()..\"' cannot initialise without name\")end\
+self.name=e\
+end\
+function Daemon:start()log(\"d\",\"WARNING: Daemon '\"..self.name..\"' (\"..self:type()..\") has no start function declared\")end\
+function Daemon:stop()log(\"d\",\"WARNING: Daemon '\"..self.name..\"' (\"..self:type()..\") has no end function declared\")end",
+  [ "LuaVMException.lua" ] = "class\"LuaVMException\"extends\"ExceptionBase\"{\
+title=\"Virtual Machine Exception\";\
+subTitle=\"This exception has been raised because the Lua VM has crashed.\\nThis is usually caused by errors like 'attempt to index nil', or 'attempt to perform __add on nil and number' etc...\";\
+useMessageAsRaw=true;\
+}",
+  [ "ParameterException.lua" ] = "class\"ParameterException\"extends\"ExceptionBase\"{\
+title=\"DynaCode Parameter Exception\";\
+subTitle=\"This exception was caused because a parameter was not available or was invalid. This problem likely occurred at runtime.\";\
+}",
   [ "NodeCanvas.lua" ] = "local o,h=string.len,string.sub\
 class\"NodeCanvas\"extends\"Canvas\"{\
 node=nil;\
 }\
 function NodeCanvas:initialise(...)\
 local e,a,t=ParseClassArguments(self,{...},{{\"node\",\"table\"},{\"width\",\"number\"},{\"height\",\"number\"}},true,true)\
-if not class.isInstance(e)then\
+if not classLib.isInstance(e)then\
 return error(\"Node argument (first unordered) is not a class instance! Should be a node class instance. '\"..tostring(e)..\"'\")\
 elseif not e.__node then\
 return error(\"Node argument (first unordered) is an invalid class instance. '\"..tostring(e)..\"'\")\
@@ -2630,546 +3158,594 @@ self:drawTextLine(e,s+u-1,a+t-2,d,r)\
 end\
 end\
 end",
-  [ "Stage.lua" ] = "local o=table.insert\
-local s=string.sub\
-DCML.registerTag(\"Stage\",{\
-childHandler=function(e,t)\
-e.nodesToAdd=DCML.parse(t.content)\
-end;\
-onDCMLParseComplete=function(t)\
-local e=t.nodesToAdd\
-if e then\
-for a=1,#e do\
-local e=e[a]\
-t:addNode(e)\
-if e.nodesToAdd and type(e.resolveDCMLChildren)==\"function\"then\
-e:resolveDCMLChildren()\
-end\
-end\
-t.nodesToAdd=nil\
-end\
-end;\
-argumentType={\
-X=\"number\";\
-Y=\"number\";\
-width=\"number\";\
-height=\"number\";\
-},\
-})\
-class\"Stage\"alias\"COLOUR_REDIRECT\"{\
-X=1;\
-Y=1;\
-width=10;\
-height=6;\
-borderless=false;\
-canvas=nil;\
-application=nil;\
-nodes={};\
-name=nil;\
-textColour=32768;\
-backgroundColour=1;\
-unfocusedTextColour=128;\
-unfocusedBackgroundColour=256;\
-shadow=true;\
-shadowColour=colours.grey;\
-focused=false;\
-closeButton=true;\
-closeButtonTextColour=1;\
-closeButtonBackgroundColour=colours.red;\
-titleBackgroundColour=128;\
-titleTextColour=1;\
-controller={};\
-mouseMode=nil;\
-visible=true;\
-resizable=true;\
-movable=true;\
-closeable=true;\
-}\
-function Stage:initialise(...)\
-local i,a,o,e,t=ParseClassArguments(self,{...},{{\"name\",\"string\"},{\"X\",\"number\"},{\"Y\",\"number\"},{\"width\",\"number\"},{\"height\",\"number\"}},true,true)\
-self.X=a\
-self.Y=o\
-self.name=i\
-self.canvas=StageCanvas({width=e;height=t;textColour=self.textColour;backgroundColour=self.backgroundColour,stage=self})\
-self.width=e\
-self.height=t\
-self:__overrideMetaMethod(\"__add\",function(t,e)\
-if class.typeOf(t,\"Stage\",true)then\
-if class.isInstance(e)and e.__node then\
-return self:addNode(e)\
-else\
-return error(\"Invalid right hand assignment. Should be instance of DynaCode node. \"..tostring(e))\
-end\
-else\
-return error(\"Invalid left hand assignment. Should be instance of Stage. \"..tostring(e))\
+  [ "MyDaemon.lua" ] = "class\"MyDaemon\"extends\"Daemon\"\
+function MyDaemon:start()\
+local e=self.owner.event\
+e:registerEventHandler(\"Terminate\",\"TERMINATE\",\"EVENT\",function()\
+error(\"DaemonService '\"..self:type()..\"' named: '\"..self.name..\"' detected terminate event\",0)\
+end)\
+e:registerEventHandler(\"ContextMenuHandler\",\"MOUSE\",\"CLICK\",function(t,e)\
+if e.misc==2 then\
+log(\"di\",\"context popup\")\
 end\
 end)\
-self:updateCanvasSize()\
-self.mouseMode=false\
+self.owner.timer:setTimer(\"MyDaemonTimer\",2,function(e,e)\
+para.text=[[\
+@align-center+tc-grey Hello my good man!\
+\
+@tc-lightGrey I see you have found out how to use daemons and timers. You also seem to have un-commented the block of code that makes me appear.\
+\
+Want to know how I do it? Head over to @tc-blue  src/Classes/Daemon/MyDaemon.lua @tc-lightGrey  to see the source code of... me!\
+]]\
+end)\
 end\
-function Stage:updateCanvasSize()\
-if not self.canvas then return end\
-local e=0\
-if self.shadow and self.focused then e=1 end\
-self.canvas.width=self.width+e\
-self.canvas.height=self.height+e+(not self.borderless and 1 or 0)\
-self.canvas:clear()\
+function MyDaemon:stop(e)\
+log(e and\"di\"or\"de\",\"MyDaemon detected application close. \"..(e and\"graceful\"or\"not graceful\")..\".\")\
+local e=self.owner.event\
+e:removeEventHandler(\"TERMINATE\",\"EVENT\",\"Terminate\")\
+end",
+  [ "MNodeManager.lua" ] = "class\"MNodeManager\"abstract(){\
+nodes={};\
+}\
+function MNodeManager:addNode(e)\
+e.parent=self\
+e.stage=self.stage\
+table.insert(self.nodes,e)\
+return e\
 end\
-function Stage:setShadow(e)\
-self.shadow=e\
-self:updateCanvasSize()\
-end\
-function Stage:setBorderless(e)\
-self.borderless=e\
-self:updateCanvasSize()\
-end\
-function Stage:setHeight(e)\
-local a=self.maxHeight\
-local t=self.minHeight\
-e=a and e>a and a or e\
-e=t and e<t and t or e\
-self.height=e>0 and e or 1\
-self:updateCanvasSize()\
-end\
-function Stage:setWidth(e)\
-local t=self.maxWidth\
-local a=self.minWidth\
-e=t and e>t and t or e\
-e=a and e<a and a or e\
-self.width=e>0 and e or 1\
-self:updateCanvasSize()\
-end\
-function Stage:setApplication(e)\
-AssertClass(e,\"Application\",true,\"Stage requires Application Instance as its application. Not '\"..tostring(e)..\"'\")\
-self.application=e\
-end\
-function Stage:draw(e)\
-local t=self.changed\
-local a=e or self.forceRedraw\
-if self.forceRedraw or a then\
-log(\"i\",\"Stage is being forced to redraw!\")\
-self.canvas:clear()\
-self.canvas:redrawFrame()\
-self.forceRedraw=false\
-end\
-log(\"i\",\"Drawing stage \"..tostring(name)..\". Force: \"..tostring(t)..\". Changed: \"..tostring(self.changed))\
-local i=self.canvas\
-if t or a then\
+function MNodeManager:removeNode(a)\
+local o=type(a)==\"string\"\
 local e=self.nodes\
-for o=#e,1,-1 do\
-local e=e[o]\
-if t and e.changed or a then\
-e:draw(0,0,t or a)\
-e.canvas:drawToCanvas(i,e.X,e.Y)\
-e.changed=false\
-end\
-end\
-self.changed=false\
-end\
-if self.visible then self.canvas:drawToCanvas(self.application.canvas,self.X,self.Y)end\
-end\
-function Stage:appDrawComplete()\
-if self.currentKeyboardFocus and self.focused then\
-local e,a,t,o=self.currentKeyboardFocus:getCursorInformation()\
-if not e then return end\
-term.setTextColour(o)\
-term.setCursorPos(a,t)\
-term.setCursorBlink(true)\
-end\
-end\
-function Stage:addNode(e)\
-e.stage=self\
-o(self.nodes,e)\
-return e\
-end\
-function Stage:hitTest(t,e)\
-return InArea(t,e,self.X,self.Y,self.X+self.width-1,self.Y+self.height-(self.borderless and 1 or 0))\
-end\
-function Stage:isPixel(e,t)\
-local a=self.canvas\
-if self.shadow then\
-if self.focused then\
-if(e==self.width+1 and t==1)or(e==1 and t==self.height+(self.borderless and 0 or 1)+1)then\
-return false\
-end\
-return true\
-else\
-if(e==self.width+1)or(t==self.height+(self.borderless and 0 or 1)+1)then return false end\
-return true\
-end\
-elseif not self.shadow then return true end\
-return false\
-end\
-function Stage:submitEvent(e)\
-local t=self.nodes\
-local o=e.main\
-local i,a\
-if o==\"MOUSE\"then\
-i,a=e.X,e.Y\
-e:convertToRelative(self)\
-if not self.borderless then\
-e.Y=e.Y-1\
-end\
-end\
-for a=1,#t do\
-t[a]:handleEvent(e)\
-end\
-if o==\"MOUSE\"then\
-e.X,e.Y=i,a\
-end\
-end\
-function Stage:move(e,t)\
-e=e or self.X\
-t=t or self.Y\
-self:removeFromMap()\
-self.X=e\
-self.Y=t\
-self:map()\
-self.application.changed=true\
-end\
-function Stage:resize(e,t)\
-newWidth=e or self.width\
-newHeight=t or self.height\
-self:removeFromMap()\
-self.width=newWidth\
-self.height=newHeight\
-self.canvas:redrawFrame()\
-self:map()\
-self.forceRedraw=true\
-self.application.changed=true\
-end\
-function Stage:handleMouse(e)\
-local a,t=e.sub,self.mouseMode\
-if a==\"CLICK\"then\
-local t,a=e:getRelative(self)\
-if a==1 then\
-if t==self.width and self.closeButton and not self.borderless then\
-self:removeFromMap()\
-self.application:removeStage(self)\
-else\
-self.mouseMode=\"move\"\
-self.lastX,self.lastY=e.X,e.Y\
-end\
-elseif a==self.height+(not self.borderless and 1 or 0)and t==self.width then\
-self.mouseMode=\"resize\"\
-end\
-elseif a==\"UP\"and t then\
-self.mouseMode=false\
-elseif a==\"DRAG\"and t then\
-if t==\"move\"then\
-self:move(self.X+e.X-self.lastX,self.Y+e.Y-self.lastY)\
-self.lastX,self.lastY=e.X,e.Y\
-elseif t==\"resize\"then\
-self:resize(e.X-self.X+1,e.Y-self.Y+(self.borderless and 1 or 0))\
-end\
-end\
-end\
-local function o(e)\
-e.application:requestStageFocus(e)\
-end\
-function Stage:close()\
-self:removeFromMap()\
-self.application:removeStage(self)\
-end\
-function Stage:handleEvent(e)\
-if e.handled then return end\
-local t,a=e.main,e.sub\
-if t==\"MOUSE\"then\
-local i=e:inBounds(self)\
-if a==\"CLICK\"then\
-local t,s,h=false,e.X,e.Y\
-e:convertToRelative(self)\
-local a=self.width\
-local t,n=e:getPosition()\
-if n==1 then\
-if t==a and self.closeable then\
-self:close()\
-elseif self.movable and t>=1 and t<=a then\
-self.mouseMode=\"move\"\
-o(self)\
-e.handled=true\
-elseif i then o(self)end\
-elseif self.resizable and n==self.height+(not self.borderless and 1 or 0)and t==a then\
-self.mouseMode=\"resize\"\
-o(self)\
-e.handled=true\
-else\
-if self.focused then\
-if not self.borderless then\
-e.Y=e.Y-1\
-end\
-local t=self.nodes\
-for a=1,#t do\
-local t=t[a]\
-t:handleEvent(e)\
-end\
-elseif not self.focused and i then\
-o(self)\
-e.handled=true\
-end\
-end\
-e:restore(s,h)\
-elseif a==\"UP\"then\
-self.mouseMode=nil\
-if self.focused then self:submitEvent(e)end\
-elseif a==\"SCROLL\"and self.focused then\
-self:submitEvent(e)\
-elseif a==\"DRAG\"and self.focused then\
-self:submitEvent(e)\
-end\
-if self.focused and i then\
-e.handled=true\
-end\
-else\
-self:submitEvent(e)\
-end\
-end\
-function Stage:mapNode(e,e,e,e)\
-end\
-function Stage:map()\
-local e=self.canvas\
-self.application:mapWindow(self.X,self.Y,self.X+e.width-1,self.Y+e.height-1)\
-end\
-function Stage:removeFromMap()\
-local e=self.visible\
-self.visible=false\
-self:map()\
-self.visible=e\
-end\
-local function t(e)\
-return DCML.parse(DCML.loadFile(e))\
-end\
-function Stage:replaceWithDCML(e)\
-local e=t(e)\
-for e=1,#self.nodes do\
-local t=self.nodes[e]\
-t.stage=nil\
-table.remove(self.nodes,e)\
-end\
-for t=1,#e do\
-e[t].stage=self\
-table.insert(self.nodes,e[t])\
-end\
-end\
-function Stage:appendFromDCML(e)\
-local e=t(e)\
-for t=1,#e do\
-e[t].stage=self\
-table.insert(self.nodes,e[t])\
-end\
-end\
-function Stage:removeKeyboardFocus(t)\
-local e=self.currentKeyboardFocus\
-if e and e==t then\
-if e.onFocusLost then e:onFocusLost(self,node)end\
-self.currentKeyboardFocus=false\
-end\
-end\
-function Stage:redirectKeyboardFocus(e)\
-self:removeKeyboardFocus(self.currentKeyboardFocus)\
-self.currentKeyboardFocus=e\
-if e.onFocusGain then self.currentKeyboardFocus:onFocusGain(self)end\
-end\
-function Stage:addToController(e,t)\
-if type(e)~=\"string\"or type(t)~=\"function\"then\
-return error(\"Expected string, function\")\
-end\
-self.controller[e]=t\
-end\
-function Stage:removeFromController(e)\
-self.controller[e]=nil\
-end\
-function Stage:getCallback(e)\
-e=s(e,2)\
-return self.controller[e]\
-end\
-function Stage:executeCallback(t,...)\
-local e=self:getCallback(t)\
-if e then\
-local t={...}\
-return e(...)\
-else\
-return error(\"Failed to find callback \"..tostring(s(t,2))..\" on controller (node.stage): \"..tostring(self))\
-end\
-end\
-function Stage:onFocus()\
-self.forceRedraw=true\
-self.focused=true\
-self.changed=true\
-self:removeFromMap()\
-self:updateCanvasSize()\
-self:map()\
-self.canvas:updateFilter()\
-self.canvas:redrawFrame()\
-end\
-function Stage:onBlur()\
-self.forceRedraw=true\
-self.focused=false\
-self.changed=true\
-self:removeFromMap()\
-self:updateCanvasSize()\
-self:map()\
-self.canvas:updateFilter()\
-self.canvas:redrawFrame()\
-end\
-function Stage:setChanged(e)\
-self.changed=e\
-if e then self.application.changed=true end\
-end",
-  [ "Event.lua" ] = "class\"Event\"{\
-raw=nil;\
-handled=false;\
-__event=true;\
-}\
-function Event:isType(e,t)\
-if e==self.main and t==self.sub then\
-return true\
-end\
-return false\
-end",
-  [ "MouseEvent.lua" ] = "local t=string.sub\
-class\"MouseEvent\"mixin\"Event\"{\
-main=\"MOUSE\";\
-sub=nil;\
-X=nil;\
-Y=nil;\
-misc=nil;\
-inParentBounds=false;\
-}\
-function MouseEvent:initialise(e)\
-self.raw=e\
-local t=t(e[1],string.find(e[1],\"_\")+1,e[1]:len())\
-self.sub=t:upper()\
-self.misc=e[2]\
-self.X=e[3]\
-self.Y=e[4]\
-end\
-function MouseEvent:inArea(a,o,n,i)\
-local e,t=self.X,self.Y\
-if e>=a and e<=n and t>=o and t<=i then\
-return true\
-end\
-return false\
-end\
-function MouseEvent:onPoint(e,t)\
-if self.X==e and self.Y==t then\
-return true\
-end\
-return false\
-end\
-function MouseEvent:getPosition()return self.X,self.Y end\
-function MouseEvent:convertToRelative(e)\
-self.X,self.Y=self:getRelative(e)\
-end\
-function MouseEvent:getRelative(e)\
-return self.X-e.X+1,self.Y-e.Y+1\
-end\
-function MouseEvent:inBounds(e)\
-local t,a=e.X,e.Y\
-return self:inArea(t,a,t+e.width-1,a+e.height-1)\
-end\
-function MouseEvent:restore(e,t)\
-self.X,self.Y=e,t\
-end",
-  [ "KeyEvent.lua" ] = "local i=string.sub\
-class\"KeyEvent\"mixin\"Event\"{\
-main=nil;\
-sub=nil;\
-key=nil;\
-held=nil;\
-}\
-function KeyEvent:initialise(e)\
-self.raw=e\
-local o=string.find(e[1],\"_\")\
-local t,a\
-if o then\
-t=i(e[1],o+1,e[1]:len())\
-a=i(e[1],1,o-1)\
-else\
-t=e[1]\
-a=t\
-end\
-self.main=a:upper()\
-self.sub=t:upper()\
-self.key=e[2]\
-self.held=e[3]\
-end\
-function KeyEvent:isKey(e)\
-if keys[e]==self.key then return true end\
-end",
-  [ "TimerManager.lua" ] = "class\"TimerManager\"{\
-timers={};\
-}\
-function TimerManager:initialise(e)\
-self.application=AssertClass(e,\"Application\",true,\"TimerManager requires an application instance as its constructor argument. Not '\"..tostring(e)..\"'\")\
-end\
-function TimerManager:setTimer(a,t,i,s)\
-if not(type(a)==\"string\"and type(t)==\"number\"and type(i)==\"function\")then\
-return error(\"Expected string, number, function\")\
-end\
-local n=os.clock()+t\
-local e\
-local o=self.timers\
-for t=1,#o do\
-local t=o[t]\
-if t[1]==a then\
-return error(\"Timer name '\"..a..\"' is already in use.\")\
-end\
-if t[3]==n then\
-e=t[2]\
-end\
-end\
-e=e or os.startTimer(t)\
-o[#o+1]={a,e,n,i,t,s}\
-return e\
-end\
-function TimerManager:removeTimer(h)\
-local e=0\
-local a=self.timers\
-local i\
 local t\
-local s\
-local o={}\
-for n=#a,1,-1 do\
-local a=a[n]\
-if a[1]==h then\
-i=a\
-t=a[2]\
-s=n\
-e=1\
-elseif i and a[2]==t then\
-e=e+1\
-else\
-o[#o+1]=a\
+for i=1,#e do\
+t=e[i]\
+if(o and t.name==a)or(not o and t==a)then\
+table.remove(e,i)\
+return true\
 end\
 end\
-if not i then return false end\
-for a=1,#o do\
-if o[a][2]==t then\
-e=e+1\
+return false\
+end\
+function MNodeManager:getNode(a)\
+local t=self.nodes\
+local e\
+for o=1,#t do\
+e=t[o]\
+if e.name==a then\
+return e\
 end\
 end\
-table.remove(self.timers,s)\
-if e==1 then\
-os.cancelTimer(t)\
-else\
-log(\"w\",(e-1)..\" timer(s) are still using the timer '\"..t..\"'\")\
+return false\
+end\
+function MNodeManager:clearNodes()\
+for e=#self.nodes,1,-1 do\
+self:removeNode(self.nodes[e])\
 end\
 end\
-function TimerManager:update(a)\
-local t=self.timers\
-for e=#t,1,-1 do\
-if t[e][2]==a then\
-local e=table.remove(self.timers,e)\
-e[4](a,e)\
-local t=e[6]\
-local a=type(t)\
-if t and(a==\"string\"and t==\"inf\"or(a==\"number\"and t>1))then\
-self:setTimer(e[1],e[5],e[4],a==\"number\"and t-1 or\"inf\")\
+function MNodeManager:appendFromDCML(e)\
+local e=DCML.parse(DCML.readFile(e))\
+if e then for t=1,#e do\
+self:addNode(e[t])\
+end end\
 end\
-end\
-end\
+function MNodeManager:replaceWithDCML(e)\
+self:clearNodes()\
+self:appendFromDCML(e)\
 end",
+  [ "ExceptionBase.lua" ] = "local e\
+class\"ExceptionBase\"abstract(){\
+exceptionOffset=1;\
+levelOffset=1;\
+title=\"UNKNOWN_EXCEPTION\";\
+subTitle=false;\
+message=nil;\
+level=1;\
+raw=nil;\
+useMessageAsRaw=false;\
+stacktrace=\"\\nNo stacktrace has been generated\\n\"\
+}\
+function ExceptionBase:initialise(e,t,a)\
+if t then self.level=t end\
+self.level=self.level~=0 and(self.level+(self.exceptionOffset*3)+self.levelOffset)or self.level\
+self.message=e or\"No error message provided\"\
+if self.useMessageAsRaw then\
+self.raw=e\
+else\
+local a,t=pcall(exceptionHook.getRawError(),e,self.level==0 and 0 or self.level+1)\
+self.raw=t or e\
+end\
+self:generateStack(self.level==0 and 0 or self.level+4)\
+self:generateDisplayName()\
+if not a then\
+exceptionHook.throwSystemException(self)\
+end\
+end\
+function ExceptionBase:generateDisplayName()\
+local e=self.raw\
+local a=self.title\
+local n,t,o,i=e:find(\"(%w+%.?.-):(%d+).-[%s*]?[:*]?\")\
+if not t then self.displayName=a..\" (?): \"..e return end\
+self.displayName=a..\" (\"..(o or\"?\")..\":\"..(i or\"?\")..\"):\"..tostring(e:sub(t+1))\
+end\
+function ExceptionBase:generateStack(t)\
+local o=exceptionHook.getRawError()\
+if t==0 then\
+log(\"w\",\"Cannot generate stacktrace for exception '\"..tostring(self)..\"'. Its level is zero\")\
+return\
+end\
+local e=\"\\n'\"..tostring(self.title)..\"' details\\n##########\\n\\nError: \\n\"..self.message..\" (Level: \"..self.level..\", pcall: \"..tostring(self.raw)..\")\\n##########\\n\\nStacktrace: \\n\"\
+local a=t\
+local t=self.message\
+while true do\
+local o,t=pcall(o,t,a)\
+if t:find(\"bios[%.lua]?.-:\")or t:find(\"shell.-:\")or t:find(\"xpcall.-:\")then\
+e=e..\"-- End --\\n\"\
+break\
+end\
+local o,t=t:match(\"(%w+%.?.-):(%d+).-\")\
+e=e..\"> \"..(o or\"?\")..\":\"..(t or\"?\")..\"\\n\"\
+a=a+1\
+end\
+if self.subTitle then\
+e=e..\"\\n\"..self.subTitle\
+end\
+self.stacktrace=e\
+end",
+  [ "Node.lua" ] = "class\"Node\"abstract()alias\"COLOUR_REDIRECT\"{\
+X=1;\
+Y=1;\
+width=0;\
+height=0;\
+visible=true;\
+enabled=true;\
+changed=true;\
+stage=nil;\
+canvas=nil;\
+__node=true;\
+acceptMisc=false;\
+acceptKeyboard=false;\
+acceptMouse=false;\
+manuallyHandle=false;\
+}\
+function Node:initialise(...)\
+local o,a,t,e=ParseClassArguments(self,{...},{{\"X\",\"number\"},{\"Y\",\"number\"},{\"width\",\"number\"},{\"height\",\"number\"}},false,true)\
+self.canvas=NodeCanvas(self,t or 1,e and(e-1)or 0)\
+self.X=o\
+self.Y=a\
+self.width=t or 1\
+self.height=e or 1\
+end\
+function Node:draw(e,t)\
+if self.preDraw then\
+self:preDraw(e,t)\
+end\
+if self.postDraw then\
+self:postDraw(e,t)\
+end\
+end\
+function Node:setX(e)\
+self.X=e\
+end\
+function Node:setY(e)\
+self.Y=e\
+end\
+function Node:setWidth(e)\
+self.width=e\
+end\
+function Node:setHeight(e)\
+self.height=e\
+end\
+function Node:setBackgroundColour(e)\
+self.backgroundColour=e\
+end\
+function Node:setTextColour(e)\
+self.textColour=e\
+end\
+function Node:onParentChanged()\
+self.changed=true\
+end\
+local function t(e,t,...)\
+if type(e[t])==\"function\"then\
+e[t](e,...)\
+end\
+end\
+local a={\
+CLICK=\"onMouseDown\";\
+UP=\"onMouseUp\";\
+SCROLL=\"onMouseScroll\";\
+DRAG=\"onMouseDrag\";\
+}\
+function Node:handleEvent(e)\
+if e.handled then return end\
+if not self.manuallyHandle then\
+if e.main==\"MOUSE\"and self.acceptMouse then\
+if e.inParentBounds or self.ignoreEventParentBounds then\
+if e:inArea(self.X,self.Y,self.X+self.width-1,self.Y+self.height-1)then\
+t(self,a[e.sub]or error(\"No click matrix entry for \"..tostring(e.sub)),e)\
+else\
+t(self,\"onMouseMiss\",e)\
+end\
+else\
+t(self,\"onMouseMiss\",e)\
+end\
+elseif e.main==\"KEY\"and self.acceptKeyboard then\
+t(self,e.sub==\"UP\"and\"onKeyUp\"or\"onKeyDown\",e)\
+elseif e.main==\"CHAR\"and self.acceptKeyboard then\
+t(self,\"onChar\",e)\
+elseif self.acceptMisc then\
+t(self,\"onUnknownEvent\",e)\
+end\
+t(self,\"onAnyEvent\",e)\
+else\
+t(self,\"onEvent\",e)\
+end\
+end\
+function Node:setChanged(e)\
+self.changed=e\
+if e then\
+local e=self.parent or self.stage\
+if e then\
+e.changed=true\
+end\
+end\
+end\
+function Node:getTotalOffset()\
+local e,t=0,0\
+if self.parent then\
+local a,o=self.parent:getTotalOffset()\
+e=e+a-1\
+t=t+o-1\
+elseif self.stage then\
+e=e+self.stage.X\
+t=t+self.stage.Y\
+end\
+e=e+self.X\
+t=t+self.Y\
+return e,t\
+end\
+function Node.generateNodeCallback(e,t,a)\
+return(function(...)\
+local t=e.stage\
+if not t then\
+return error(\"Cannot link to node '\"..e:type()..\"' stage.\")\
+end\
+t:executeCallback(a,...)\
+end)\
+end",
+  [ "DCMLParser.lua" ] = "local h=string.sub\
+local function l(l)\
+function parseargs(t)\
+local e={}\
+string.gsub(t,\"([%-%w]+)=([\\\"'])(.-)%2\",function(t,o,a)\
+e[t]=a\
+end)\
+return e\
+end\
+function collect(s)\
+local e={}\
+local t={}\
+table.insert(e,t)\
+local o,h,a,n,r\
+local i,d=1,1\
+while true do\
+o,d,h,a,n,r=string.find(s,\"<(%/?)([%w:]+)(.-)(%/?)>\",i)\
+if not o then break end\
+local o=string.sub(s,i,o-1)\
+if not string.find(o,\"^%s*$\")then\
+t[\"content\"]=o\
+end\
+if r==\"/\"then\
+table.insert(t,{label=a,xarg=parseargs(n),empty=1})\
+elseif h==\"\"then\
+t={label=a,xarg=parseargs(n)}\
+table.insert(e,t)\
+else\
+local o=table.remove(e)\
+t=e[#e]\
+if#e<1 then\
+error(\"nothing to close with \"..a)\
+end\
+if o.label~=a then\
+error(\"trying to close \"..o.label..\" with \"..a)\
+end\
+if#e>1 then\
+if type(t.content)~=\"table\"then\
+t.content={}\
+end\
+t.content[#t.content+1]=o\
+t.hasChildren=true\
+else\
+table.insert(t,o)\
+end\
+end\
+i=d+1\
+end\
+local t=string.sub(s,i)\
+if not string.find(t,\"^%s*$\")then\
+table.insert(e[#e],t)\
+end\
+if#e>1 then\
+error(\"unclosed \"..e[#e].label)\
+end\
+return e[1]\
+end\
+return collect(l)\
+end\
+local o={}\
+local i={}\
+function i.registerTag(e,t)\
+if type(e)~=\"string\"or type(t)~=\"table\"then return error(\"Expected string, table\")end\
+o[e]=t\
+end\
+function i.removeTag(e)\
+o[e]=nil\
+end\
+function i.setMatrix(e)\
+if type(e)~=\"table\"then\
+return error(\"Expected table\")\
+end\
+end\
+function i.loadFile(e)\
+if not fs.exists(e)then\
+return error(\"Cannot load DCML content from path '\"..tostring(e)..\"' because the file doesn't exist\")\
+elseif fs.isDir(e)then\
+return error(\"Cannot load DCML content from path '\"..tostring(e)..\"' because the path is a directory\")\
+end\
+local e=fs.open(e,\"r\")\
+local t=e.readAll()\
+e.close()\
+return l(t)\
+end\
+local function n(t,e)\
+if type(e)==\"function\"then\
+return e\
+elseif type(e)==\"string\"and h(e,1,1)==\"#\"then\
+if not t then\
+return false\
+else\
+local e=t[h(e,2)]\
+if type(e)==\"function\"then\
+return e\
+end\
+end\
+end\
+end\
+local function r(o,e,t,a)\
+if type(a.argumentType)~=\"table\"then a.argumentType={}end\
+t=o and o[t]or t\
+local t=a.argumentType[t]\
+local o=type(e)\
+local a\
+if o==t or not t then\
+a=e\
+else\
+if t==\"string\"then\
+a=tostring(e)\
+elseif t==\"number\"then\
+local t=tonumber(e)\
+if not t then\
+return error(\"Failed to convert '\"..tostring(e)..\"' from type '\"..o..\"' to number when parsing DCML\")\
+end\
+a=t\
+elseif t==\"boolean\"then\
+a=e:lower()==\"true\"\
+elseif t==\"color\"or t==\"colour\"then\
+local t=colours[e]or colors[e]\
+if not t then\
+return error(\"Failed to convert '\"..tostring(e)..\"' from type '\"..o..\"' to colour when parsing DCML\")\
+end\
+a=t\
+else\
+return error(\"Cannot parse type '\"..tostring(t)..\"' using DCML\")\
+end\
+end\
+return a\
+end\
+local s={}\
+function i.parse(e)\
+local h={}\
+for t=1,#e do\
+local a=e[t]\
+local t=a.label\
+local e=o[t]\
+if type(e)~=\"table\"then\
+return error(\"No DCMLMatrix for tag with label '\"..tostring(t)..\"'\")\
+end\
+local i=n(false,e.customHandler)\
+if i then\
+table.insert(h,i(a,o))\
+else\
+local i={}\
+local o=e.aliasHandler\
+if type(o)==\"table\"then\
+i=o\
+elseif type(o)==\"function\"then\
+i=o()\
+elseif o==true then\
+if not s[t]then\
+log(\"i\",\"DCMLMatrix for \"..t..\" has instructed that DCML parsing should alias with the class '\"..t..\"'.__alias\")\
+local e=classLib.getClass(t)\
+if not e then\
+error(\"Failed to fetch class for '\"..t..\"' while fetching alias information\")\
+end\
+s[t]=e.__alias\
+end\
+i=s[t]\
+end\
+local s={}\
+local o=n(false,e.argumentHandler)\
+if o then\
+s=o(a)\
+else\
+local o=e.callbacks or{}\
+for t,a in pairs(a.xarg)do\
+if not o[t]then\
+s[t]=r(i,a,t,e)\
+end\
+end\
+if a.content and not a.hasChildren and e.contentCanBe then\
+s[e.contentCanBe]=r(i,a.content,e.contentCanBe,e)\
+end\
+end\
+local i=n(false,e.instanceHandler)or classLib.getClass(t)\
+local o\
+if i then\
+o=i(s)\
+end\
+if not o then\
+return error(\"Failed to generate instance for DCML tag '\"..t..\"'\")\
+end\
+if a.hasChildren and e.childHandler then\
+local e=n(o,e.childHandler)\
+if e then\
+e(o,a)\
+end\
+end\
+local i=n(o,e.callbackGenerator)\
+if i and type(e.callbacks)==\"table\"then\
+for e,t in pairs(e.callbacks)do\
+if a.xarg[e]then\
+o[t]=i(o,e,a.xarg[e])\
+end\
+end\
+elseif e.callbacks then\
+log(\"w\",\"Couldn't generate callbacks for '\"..t..\"' during DCML parse. Callback generator not defined\")\
+end\
+if e.onDCMLParseComplete then\
+e.onDCMLParseComplete(o)\
+end\
+table.insert(h,o)\
+end\
+end\
+return h\
+end\
+_G.DCML=i",
+  [ "ClassUtil.lua" ] = "local s=table.insert\
+local o,r,d=string.len,string.sub,string.rep\
+function ParseClassArguments(i,t,e,o,d)\
+local t=t\
+_G.ARGS=t\
+local n={}\
+local function r(a,t)\
+if type(e)~=\"table\"then return end\
+local e=n[a]\
+if e and type(t)~=e then\
+if not classLib.typeOf(t,e,true)then\
+_G.parseError={a,t}\
+return ParameterException(\"Expected type '\"..e..\"' for argument '\"..a..\"', got '\"..type(t)..\"' instead while initialising '\"..tostring(i)..\"'.\",4)\
+end\
+end\
+return t\
+end\
+local a={}\
+if type(e)==\"table\"and o then\
+for t,e in ipairs(e)do\
+a[e[1]]=true\
+end\
+end\
+local h={}\
+if type(e)==\"table\"then\
+for t,e in ipairs(e)do\
+s(h,e[1])\
+n[e[1]]=e[2]\
+end\
+end\
+local o={}\
+if#t==1 and type(t[1])==\"table\"then\
+for e,t in pairs(t[1])do\
+o[e]=r(e,t)\
+a[e]=nil\
+end\
+else\
+for t,n in ipairs(t)do\
+local e=h[t]\
+if not e then\
+return error(\"Instance '\"..i:type()..\"' only supports a max of \"..(t-1)..\" unordered arguments. Consider using a key-pair table instead, check the wiki page for this class to find out more.\")\
+end\
+o[e]=r(e,n)\
+a[e]=nil\
+end\
+end\
+if next(a)then\
+local t=\"Instance '\"..i:type()..\"' requires arguments:\\n\"\
+for o,e in ipairs(e)do\
+if a[e[1]]then\
+t=t..\"- \"..e[1]..\" (\"..e[2]..\")\\n\"\
+end\
+end\
+t=t..\"These arguments have not been defined.\"\
+return error(t)\
+end\
+for e,t in pairs(o)do\
+if(n[e]and not d)or not n[e]then\
+print(\"Setting \"..e)\
+i[e]=t\
+end\
+end\
+local t={}\
+if type(e)==\"table\"and d then\
+for a,e in ipairs(e)do\
+s(t,o[e[1]])\
+end\
+return unpack(t)\
+end\
+end\
+function AssertClass(e,o,a,t)\
+if not classLib.typeOf(e,o,a)then\
+return error(t,2)\
+end\
+return e\
+end\
+function AssertEnum(t,a,i)\
+local e\
+for o=1,#a do\
+if a[o]==t then\
+e=true\
+break\
+end\
+end\
+if e then\
+return t\
+else\
+return error(i,2)\
+end\
+end\
+_G.COLOUR_REDIRECT={\
+textColor=\"textColour\";\
+backgroundColor=\"backgroundColour\";\
+disabledTextColor=\"disabledTextColour\";\
+disabledBackgroundColor=\"disabledBackgroundColour\"\
+}\
+_G.ACTIVATABLE={\
+activeTextColor=\"activeTextColour\";\
+activeBackgroundColor=\"activeBackgroundColour\"\
+}\
+_G.SELECTABLE={\
+selectedTextColor=\"selectedTextColour\";\
+selectedBackgroundColor=\"selectedBackgroundColour\"\
+}\
+function OverflowText(e,a)\
+if o(e)>a then\
+local t=o(e)-a\
+if t>3 then\
+if o(e)-t-3>=1 then\
+e=r(e,1,o(e)-t-3)..\"...\"\
+else e=d(\".\",a)end\
+else\
+e=r(e,1,o(e)-t*2)..d(\".\",t)\
+end\
+end\
+return e\
+end\
+function InArea(t,e,a,o,i,n)\
+if t>=a and t<=i and e>=o and e<=n then\
+return true\
+end\
+return false\
+end",
+  [ "Exception.lua" ] = "class\"Exception\"extends\"ExceptionBase\"{\
+title=\"DynaCode Exception\";\
+}",
 }
 local ignore = {
     ["Class.lua"] = true
@@ -3214,11 +3790,11 @@ local function loadFromPack( name )
     end
 
     -- Execution complete, check class validity
-    class.runClassString( files[ name ], name, ignoreFile )
+    classLib.runClassString( files[ name ], name, ignoreFile )
     loaded[ name ] = true
 end
 
-class.setClassLoader( function( _c )
+classLib.setClassLoader( function( _c )
     loadFromPack( _c..".lua" )
 end )
 

@@ -1,162 +1,50 @@
-local tWidth, tHeight = term.getSize()
-local logging = true
-
-
-local function drawCentre( text, y, colour )
-    if colour then term.setTextColour( colour ) end
-    if text:len() <= tWidth then
-        term.setCursorPos( math.ceil( (tWidth / 2) - ( text:len() / 2 ) ), y )
-    else
-        term.setCursorPos( 1, y )
-    end
-    term.clearLine()
-    term.write( text )
-end
-
-shell.run("dobuild.lua", "/src", "bin/DynaCode.lua")
+-- Build and load DynaCode.
+shell.run("dobuild.lua", "src", "bin/DynaCode.lua")
 dofile("bin/DynaCode.lua")
 
+log:setLoggingEnabled( true )
+log:setLoggingPath("DynaCode.log")
 
-if logging then
-    if not log then error("DynaCode Logger not available.", 0) end
+myApp = Application( term.getSize() )
+myWindow = myApp + Stage( "myWindow", 2, 2, 30, 10 )
+myWindow.title = "Scroll Demo"
 
-    log:setLoggingEnabled( true )
-    log:setLoggingPath("DynaCode.log")
-end
-if type( trace ) ~= "table" then error("DynaCode Traceback system not available.", 0) end
+-- Lets create two pages
+homePage = Template( "homePageTemplate", myWindow )
+aboutPage = Template( "aboutPageTemplate", myWindow )
 
---if true then dofile("classtest.lua") return end
+-- On the first, we will have a panel
+myPanel = homePage + Panel( 2, 1, 28, 9 )
+myPanel.backgroundColour = colours.yellow
 
+-- that contains a button
+myButton = myPanel + Button("Hello World", 2, 2, 37, 8)
 
-app = Application( term.getSize() )
-app.backgroundColour = colors.cyan
+-- under the panel we'll have a label
+infoLabel = homePage + Label("'ctrl+b' to swap page", 5, 10)
 
-stage = app + Stage({
-    name = "TestStage";
-    X = 5;
-    Y = 5;
-    width = 15;
-    height = 8;
-    textColour = colors.lightGray;
-    titleTextColour = colors.white;
-    titleBackgroundColour = 128;
-    backgroundColour = colors.white;
-    shadowColour = colors.gray;
-    shadow = true;
-    title = "Test Window";
-    minHeight = 10;
-})
+-- On the second page we'll have a text container.
+myText = aboutPage + TextContainer([[
+@align-center Hello friend, this is a @tc-blue  TextContainer@tc-grey . Pretty cool huh?
 
-stage2 = app + Stage({
-    name = "TestStage2";
-    X = 5;
-    Y = 2;
-    width = 45;
-    height = 14;
-    textColour = colors.lightGray;
-    titleTextColour = colors.white;
-    titleBackgroundColour = 128;
-    backgroundColour = colors.white;
-    shadowColour = colors.gray;
-    shadow = true;
-    title = "Another Window";
-})
+This text will develop a scroll bar to allow for loooooads of text!
 
-label = stage + Label("Hello World!", 3, 1)
-input = stage + Input( 3, 2, 11, 1 )
-button = stage + Button( "Hello world", 4, 3, 9, 4 )
+The text can also be aligned to the left, right or center of the TextContainer.
 
+@tc-yellow Press 'ctrl+b' to return to the main page.
+]], 1, 1, 30, 9)
 
-app.hotkey:registerCombination("stop", "shift-ctrl-q", function()
-    app:finish()
-    print("Finished")
+-- Set the active template to our first page
+myWindow.activeTemplate = homePage
+
+-- and make some hotkeys
+myApp.hotkey:registerCombination("swapPage", "ctrl-b", function()
+    myWindow.activeTemplate = myWindow.activeTemplate == homePage and aboutPage or homePage
 end)
 
-app.hotkey:registerCombination("openLuaPrompt", "shift-ctrl-l", function()
-    app:finish( function() shell.run("lua") end )
+myApp.hotkey:registerCombination("close", "ctrl-x", function()
+    myApp:finish()
 end)
 
-app:registerDaemon( MyDaemon("application_example_daemon_service") )
-
-function app:onRun()
-    -- will be called _every_ time the application is executed.
-    log("i", "Application starting")
-end
-
-local BLUE, GREY, LIGHT_GREY, WHITE = colours.blue, colours.grey, colours.lightGrey, 1
-function app:errorHandler( err, daemon )
-    log("f", "Fatal error caught: '"..err.."'. Daemon status: ".. ( daemon and "running" or "not running" ) )
-    term.setBackgroundColour( 1 )
-    term.clear()
-
-    drawCentre( "DynaCode Crash Handler", 4, BLUE )
-    drawCentre( "A fatal exception occured "..( daemon and "during runtime" or "during service start"), 5, GREY )
-
-    drawCentre( "Please report this issue with the error", 8, LIGHT_GREY )
-    drawCentre( "and steps to reproduce using the", 9 )
-    drawCentre( "GitHub issue page", 10 )
-
-    drawCentre( "Error: "..err, 12, colours.red )
-
-    local usingLog
-
-    if logging and type( log ) == "table" and type( log.getEnabled ) == "function" and log:getEnabled() then
-        drawCentre("Gathering stacktrace information", tHeight-2, GREY)
-        log("Stacktrace", "\n"..tostring(trace.getLastStack()))
-        drawCentre("", tHeight-2, GREY)
-        usingLog = true
-    else
-        drawCentre("Enable log to see stacktrace + details", tHeight-2, GREY)
-    end
-
-    if daemon then
-        drawCentre("Shutting down daemon services", 14, colours.grey)
-        local ok, err = pcall( function() self:stopDaemons( false ) end )
-        if err or not ok then
-            drawCentre( "Daemon Status: Failed to stop", 14, colours.red )
-            log("f", "Failed to stop daemon service. Error: "..err)
-        elseif ok then
-            drawCentre( "Daemon Status: Stopped", 14, colours.green)
-        end
-    else drawCentre( "Daemon Status: Failed to start (stopped)", 14, colours.orange ) end
-
-    if usingLog then
-        drawCentre("Press 'l' to open the log", tHeight - 1, GREY )
-        drawCentre("or press any other key to shutdown", tHeight, GREY )
-    else
-        drawCentre("Press any key to shutdown", tHeight, GREY )
-    end
-
-    while true do
-        local e = { coroutine.yield() }
-        sleep()
-        if e[1] == "key" then
-            if usingLog then
-                if e[2] == keys.l then
-                    shell.run("edit", log:getLoggingPath())
-                else
-                    os.shutdown()
-                end
-            else
-                os.shutdown()
-            end
-        end
-    end
-end
-
-
---[[panel = stage2 + Panel( 2, 2, 20, 10 )
-panel.backgroundColour = colours.red
-
-button2 = panel + Button("Hello Again", 2, 3, 30, 5)
-app:requestStageFocus( stage2 ) -- The event eating issue is fixed so this can be here now.]]
-
-para = stage2 + TextContainer([[@tc-grey+align-center Hey there
-@tc-lightBlue I am centered in the middle of this here box!
-
-I am over here on the righthand side of your screen!
-
-You'll never catch me alive you dirty bastard]], 2, 2, 43, 12)
-
---app:appendStagesFromDCML( "stages.dcml" )
-app:run()
+-- finally run the application
+myApp:run()

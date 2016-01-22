@@ -28,6 +28,10 @@ function MouseEvent:inArea( x1, y1, x2, y2 )
     return false
 end
 
+function MouseEvent:isInNode( node )
+    return self:inArea( node.X, node.Y, node.X + node.width - 1, node.Y + node.height - 1 )
+end
+
 function MouseEvent:onPoint( x, y )
     if self.X == x and self.Y == y then
         return true
@@ -49,8 +53,4 @@ end
 function MouseEvent:inBounds( parent )
     local X, Y = parent.X, parent.Y
     return self:inArea( X, Y, X + parent.width - 1, Y + parent.height - 1 )
-end
-
-function MouseEvent:restore( x, y )
-    self.X, self.Y = x, y
 end

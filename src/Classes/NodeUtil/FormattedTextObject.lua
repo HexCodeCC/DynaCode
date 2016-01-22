@@ -11,7 +11,7 @@ local function splitWord( word )
     end)
 end
 
-class "FormattedTextObject" {
+class "FormattedTextObject" extends "Node" {
     segments = {};
     cache = {
         height = nil;
@@ -20,16 +20,17 @@ class "FormattedTextObject" {
 }
 
 function FormattedTextObject:initialise( owner, width )
-    self.owner = class.isInstance( owner ) and owner or error("Cannot set owner of FormattedTextObject to '"..tostring( owner ).."'", 2)
+    self.owner = classLib.isInstance( owner ) and owner or error("Cannot set owner of FormattedTextObject to '"..tostring( owner ).."'", 2)
     self.width = type( width ) == "number" and width or error("Cannot set width of FormattedTextObject to '"..tostring( width ).."'", 2)
 end
 
 function FormattedTextObject:cacheSegmentInformation()
+    log("i", "Parsing segment information with width: "..tostring( self.owner.cache.displayWidth ) )
     if not text then self.owner:parseIdentifiers() text = self.text end
     if not self.text then return error("Failed to parse text identifiers. No new text received.") end
 
     local segments = self.segments
-    local width, text, lines, currentY, currentX = self.width, self.text, {}, 1, 1
+    local width, text, lines, currentY, currentX = self.owner.cache.displayWidth, self.text, {}, 1, 1
     local textColour, backgroundColour, lineAlignment = false, false, "left"
 
     local function newline()
@@ -50,15 +51,12 @@ function FormattedTextObject:cacheSegmentInformation()
 
     local textIndex = 0
     local function applySegments()
-        log("i", "Searching for segment at textIndex "..textIndex)
         local segment = segments[ textIndex ]
 
         if segment then
             textColour = segment[1] or textColour
             backgroundColour = segment[2] or backgroundColour
             lineAlignment = segment[3] or lineAlignment
-
-            log("i", "Settings after segment found: textColour: "..tostring(textColour)..", backgroundColour: "..tostring(backgroundColour)..", lineAlignment: "..lineAlignment)
         end
         textIndex = textIndex + 1
     end
@@ -78,7 +76,6 @@ function FormattedTextObject:cacheSegmentInformation()
         local new = match( text, "^[\n]+")
         if new then
             for i = 1, len( new ) do
-                log("i", "Newline")
                 newline()
                 textIndex = textIndex + 1
             end
@@ -90,7 +87,6 @@ function FormattedTextObject:cacheSegmentInformation()
             local currentLine = lines[ currentY ]
             for char in splitWord( whitespace ) do
                 applySegments()
-                log("i", "Whitespace located at "..#currentLine + 1)
                 currentLine[ #currentLine + 1 ] = {
                     char,
                     textColour,
@@ -103,11 +99,8 @@ function FormattedTextObject:cacheSegmentInformation()
             text = sub( text, len(whitespace) + 1 )
         end
 
-        log("i", "new text: "..text)
-
         local word = match( text, "%S+" )
         if word then
-            log("i", "Processing word '"..word.."'")
             local lengthOfWord = len( word )
             text = sub( text, lengthOfWord + 1 )
 
@@ -146,14 +139,12 @@ end
 
 function FormattedTextObject:cacheAlignments( _lines )
     local lines = _lines or self.lines
-    local width = self.width
+    local width = self.owner.cache.displayWidth
 
     local line, alignment
     for i = 1, #lines do
         line = lines[ i ]
         alignment = line.align
-
-        log("i", "Align for line '"..i.."': "..tostring( alignment ))
 
         if alignment == "left" then
             line.X = 1
@@ -170,32 +161,33 @@ end
 
 function FormattedTextObject:draw( xO, yO )
     local owner = self.owner
-    if not class.isInstance( owner ) then
+    if not classLib.isInstance( owner ) then
         return error("Cannot draw '"..tostring( self:type() ).."'. The instance has no owner.")
     end
 
     local canvas = owner.canvas
     if not canvas then return error("Object '"..tostring( owner ).."' has no canvas") end
+    --canvas:clear()
     local buffer = canvas.buffer
 
     if not self.lines then
         self:cacheSegmentInformation()
     end
     local lines = self.lines
-    local width = self.width
+    local width = self.owner.width
 
     -- Draw the text to the canvas ( the cached version )
     local startingPos, pos, pixel
     for i = 1, #lines do
-        -- use the i value as a Y axis
-        local line = lines[ i ]
-        startingPos = ( width * ( i - 1 ) ) + (line.X - 1)
+        local line = lines[i]
+        local lineX = line.X
+        startingPos = canvas.width * ( i - 0 )
 
         for x = 1, #line do
-            pos = startingPos + x
-            pixel = line[ x ] or { " ", false, false }
-
-            buffer[ pos ] = { pixel[1], pixel[2], pixel[3] }
+            local pixel = line[x] or {" ", colours.red, colours.red}
+            if pixel then
+                buffer[ (canvas.width * (i - 1 + yO)) + (x + lineX - 1) ] = { pixel[1], pixel[2], pixel[3] }
+            end
         end
     end
 end
@@ -210,5 +202,14 @@ end
 
 
 function FormattedTextObject:getHeight()
-    return self.cache.height
+    if not self.lines then
+        self:cacheSegmentInformation()
+        self.owner.recacheAllNextDraw = true
+    end
+
+    return #self.lines
+end
+
+function FormattedTextObject:getCanvas() -- Because FormattedTextObject are stored in the node table the NodeScrollContainer will expect a canvas. So we redirect the request to the owner.
+    return self.owner.canvas
 end

@@ -8,14 +8,16 @@ local function parseColour( cl )
 end
 
 
-abstract class "MultiLineTextDisplay" extends "NodeScrollContainer"
+abstract class "MultiLineTextDisplay" extends "NodeScrollContainer" {
+    lastHorizontalStatus = false;
+    lastVerticalStatus = false;
+}
 
 function MultiLineTextDisplay:initialise( ... )
-    local text, X, Y, width, height = ParseClassArguments( self, { ... }, { {"text", "string"}, {"X", "number"}, {"Y", "number"}, {"width", "number"}, {"height", "number"} }, true, true )
-    self.super( X, Y, width, height )
+    self.super( ... )
 
-    self.text = text
-    self.container = FormattedTextObject( self, self.width )
+    self.autoDraw = false
+    self.cache.displayWidth = self.width
 end
 
 function MultiLineTextDisplay:parseIdentifiers()
@@ -73,10 +75,12 @@ function MultiLineTextDisplay:parseIdentifiers()
     container.segments, container.text = segments, newString
 end
 
-function MultiLineTextDisplay:draw( xO, yO )
-    -- draw the text
-    local container = self.container
-    if not container then return error("Failed to draw node '"..self:type().."' because the MultiLineTextDisplay has no FormattedTextObject set") end
+function MultiLineTextDisplay:cacheRequiredScrollbars()
+    self.super:cacheRequiredScrollbars()
+    self.cache.xActive = false
+end
 
-    self.container:draw( xO, yO )
+function MultiLineTextDisplay:cacheDisplaySize()
+    self.super:cacheDisplaySize()
+    self.container:cacheSegmentInformation()
 end

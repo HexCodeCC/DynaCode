@@ -1,10 +1,10 @@
 local insert = table.insert
 local sub = string.sub
 
-DCML.registerTag("Stage", {
+--[[DCML.registerTag("Stage", {
     childHandler = function( self, element ) -- self = instance (new)
         -- the stage has children, create them using the DCML parser and add them to the instance.
-        self.nodesToAdd = DCML.parse(element.content)
+        self.nodesToAdd = DCML.parse( element.content )
     end;
     onDCMLParseComplete = function( self )
         local nodes = self.nodesToAdd
@@ -28,9 +28,10 @@ DCML.registerTag("Stage", {
         width = "number";
         height = "number";
     },
-})
+})]]
+local NO_REDRAW_ON_STAGE_AJUDST = true -- Stage contents will not be drawn while the stage has 'mouseMode' set (resize/move mode)
 
-class "Stage" alias "COLOUR_REDIRECT" {
+class "Stage" mixin "MTemplateHolder" alias "COLOUR_REDIRECT" {
     X = 1;
     Y = 1;
 
@@ -43,15 +44,13 @@ class "Stage" alias "COLOUR_REDIRECT" {
 
     application = nil;
 
-    nodes = {};
+    scenes = {};
+    activeScene = nil;
 
     name = nil;
 
     textColour = 32768;
     backgroundColour = 1;
-
-    unfocusedTextColour = 128;
-    unfocusedBackgroundColour = 256;
 
     shadow = true;
     shadowColour = colours.grey;
@@ -64,6 +63,8 @@ class "Stage" alias "COLOUR_REDIRECT" {
 
     titleBackgroundColour = 128;
     titleTextColour = 1;
+    activeTitleBackgroundColour = colours.lightBlue;
+    activeTitleTextColour = 1;
 
     controller = {};
 
@@ -90,15 +91,14 @@ function Stage:initialise( ... )
     self.height = height
 
     self:__overrideMetaMethod("__add", function( a, b )
-        if class.typeOf(a, "Stage", true) then
-            if class.isInstance( b ) and b.__node then
-                -- add b (node) to a (stage)
-                return self:addNode( b )
+        if classLib.typeOf(a, "Stage", true) then
+            if classLib.typeOf( b, "Scene", true ) then
+                return self:addScene( b )
             else
-                return error("Invalid right hand assignment. Should be instance of DynaCode node. "..tostring( b ))
+                error("Invalid right hand assignment. Should be instance of Scene "..tostring( b ))
             end
         else
-            return error("Invalid left hand assignment. Should be instance of Stage. "..tostring( b ))
+            error("Invalid left hand assignment. Should be instance of Stage. "..tostring( a ))
         end
     end)
 
@@ -157,28 +157,26 @@ end
 
 function Stage:draw( _force )
     -- Firstly, clear the stage buffer and re-draw it.
+    if not self.visible then return end
+
     local changed = self.changed
     local force = _force or self.forceRedraw
+    local mm = self.mouseMode
 
-    if self.forceRedraw or force then
-        log("i", "Stage is being forced to redraw!")
-
+    if force then
         self.canvas:clear()
         self.canvas:redrawFrame()
         self.forceRedraw = false
     end
 
-    log("i", "Drawing stage "..tostring( name )..". Force: "..tostring( changed )..". Changed: "..tostring( self.changed ) )
-
     local canvas = self.canvas
-    -- order all nodes to re-draw themselves
 
-    if changed or force then
+    if (changed or force) and ( NO_REDRAW_ON_STAGE_AJUDST and not mm or not NO_REDRAW_ON_STAGE_AJUDST ) then
         local nodes = self.nodes
         for i = #nodes, 1, -1 do
             local node = nodes[i]
             if changed and node.changed or force then
-                node:draw( 0, 0, changed or force )
+                node:draw( 0, 0, force )
                 node.canvas:drawToCanvas( canvas, node.X, node.Y )
 
                 node.changed = false
@@ -188,7 +186,7 @@ function Stage:draw( _force )
     end
 
     -- draw this stages contents to the application canvas
-    if self.visible then self.canvas:drawToCanvas( self.application.canvas, self.X, self.Y ) end
+    self.canvas:drawToCanvas( self.application.canvas, self.X, self.Y )
 end
 
 function Stage:appDrawComplete()
@@ -202,13 +200,6 @@ function Stage:appDrawComplete()
     end
 end
 
-function Stage:addNode( node )
-    -- add this node
-    node.stage = self
-    insert( self.nodes, node )
-    return node
-end
-
 function Stage:hitTest( x, y )
     return InArea( x, y, self.X, self.Y, self.X + self.width - 1, self.Y + self.height - ( self.borderless and 1 or 0 ) )
 end
@@ -218,14 +209,9 @@ function Stage:isPixel( x, y )
 
     if self.shadow then
         if self.focused then
-            if ( x == self.width + 1 and y == 1 ) or ( x == 1 and y == self.height + ( self.borderless and 0 or 1 ) + 1 ) then
-                return false -- pixel on corner of shadow
-            end
-            return true
+            return not ( x == self.width + 1 and y == 1 ) or ( x == 1 and y == self.height + ( self.borderless and 0 or 1 ) + 1 )
         else
-            if ( x == self.width + 1 ) or ( y == self.height + ( self.borderless and 0 or 1 ) + 1 ) then return false end
-
-            return true
+            return not ( x == self.width + 1 ) or ( y == self.height + ( self.borderless and 0 or 1 ) + 1 )
         end
     elseif not self.shadow then return true end
 
@@ -255,9 +241,6 @@ function Stage:submitEvent( event )
 end
 
 function Stage:move( newX, newY )
-    newX = newX or self.X
-    newY = newY or self.Y
-
     self:removeFromMap()
     self.X = newX
     self.Y = newY
@@ -267,13 +250,10 @@ function Stage:move( newX, newY )
 end
 
 function Stage:resize( nW, nH )
-    newWidth = nW or self.width
-    newHeight = nH or self.height
-
     self:removeFromMap()
 
-    self.width = newWidth
-    self.height = newHeight
+    self.width = nW
+    self.height = nH
     self.canvas:redrawFrame()
 
     self:map()
@@ -282,40 +262,8 @@ function Stage:resize( nW, nH )
     self.application.changed = true
 end
 
-function Stage:handleMouse( event )
-
-    local sub, mouseMode = event.sub, self.mouseMode
-
-
-    if sub == "CLICK" then
-        local X, Y = event:getRelative( self )
-        if Y == 1 then
-            if X == self.width and self.closeButton and not self.borderless then
-                -- close stage
-                self:removeFromMap()
-                self.application:removeStage( self )
-            else
-                -- set stage moveable
-                self.mouseMode = "move"
-                self.lastX, self.lastY = event.X, event.Y
-            end
-        elseif Y == self.height + ( not self.borderless and 1 or 0 ) and X == self.width then
-            -- resize
-            self.mouseMode = "resize"
-        end
-    elseif sub == "UP" and mouseMode then
-        self.mouseMode = false
-    elseif sub == "DRAG" and mouseMode then
-        if mouseMode == "move" then
-            self:move( self.X + event.X - self.lastX, self.Y + event.Y - self.lastY )
-            self.lastX, self.lastY = event.X, event.Y
-        elseif mouseMode == "resize" then
-            self:resize( event.X - self.X + 1, event.Y - self.Y + ( self.borderless and 1 or 0 ) )
-        end
-    end
-end
-
-local function focus( self )
+function Stage:focus()
+    if self.focused then return end
     self.application:requestStageFocus( self )
 end
 
@@ -325,67 +273,50 @@ function Stage:close()
 end
 
 function Stage:handleEvent( event )
+    -- If the event is already handled ignore it.
     if event.handled then return end
+    local borderOffset = self.borderless and 0 or 1
 
-    local main, sub = event.main, event.sub
+    if event.main == "MOUSE" then
+        -- Handle the event
+        if event.sub == "CLICK" then
+            if event:inArea( self.X, self.Y, self.X + self.width - 1, self.Y + self.height - ( self.borderless and 1 or 0 ) ) then
+                local X, Y = event:getRelative( self )
+                self:focus()
 
-    if main == "MOUSE" then
-        local inBounds = event:inBounds( self )
-        if sub == "CLICK" then
-            -- if the click was on the top bar, close button or resize location then act accordingly
-            local ignore, oX, oY = false, event.X, event.Y
-            event:convertToRelative( self )
-
-            local width = self.width
-
-            local X, Y = event:getPosition()
-            if Y == 1 then
-                if X == width and self.closeable then
-                    self:close()
-                elseif self.movable and X >= 1 and X <= width then
-                    self.mouseMode = "move"
-                    focus( self )
-                    event.handled = true
-                elseif inBounds then focus( self ) end
-            elseif self.resizable and Y == self.height + ( not self.borderless and 1 or 0 ) and X == width then
-                self.mouseMode = "resize"
-                focus( self )
-                event.handled = true
-            else
-                if self.focused then
-                    if not self.borderless then
-                        event.Y = event.Y - 1
+                if Y == 1 then
+                    if X == self.width then
+                        return self:close()
+                    else
+                        self.mouseMode = "move"
+                        self.lastX, self.lastY = event.X, event.Y
+                        return
                     end
-                    -- submit the event
-                    local nodes = self.nodes
-
-                    for i = 1, #nodes do
-                        local node = nodes[i]
-                        node:handleEvent( event )
-                    end
-                elseif not self.focused and inBounds then
-                    -- focus the stage
-                    focus( self )
-                    event.handled = true
+                elseif Y == self.height + borderOffset and X == self.width then
+                    self.mouseMode = "resize"
+                    return
                 end
             end
-
-            event:restore( oX, oY )
-        elseif sub == "UP" then
-            self.mouseMode = nil
-            if self.focused then self:submitEvent( event ) end
-        elseif sub == "SCROLL" and self.focused then
-            self:submitEvent( event )
-        elseif sub == "DRAG" and self.focused then
-            self:submitEvent( event )
+        elseif event.sub == "UP" and self.mouseMode then
+            self.mouseMode = false
+            return
+        elseif event.sub == "DRAG" and self.mouseMode then
+            if self.mouseMode == "move" then
+                self:move( self.X + ( event.X - self.lastX ), self.Y + ( event.Y - self.lastY ) )
+                self.lastMouseEvent = os.clock()
+                self.lastX, self.lastY = event.X, event.Y
+            elseif self.mouseMode == "resize" then
+                self:resize( event.X - self.X + 1, event.Y - self.Y + ( self.borderless and 1 or 0 ) )
+                self.lastMouseEvent = os.clock()
+            end
         end
-
-        if self.focused and inBounds then
-            event.handled = true
-        end
-    else
         self:submitEvent( event )
-    end
+    else self:submitEvent( event ) end
+end
+
+function Stage:setMouseMode( mode )
+    self.mouseMode = mode
+    self.canvas:redrawFrame()
 end
 
 function Stage:mapNode( x1, y1, x2, y2 )
@@ -404,34 +335,6 @@ function Stage:removeFromMap()
     self.visible = false
     self:map()
     self.visible = oV
-end
-
-local function getFromDCML( path )
-    return DCML.parse( DCML.loadFile( path ) )
-end
-function Stage:replaceWithDCML( path )
-    local data = getFromDCML( path )
-
-    for i = 1, #self.nodes do
-        local node = self.nodes[i]
-        node.stage = nil
-
-        table.remove( self.nodes, i )
-    end
-
-    for i = 1, #data do
-        data[i].stage = self
-        table.insert( self.nodes, data[i] )
-    end
-end
-
-function Stage:appendFromDCML( path )
-    local data = getFromDCML( path )
-
-    for i = 1, #data do
-        data[i].stage = self
-        table.insert( self.nodes, data[i] )
-    end
 end
 
 function Stage:removeKeyboardFocus( from )
@@ -463,16 +366,12 @@ function Stage:removeFromController( name )
 end
 
 function Stage:getCallback( name )
-    name = sub( name, 2 )
-    return self.controller[ name ]
+    return self.controller[ sub( name, 2 ) ]
 end
 
 function Stage:executeCallback( name, ... )
     local cb = self:getCallback( name )
-    if cb then
-        local args = { ... }
-        return cb( ... )
-    else
+    if cb then return cb( ... ) else
         return error("Failed to find callback "..tostring( sub(name, 2) ).." on controller (node.stage): "..tostring( self ))
     end
 end

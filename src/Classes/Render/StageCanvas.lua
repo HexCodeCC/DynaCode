@@ -68,8 +68,8 @@ function StageCanvas:redrawFrame()
     local hasShadow = stage.shadow and stage.focused
 
     local shadowColour = stage.shadowColour
-    local titleColour = stage.titleTextColour
-    local titleBackgroundColour = stage.titleBackgroundColour
+    local titleColour = stage.mouseMode and stage.activeTitleTextColour or stage.titleTextColour
+    local titleBackgroundColour = stage.mouseMode and stage.activeTitleBackgroundColour or stage.titleBackgroundColour
 
     local width = self.width --+ ( stage.shadow and 0 or 0 )
     local height = self.height --+ ( stage.shadow and 1 or 0 )

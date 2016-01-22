@@ -1,197 +1,378 @@
 abstract class "NodeScrollContainer" extends "NodeContainer" {
-    verticalScroll = 0;
-    horizontalScroll = 0;
+    yOffset = 0;
+    xOffset = 0;
 
-    verticalPadding = 0;
+    cache = {
+        nodeHeight = 0;
+        nodeWidth = 0;
+
+        xScrollPosition = 0;
+        yScrollPosition = 0;
+
+        xScrollSize = 0;
+        yScrollSize = 0;
+
+        xDisplayPosition = 0;
+        yDisplayPosition = 0;
+
+        xActive = false;
+        yActive = false;
+
+        lastMouse = 0;
+    };
+
     horizontalPadding = 0;
+    verticalPadding = 0;
 
     currentScrollbar = false;
+
+    autoDraw = true;
+
+    trackColour = 128;
+    barColour = 256;
+    activeBarColour = colours.lightBlue;
 }
 
-function NodeScrollContainer:calculateDisplaySize( h, v ) -- h, v (horizontal, vertical)
-    -- if a scroll bar is in use the size will be decreased as the scroll bar will be inside the node.
-    local width, height = self.width, self.height
-    return ( v and width - 1 or width ), ( h and height - 1 or height )
+function NodeScrollContainer:cacheAllInformation()
+    self:cacheNodeSizes()
+    self:cacheScrollbarInformation()
 end
 
-function NodeScrollContainer:calculateContentSize()
-    -- get total height of the content (excludes padding)
-    local h, w = 0, 0
+function NodeScrollContainer:cacheScrollbarInformation()
+    self:cacheRequiredScrollbars()
+    self:cacheDisplaySize()
+
+    self:cacheScrollSizes()
+    self:cacheScrollPositions()
+end
+
+function NodeScrollContainer:cacheDisplaySize()
+    local cache = self.cache
+    local xEnabled, yEnabled = cache.xActive, cache.yActive
+
+    cache.displayWidth, cache.displayHeight = self.width - ( yEnabled and 1 or 0 ), self.height - ( xEnabled and 1 or 0 )
+end
+
+function NodeScrollContainer:cacheNodeSizes()
+    local x, y = 0, 0
     local nodes = self.nodes
 
+    local node
     for i = 1, #nodes do
-        local node = nodes[i]
-        local nodeX2, nodeY2 = node.X + node.width - 1, node.Y + node.height - 1
+        node = nodes[ i ]
 
-        w = nodeX2 > w and nodeX2 or w
-        h = nodeY2 > h and nodeY2 or h
+        x = math.max( x, node.X + node.width - 1 )
+        y = math.max( y, node.Y + node.height - 1 )
     end
 
-    return w, h
+    local cache = self.cache
+    cache.nodeWidth = x
+    cache.nodeHeight = y
+
+    -- self.cache = cache
 end
 
-function NodeScrollContainer:getScrollPositions( contentWidth, contentHeight, dWidth, dHeight, hSize, vSize )
-    local h, v = math.floor( self.horizontalScroll / contentWidth * dWidth - .5 ), math.ceil( self.verticalScroll / contentHeight * dHeight + .5 )
+function NodeScrollContainer:cacheRequiredScrollbars()
+    local cache = self.cache
+    local width, height = cache.nodeWidth > self.width, cache.nodeHeight > self.height
 
-    --return (h <= 1 and ( self.horizontalScroll ~= 0 and 2 or 1 ) or h), (v <= 1 and ( self.verticalScroll ~= 0 and 2 or 1 ) or v)
-    if h + hSize - 1 >= dWidth or self.horizontalScroll == contentWidth then
-        -- should be or is at the end of the run
-        if self.horizontalScroll == contentWidth - dWidth then h = dWidth - hSize + 1 else h = dWidth - hSize end
+    cache.xActive = width or ( height and cache.nodeWidth > self.width - 1 )
+    cache.yActive = height or ( width and cache.nodeHeight > self.height - 1 )
+end
+
+function NodeScrollContainer:cacheScrollSizes()
+    local cache = self.cache
+    local dWidth, dHeight = cache.displayWidth, cache.displayHeight
+
+    local xSize = math.ceil( dWidth / cache.nodeWidth * dWidth - .5 )
+    local ySize = math.ceil( dHeight / cache.nodeHeight * dHeight - .5 )
+
+    cache.xScrollSize, cache.yScrollSize = xSize, ySize
+end
+
+function NodeScrollContainer:cacheScrollPositions()
+    local cache = self.cache
+    if cache.xActive then
+        local xPos
+        local pos = math.ceil( self.xOffset / cache.nodeWidth * cache.displayWidth )
+        if pos < 1 then -- scroll bar is off screen
+            xPos = 1
+        elseif pos == 1 and self.xOffset ~= 0 then -- scrollbar appears in the starting position even though the offset is not at the start
+            xPos = 2
+        else
+            xPos = pos
+        end
+
+        if self.xOffset == 0 then
+            cache.xDisplayPosition = 1
+        elseif self.xOffset == cache.nodeWidth - cache.displayWidth then
+            cache.xDisplayPosition = cache.displayWidth - cache.xScrollSize + 1
+        else cache.xDisplayPosition = pos end
+
+        cache.xScrollPosition = xPos
     end
 
-    if v + vSize - 1 >= dHeight or self.verticalScroll == contentHeight then
-        -- should be or is at the end of the run
-        if self.verticalScroll == contentHeight - dHeight then v = dHeight - vSize + 1 else v = dHeight - vSize end
+    if cache.yActive then
+        local yPos
+        local pos = math.ceil( self.yOffset / cache.nodeHeight * cache.displayHeight )
+        if pos < 1 then
+            yPos = 1
+        elseif pos == 1 and self.yOffset ~= 0 then
+            yPos = 2
+        else
+            yPos = pos
+        end
+
+        if self.yOffset == 0 then
+            cache.yDisplayPosition = 1
+        elseif self.yOffset == cache.nodeHeight - cache.displayHeight then
+            cache.yDisplayPosition = cache.displayHeight - cache.yScrollSize + 1
+        else cache.yDisplayPosition = pos end
+
+        cache.yScrollPosition = yPos
     end
-    return h, v
 end
 
-function NodeScrollContainer:getScrollSizes( contentWidth, contentHeight, dWidth, dHeight )
-    return math.ceil( dWidth / contentWidth * self.width - .5 ), math.ceil( dHeight / contentHeight * self.height - .5 )
+function NodeScrollContainer:drawScrollbars()
+    local canvas = self.canvas
+    local cache = self.cache
+
+    local trackColour, activeBarColour, barColour, width = self.trackColour, self.activeBarColour, self.barColour, self.width
+    if cache.xActive then
+        -- Draw the horizontal scrollbar & track
+        local bg = self.currentScrollbar == "x" and self.activeBarColour or self.barColour
+
+        canvas:drawArea( 1, self.height, cache.displayWidth, 1, self.trackColour, trackColour )
+        canvas:drawArea( cache.xDisplayPosition, self.height, cache.xScrollSize, 1, bg, bg )
+    end
+    if cache.yActive then
+        -- Draw the vertical scrollbar & track
+        local bg = self.currentScrollbar == "y" and self.activeBarColour or self.barColour
+
+        canvas:drawArea( width, 1, 1, cache.displayHeight, trackColour, trackColour )
+        canvas:drawArea( width, cache.yDisplayPosition, 1, cache.yScrollSize, bg, bg )
+    end
+
+    if cache.xActive and cache.yActive then
+        canvas:drawArea( width, self.height, 1, 1, trackColour, trackColour )
+    end
 end
 
-function NodeScrollContainer:addNode( node )
-    self.super:addNode( node )
-
-    --self:updateScrollSizes()
-    --self:updateScrollPositions()
-end
-
-function NodeScrollContainer:removeNode( node )
-    self.super:removeNode( node )
-
-    --self:updateScrollSizes()
-    --self:updateScrollPositions()
-end
-
-function NodeScrollContainer:inView( node )
-    local nodeX, nodeY, nodeWidth, nodeHeight = node.X, node.Y, node.width, node.height
-    local hOffset, vOffset = self.horizontalScroll, self.verticalScroll
-
-    return nodeX + nodeWidth - hOffset > 0 and nodeX - hOffset < self.width and nodeY - vOffset < self.height and nodeY + nodeHeight - vOffset > 0
-end
-
-local clickMatrix = {
-    CLICK = "onMouseDown";
-    UP = "onMouseUp";
-    SCROLL = "onMouseScroll";
-    DRAG = "onMouseDrag";
-}
-
-function NodeScrollContainer:onAnyEvent( event )
-    -- submit this event to our children. First, make the event relative
-    local oX, oY = event.X, event.Y
-    local isMouseEvent = event.main == "MOUSE"
-
+function NodeScrollContainer:drawContent( force )
+    -- Draw the nodes if they are visible in the container.
     local nodes = self.nodes
-
-    if isMouseEvent then
-        event:convertToRelative( self )
-
-        -- Also, apply any offsets caused by scrolling.
-        event.Y = event.Y + self.verticalScroll
-        event.X = event.X + self.horizontalScroll
-    end
-
-    for i = 1, #nodes do
-        nodes[i]:handleEvent( event )
-    end
-
-    if isMouseEvent then
-        event.X = oX
-        event.Y = oY
-    end
-end
-
-function NodeScrollContainer:onMouseScroll( event )
-    local contentWidth, contentHeight = self:calculateContentSize()
-    local h, v = self:getActiveScrollbars( contentWidth, contentHeight )
-
-    local dWidth, dHeight = self:calculateDisplaySize( h, v )
-
-    if v then
-		self.verticalScroll = math.max( math.min( self.verticalScroll + event.misc, contentHeight - dHeight ), 0 )
-        self.forceRedraw = true
-        self.changed = true
-	elseif h then
-		self.horizontalScroll = math.max( math.min( self.horizontalScroll + event.misc, contentWidth - dWidth ), 0 )
-        self.forceRedraw = true
-        self.changed = true
-	end
-end
-
-function NodeScrollContainer:getActiveScrollbars( contentWidth, contentHeight )
-    return contentWidth > self.width, contentHeight > self.height
-end
-
-function NodeScrollContainer:draw( xO, yO, force )
-    log("w", "Scroll Container Drawn. Force: "..tostring( force ))
-    local nodes = self.nodes
-    local manDraw = force or self.forceRedraw
     local canvas = self.canvas
 
     canvas:clear()
 
-    local xO, yO = xO or 0, yO or 0
+    local xO, yO = -self.xOffset, -self.yOffset
+    local manDraw = force or self.forceRedraw
+    local autoDraw = self.autoDraw
 
-    if self.preDraw then
-        self:preDraw( xO, yO )
-    end
+    local node
+    for i = 1, #nodes do
+        node = nodes[ i ]
 
-    -- draw the content
-    local hO, vO = -self.horizontalScroll, -self.verticalScroll
-    local nC
+        if node.changed or node.forceRedraw or manDraw then
+            node:draw( xO, yO, force )
 
-    for i = #nodes, 1, -1 do
-        local node = nodes[i]
-        nC = node.changed
-
-        if self:inView( node ) and nC or manDraw then
-            -- draw the node using our offset
-            node:draw( hO, vO, manDraw or force )
-            node.canvas:drawToCanvas( canvas, node.X + hO, node.Y + vO )
-
-            if nC then node.changed = false end
+            if autoDraw then
+                node.canvas:drawToCanvas( canvas, node.X + xO, node.Y + yO )
+            end
         end
     end
-    self.forceRedraw = false
-
-    if self.postDraw then
-        self:postDraw( xO, yO )
-    end
-
-
-    self.changed = false
-    self.canvas:drawToCanvas( ( self.parent or self.stage ).canvas, self.X + xO, self.Y + yO )
 end
 
-function NodeScrollContainer:postDraw()
-    -- draw the scroll bars
+function NodeScrollContainer:draw( xO, yO, force )
+    if self.recacheAllNextDraw then
+        self:cacheAllInformation()
 
-    local contentWidth, contentHeight = self:calculateContentSize()
-    local isH, isV = self:getActiveScrollbars( contentWidth, contentHeight ) -- uses the content size to determine which scroll bars are active.
-    if isH or isV then
-        local dWidth, dHeight = self:calculateDisplaySize( isH, isV )
+        self.recacheAllNextDraw = false
+    else
+        if self.recacheNodeInformationNextDraw then
+            self:cacheNodeSizes()
 
-        local hSize, vSize = self:getScrollSizes( contentWidth, contentHeight, dWidth, dHeight )
-        local hPos, vPos = self:getScrollPositions( contentWidth, contentHeight, dWidth, dHeight, hSize, vSize )
-
-        local canvas = self.canvas
-
-        -- draw the scroll bars now. If both are active at the same time adjust the size slightly and fill the gap at the intersect
-        local bothActive = isH and isV
-        local bothOffset = bothActive and 1 or 0
-
-        if isH then
-            -- draw the scroll bar background mixed in with the actual bar.
-            canvas:drawArea( 1, self.height, dWidth, 1, colours.red, colours.green )
-            canvas:drawArea( hPos, self.height, hSize - bothOffset, 1, colours.black, colours.grey )
+            self.recacheNodeInformationNextDraw = false
         end
-        if isV then
-            canvas:drawArea( self.width, 1, 1, dHeight, colours.red, colours.green )
-            canvas:drawArea( self.width, vPos, 1, vSize - bothOffset, colours.black, colours.grey )
-        end
+        if self.recacheScrollInformationNextDraw then
+            self:cacheScrollbarInformation()
 
-        if bothActive then canvas:drawArea( self.width, self.height, 1, 1, colours.lightGrey, colours.lightGrey ) end
+            self.recacheScrollInformationNextDraw = false
+        end
     end
+
+    self:drawContent( force )
+    self:drawScrollbars( force )
+end
+
+--[[ Event Handling ]]--
+function NodeScrollContainer:onAnyEvent( event )
+    -- First, ship to nodes. If the event comes back unhandled then try to use it.
+    local cache, x, y = self.cache
+    if event.main == "MOUSE" then x, y = event:getRelative( self ) end
+
+    if not ( (x or y) and event.sub == "CLICK" and ( cache.xActive and y == self.height or cache.yActive and x == self.width ) ) then
+        self:submitEvent( event )
+    end
+
+    if not event.handled then
+        local ownerApplication = self.stage.application
+        local hotkey = ownerApplication.hotkey
+
+        if event.main == "MOUSE" then
+            local sub = event.sub
+            
+            if event:isInNode( self ) then
+                self.stage:redirectKeyboardFocus( self )
+
+                if sub == "CLICK" then
+                    -- Was this on a scrollbar?
+                    if cache.xActive then
+                        if y == self.height then -- its on the track so we will stop this event from propagating further.
+                            event.handled = true
+
+                            if x >= cache.xScrollPosition and x <= cache.xScrollPosition + cache.xScrollSize then
+                                self.currentScrollbar = "x"
+                                self.lastMouse = x
+
+                                self.changed = true
+                            end
+                        end
+                    end
+                    if cache.yActive then
+                        if x == self.width then
+                            event.handled = true
+
+                            if y >= cache.yScrollPosition and y <= cache.yScrollPosition + cache.yScrollSize - 1 then
+                                self.currentScrollbar = "y"
+                                self.lastMouse = y
+
+                                self.changed = true
+                            end
+                        end
+                    end
+                elseif sub == "SCROLL" then
+                    if cache.xActive and (not cache.yActive or hotkey.keys.shift) then
+                        -- scroll the horizontal bar
+                        self.xOffset = math.max( math.min( self.xOffset + event.misc, cache.nodeWidth - cache.displayWidth ), 0 )
+
+                        self.changed = true
+                        self:cacheScrollPositions()
+                    elseif cache.yActive then
+                        -- scroll the vertical bar
+                        self.yOffset = math.max( math.min( self.yOffset + event.misc, cache.nodeHeight - cache.displayHeight ), 0 )
+
+                        self.changed = true
+                        self:cacheScrollPositions()
+                    end
+                end
+            else
+                if self.focused then
+                    self.stage:removeKeyboardFocus( self )
+                end
+            end
+
+            if event.handled then return end -- We needn't continue.
+
+            if sub == "DRAG" then
+                local current = self.currentScrollbar
+
+                if current == "x" then
+                    local newPos, newOffset = cache.xScrollPosition + ( x < self.lastMouse and -1 or 1 )
+                    log("w", "Last mouse location: "..tostring( self.lastMouse )..", Current mouse location: "..tostring( x )..", Current position: "..tostring( cache.xScrollPosition )..", new position: "..tostring( newPos ) )
+                    if newPos <= 1 then newOffset = 0 else
+                        newOffset = math.max( math.min( math.floor( ( newPos ) * ( ( cache.nodeWidth - .5 ) / cache.displayWidth ) ), cache.nodeWidth - cache.displayWidth ), 0 )
+                    end
+                    log( "w", "New offset from position: "..tostring( newOffset ) )
+
+                    self.xOffset = newOffset
+                    self.lastMouse = x
+                elseif current == "y" then
+                    local newPos = cache.yScrollPosition + ( y - self.lastMouse )
+                    local newOffset
+                    if newPos <= 1 then newOffset = 0 else
+                        newOffset = math.max( math.min( math.floor( ( newPos ) * ( ( cache.nodeHeight - .5 ) / cache.displayHeight ) ), cache.nodeHeight - cache.displayHeight ), 0 )
+                    end
+
+                    self.yOffset = newOffset
+                    self.lastMouse = y
+                end
+
+                self.changed = true
+                self:cacheScrollPositions()
+            elseif sub == "UP" then
+                self.currentScrollbar = nil
+                self.lastMouse = nil
+                self.changed = true
+            end
+        elseif self.focused and event.main == "KEY" then
+            if event.sub == "KEY" and hotkey.keys.shift then
+                local function setOffset( target, value )
+                    self[target.."Offset"] = value
+
+                    self.changed = true
+                    self:cacheScrollPositions()
+                end
+                -- offset adjustment
+                if event.key == keys.up then
+                    -- Shift the offset up (reduce)
+                    setOffset( "y", math.max( self.yOffset - self.height, 0 ) )
+                elseif event.key == keys.down then
+                    setOffset( "y", math.min( self.yOffset + self.height, cache.nodeHeight - cache.displayHeight ) )
+                elseif event.key == keys.left then
+                    setOffset( "x", math.max( self.xOffset - self.width, 0 ) )
+                elseif event.key == keys.right then
+                    setOffset( "x", math.min( self.xOffset + self.width, cache.nodeWidth - cache.displayWidth ) )
+                end
+            end
+        end
+    end
+end
+
+function NodeScrollContainer:submitEvent( event )
+    local main = event.main
+    local oX, oY, oPb
+
+    if main == "MOUSE" then
+        oPb = event.inParentBounds
+        event.inParentBounds = event:isInNode( self )
+
+        oX, oY = event:getPosition()
+        event:convertToRelative( self )
+
+        event.X = event.X + self.xOffset
+        event.Y = event.Y + self.yOffset
+    end
+
+    local nodes, node = self.nodes
+    for i = 1, #nodes do
+        nodes[ i ]:handleEvent( event )
+    end
+
+    if main == "MOUSE" then event.X, event.Y, event.inParentBounds = oX, oY, oPb end
+end
+
+function NodeScrollContainer:onFocusLost()
+    self.focused = false;
+    self.acceptKeyboard = false;
+end
+
+function NodeScrollContainer:onFocusGain()
+    self.focused = true;
+    self.acceptKeyboard = true;
+end
+
+function NodeScrollContainer:getCursorInformation() return false end -- this has no cursor
+
+--[[ Intercepts ]]--
+function NodeScrollContainer:addNode( node )
+    self.super:addNode( node )
+
+    self.recacheAllNextDraw = true
+end
+
+function NodeScrollContainer:removeNode( n )
+    self.super:removeNode( n )
+
+    self.recacheAllNextDraw = true
 end

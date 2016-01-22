@@ -77,7 +77,7 @@ end
 function Canvas:setHeight( height )
     if not self.buffer then self.height = height return end
     local width, buffer, cHeight = self.width, self.buffer, self.height
-    
+
 	while self.height < height do
 		for i = 1, width do
 			buffer[#buffer + 1] = px

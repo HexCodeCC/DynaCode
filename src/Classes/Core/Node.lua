@@ -16,20 +16,13 @@ abstract class "Node" alias "COLOUR_REDIRECT" {
 
     __node = true;
 
-    eventConfig = {
-        ["MouseEvent"] = {
-            acceptAll = false
-        };
-        acceptAll = false;
-        acceptMisc = false;
-        acceptKeyboard = false;
-        acceptMouse = false;
-        manuallyHandle = false;
-    }
+    acceptMisc = false;
+    acceptKeyboard = false;
+    acceptMouse = false;
+    manuallyHandle = false;
 }
 
 function Node:initialise( ... )
-    print("i", "initialise node '"..tostring( self ).."'")
     local X, Y, width, height = ParseClassArguments( self, { ... }, { { "X", "number" }, { "Y", "number" }, { "width", "number" }, { "height", "number" } }, false, true )
 
     -- Creates a NodeCanvas
@@ -102,8 +95,12 @@ function Node:handleEvent( event )
 
     if not self.manuallyHandle then
         if event.main == "MOUSE" and self.acceptMouse then
-            if event:inArea( self.X, self.Y, self.X + self.width - 1, self.Y + self.height - 1 ) then
-                call( self, clickMatrix[ event.sub ] or error("No click matrix entry for "..tostring( event.sub )), event )
+            if event.inParentBounds or self.ignoreEventParentBounds then
+                if event:inArea( self.X, self.Y, self.X + self.width - 1, self.Y + self.height - 1 ) then
+                    call( self, clickMatrix[ event.sub ] or error("No click matrix entry for "..tostring( event.sub )), event )
+                else
+                    call( self, "onMouseMiss", event )
+                end
             else
                 call( self, "onMouseMiss", event )
             end
