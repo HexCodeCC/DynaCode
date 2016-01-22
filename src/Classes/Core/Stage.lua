@@ -219,6 +219,7 @@ function Stage:isPixel( x, y )
 end
 
 function Stage:submitEvent( event )
+    if not self.focused then return end
     local nodes = self.nodes
     local main = event.main
 
