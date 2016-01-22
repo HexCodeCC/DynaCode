@@ -31,6 +31,8 @@ abstract class "NodeScrollContainer" extends "NodeContainer" {
     trackColour = 128;
     barColour = 256;
     activeBarColour = colours.lightBlue;
+
+    consumeAllMouseEvents = false; -- stops parent scroll containers from scrolling when this container reaches max offset.
 }
 
 function NodeScrollContainer:cacheAllInformation()
@@ -68,8 +70,6 @@ function NodeScrollContainer:cacheNodeSizes()
     local cache = self.cache
     cache.nodeWidth = x
     cache.nodeHeight = y
-
-    -- self.cache = cache
 end
 
 function NodeScrollContainer:cacheRequiredScrollbars()
@@ -220,17 +220,14 @@ function NodeScrollContainer:onAnyEvent( event )
         local hotkey = ownerApplication.hotkey
 
         if event.main == "MOUSE" then
+            local inBounds, dontUse = event:isInNode( self )
             local sub = event.sub
-            
-            if event:isInNode( self ) then
-                self.stage:redirectKeyboardFocus( self )
 
+            if inBounds then
                 if sub == "CLICK" then
                     -- Was this on a scrollbar?
                     if cache.xActive then
                         if y == self.height then -- its on the track so we will stop this event from propagating further.
-                            event.handled = true
-
                             if x >= cache.xScrollPosition and x <= cache.xScrollPosition + cache.xScrollSize then
                                 self.currentScrollbar = "x"
                                 self.lastMouse = x
@@ -241,8 +238,6 @@ function NodeScrollContainer:onAnyEvent( event )
                     end
                     if cache.yActive then
                         if x == self.width then
-                            event.handled = true
-
                             if y >= cache.yScrollPosition and y <= cache.yScrollPosition + cache.yScrollSize - 1 then
                                 self.currentScrollbar = "y"
                                 self.lastMouse = y
@@ -254,36 +249,41 @@ function NodeScrollContainer:onAnyEvent( event )
                 elseif sub == "SCROLL" then
                     if cache.xActive and (not cache.yActive or hotkey.keys.shift) then
                         -- scroll the horizontal bar
-                        self.xOffset = math.max( math.min( self.xOffset + event.misc, cache.nodeWidth - cache.displayWidth ), 0 )
+                        local nOffset = math.max( math.min( self.xOffset + event.misc, cache.nodeWidth - cache.displayWidth ), 0 )
+                        if nOffset ~= self.xOffset then
+                            self.xOffset = nOffset
 
-                        self.changed = true
-                        self:cacheScrollPositions()
+                            self.changed = true
+                            self:cacheScrollPositions()
+                        else dontUse = true end
                     elseif cache.yActive then
                         -- scroll the vertical bar
-                        self.yOffset = math.max( math.min( self.yOffset + event.misc, cache.nodeHeight - cache.displayHeight ), 0 )
+                        local nOffset = math.max( math.min( self.yOffset + event.misc, cache.nodeHeight - cache.displayHeight ), 0 )
+                        if nOffset ~= self.yOffset then
+                            self.yOffset = nOffset
 
-                        self.changed = true
-                        self:cacheScrollPositions()
+                            self.changed = true
+                            self:cacheScrollPositions()
+                        else dontUse = true end
                     end
                 end
             else
                 if self.focused then
                     self.stage:removeKeyboardFocus( self )
                 end
+
+                dontUse = true
             end
 
-            if event.handled then return end -- We needn't continue.
-
+            if event.handled then return end
             if sub == "DRAG" then
                 local current = self.currentScrollbar
 
                 if current == "x" then
                     local newPos, newOffset = cache.xScrollPosition + ( x < self.lastMouse and -1 or 1 )
-                    log("w", "Last mouse location: "..tostring( self.lastMouse )..", Current mouse location: "..tostring( x )..", Current position: "..tostring( cache.xScrollPosition )..", new position: "..tostring( newPos ) )
                     if newPos <= 1 then newOffset = 0 else
                         newOffset = math.max( math.min( math.floor( ( newPos ) * ( ( cache.nodeWidth - .5 ) / cache.displayWidth ) ), cache.nodeWidth - cache.displayWidth ), 0 )
                     end
-                    log( "w", "New offset from position: "..tostring( newOffset ) )
 
                     self.xOffset = newOffset
                     self.lastMouse = x
@@ -305,14 +305,23 @@ function NodeScrollContainer:onAnyEvent( event )
                 self.lastMouse = nil
                 self.changed = true
             end
-        elseif self.focused and event.main == "KEY" then
-            if event.sub == "KEY" and hotkey.keys.shift then
-                local function setOffset( target, value )
-                    self[target.."Offset"] = value
 
-                    self.changed = true
-                    self:cacheScrollPositions()
+            if (not dontUse or self.consumeAllMouseEvents) and inBounds then
+                event.handled = true
+                
+                if not self.focused then
+                    self.stage:redirectKeyboardFocus( self )
                 end
+            end
+        elseif self.focused and event.main == "KEY" then
+            local function setOffset( target, value )
+                self[target.."Offset"] = value
+
+                self.changed = true
+                self:cacheScrollPositions()
+                event.handled = true
+            end
+            if event.sub == "KEY" and hotkey.keys.shift then
                 -- offset adjustment
                 if event.key == keys.up then
                     -- Shift the offset up (reduce)
@@ -323,6 +332,17 @@ function NodeScrollContainer:onAnyEvent( event )
                     setOffset( "x", math.max( self.xOffset - self.width, 0 ) )
                 elseif event.key == keys.right then
                     setOffset( "x", math.min( self.xOffset + self.width, cache.nodeWidth - cache.displayWidth ) )
+                end
+            elseif event.sub == "KEY" and not hotkey.keys.shift then
+                if event.key == keys.up then
+                    -- Shift the offset up (reduce)
+                    setOffset( "y", math.max( self.yOffset - 1, 0 ) )
+                elseif event.key == keys.down then
+                    setOffset( "y", math.min( self.yOffset + 1, cache.nodeHeight - cache.displayHeight ) )
+                elseif event.key == keys.left then
+                    setOffset( "x", math.max( self.xOffset - 1, 0 ) )
+                elseif event.key == keys.right then
+                    setOffset( "x", math.min( self.xOffset + 1, cache.nodeWidth - cache.displayWidth ) )
                 end
             end
         end
@@ -369,6 +389,7 @@ function NodeScrollContainer:addNode( node )
     self.super:addNode( node )
 
     self.recacheAllNextDraw = true
+    return node
 end
 
 function NodeScrollContainer:removeNode( n )

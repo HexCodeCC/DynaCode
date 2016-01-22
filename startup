@@ -16,9 +16,25 @@ aboutPage = Template( "aboutPageTemplate", myWindow )
 -- On the first, we will have a panel
 myPanel = homePage + Panel( 2, 1, 28, 9 )
 myPanel.backgroundColour = colours.yellow
+myPanel.name = "mainPanel"
+
+innerPanel = myPanel + Panel( 2, 2, 25, 7 )
+innerPanel.backgroundColour = colours.blue
+innerPanel.name = "innerPanel"
+
+anotherButton = innerPanel + Button( "Test", 2, 2, 22, 10 )
+function anotherButton:onTrigger()
+    self.text = "Check the logfile ("..log:getLoggingPath()..")!"
+    log("Button Clicked", "Stop clicking me!")
+end
 
 -- that contains a button
-myButton = myPanel + Button("Hello World", 2, 2, 37, 8)
+myButton = myPanel + Button("Close App", 11, 10, 7, 4)
+myButton.backgroundColour = colours.red
+myButton.activeBackgroundColour = colours.orange
+function myButton:onTrigger()
+    myApp:finish()
+end
 
 -- under the panel we'll have a label
 infoLabel = homePage + Label("'ctrl+b' to swap page", 5, 10)
