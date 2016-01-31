@@ -1,26 +1,40 @@
--- NOTE: This file uses the 'dir, del, rmdir and mkdir' commands along with windows IF conditions. This may not be available on your OS and is therefor marked windows only.
+-- This file now supports both Mac and Windows.
+--NOTE: Lua version 5.1 must be used, issues occur with the minification client if a newer edition is used.
+
+local format, OS = package.cpath:match("%p[\\|/]?%p(%a+)")
+if format == "dll" then OS = "WINDOWS" else OS = "MAC" end
+local isMac = OS == "MAC"
 
 local start = os.clock()
 print("Starting build\nClearing build location")
 
 local popen = io.popen
 
-os.execute("IF EXIST minified ( rmdir minified /S /Q )")
+if not isMac then
+    os.execute("IF EXIST minified ( rmdir minified /S /Q )")
+else
+    os.execute("if test -d minified; then rmdir minified; fi")
+end
 os.execute("mkdir minified")
 
+local dirSeperator = isMac and "/" or "\\"
 local function explore( src, _file )
     local file = _file or {}
 
     print("Exploring '"..src.."'")
 
-    for filename in popen("dir /b /a-d "..src):lines() do
+    for filename in popen(not isMac and "dir /b /a-d "..src or [==[for f in ]==]..src..[==[*; do [[ -d "$f" ]] || echo "$f"; done]==]):lines() do
         print("Found file '"..filename.."' in '"..src.."'")
-        file[ #file + 1 ] = src.."\\"..filename
+        file[ #file + 1 ] = isMac and filename or src.."\\"..filename
     end
 
-    for dirname in popen("dir /b /ad "..src):lines() do
+    for dirname in popen(not isMac and "dir /b /ad "..src or "ls -d "..src.."*/"):lines() do
         print("Found directory '"..dirname.."' in '"..src.."'")
-        explore( src .. "\\" .. dirname, file )
+        if isMac then
+            explore( dirname, file )
+        else
+            explore( src .. "\\" .. dirname, file )
+        end
     end
 
     return file
@@ -28,16 +42,21 @@ end
 
 local function makeDirsRequired( path )
     local last = "minified"
-    for dirname in string.gmatch( path, "(.-)\\") do
-        last = last .. "\\" .. dirname
-        os.execute("IF NOT EXIST "..last.." ( mkdir "..last.." )")
+    for dirname in string.gmatch( path, "(.-)"..dirSeperator) do
+        last = last .. dirSeperator .. dirname
+
+        if not isMac then
+            os.execute("IF NOT EXIST "..last.." ( mkdir "..last.." )")
+        else
+            os.execute("if ! test -d "..last.."; then mkdir "..last.."; fi")
+        end
     end
 end
 
 local minificationClient
 local function minify( path )
     makeDirsRequired( path )
-    minificationClient( ".build_temp", "--quiet", "-o", "minified\\"..path )
+    minificationClient( ".build_temp", "--quiet", "-o", "minified"..dirSeperator..path )
 end
 
 print("Initialising minification client")
@@ -67,37 +86,39 @@ if #files == 0 then error("No files found", 0) end
 -- Minify each file and save them
 for i = 1, #files do
     local file = files[i]
-    if not string.find(file, ".cfg") then
-        print("Attempting minification of '"..file.."'")
-        -- create temp file and pre-process the file (incase its using invalid syntax for class creation. eg: abstract)
-        local h = io.open(file, "rb")
-        local f = io.open(".build_temp", "wb")
+    if not file ~= ".DS_Store" then
+        if not string.find(file, ".cfg") then
+            print("Attempting minification of '"..file.."'")
+            -- create temp file and pre-process the file (incase its using invalid syntax for class creation. eg: abstract)
+            local h = io.open(file, "rb")
+            local f = io.open(".build_temp", "wb")
 
-        f:write( preProcess( h:read("*all") ) )
+            f:write( preProcess( h:read("*all") ) )
 
-        h:close()
-        f:close()
+            h:close()
+            f:close()
 
-        -- temp file saved, minify that file (the minify requires a path to a file, not raw data. because of this I pre process the file and save it to a temp location)
+            -- temp file saved, minify that file (the minify requires a path to a file, not raw data. because of this I pre process the file and save it to a temp location)
 
-        minify( file )
-    else
-        print("Configuration file found '"..file.."'. Saving as raw")
-        makeDirsRequired( file )
+            minify( file )
+        else
+            print("Configuration file found '"..file.."'. Saving as raw")
+            makeDirsRequired( file )
 
-        local f = assert( io.open( file, "rb" ), "Failed to open configuration file '"..tostring( file ).."'")
+            local f = assert( io.open( file, "rb" ), "Failed to open configuration file '"..tostring( file ).."'")
 
-        local h = assert( io.open( "minified\\"..file, "wb" ), "Failed to open stream to write file 'minified\\"..tostring( file ).."'")
+            local h = assert( io.open( "minified"..dirSeperator..file, "wb" ), "Failed to open stream to write file 'minified"..dirSeperator..tostring( file ).."'")
 
-        h:write( f:read("*all" ) )
+            h:write( f:read("*all" ) )
 
-        f:close()
-        h:close()
+            f:close()
+            h:close()
+        end
     end
 end
 
 print("Removing temporary files")
-os.execute("IF EXIST .build_temp (del .build_temp)")
 
+os.execute(isMac and "if test -f '.build_temp'; then rm .build_temp; fi" or "IF EXIST .build_temp (del .build_temp)")
 print("Minification completed (took " .. ( os.difftime( os.clock(), start ) ) .. "s)")
 print("Complete build on ComputerCraft. (The files now need to be serialised using textutils)")
