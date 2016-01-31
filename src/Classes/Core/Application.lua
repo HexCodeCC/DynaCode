@@ -92,6 +92,9 @@ function Application:removeStage( stageOrName )
         if ( isStage and stage == stageOrName ) or ( not isStage and stage.name == stageOrName ) then
             table.remove( self.stages, i )
             self.changed = true
+            self.canvas:clear()
+
+            break
         end
     end
 end

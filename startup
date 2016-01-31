@@ -6,7 +6,7 @@ log:setLoggingEnabled( true )
 log:setLoggingPath("DynaCode.log")
 
 myApp = Application( term.getSize() )
-myWindow = myApp + Stage( "myWindow", 2, 7, 30, 10 )
+myWindow = myApp + Stage( "myWindow", 10, 7, 30, 10 )
 myWindow.title = "Scroll Demo"
 
 secondWindow = myApp + Stage {
@@ -21,7 +21,7 @@ secondWindow = myApp + Stage {
 
 thirdWindow = myApp + Stage {
     title = "Another Window";
-    X = 5;
+    X = 30;
     Y = 10;
     width = 15;
     height = 10;
