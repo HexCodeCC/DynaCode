@@ -291,28 +291,36 @@ function Stage:handleEvent( event )
 
                 if Y == 1 then
                     if X == self.width then
+                        event.handled = true
                         return self:close()
                     else
                         self.mouseMode = "move"
                         self.lastX, self.lastY = event.X, event.Y
+
+                        event.handled = true
                         return
                     end
                 elseif Y == self.height + borderOffset and X == self.width then
                     self.mouseMode = "resize"
+
+                    event.handled = true
                     return
                 end
             end
         elseif event.sub == "UP" and self.mouseMode then
             self.mouseMode = false
+            event.handled = true
             return
         elseif event.sub == "DRAG" and self.mouseMode then
             if self.mouseMode == "move" then
                 self:move( self.X + ( event.X - self.lastX ), self.Y + ( event.Y - self.lastY ) )
-                self.lastMouseEvent = os.clock()
                 self.lastX, self.lastY = event.X, event.Y
+
+                event.handled = true
             elseif self.mouseMode == "resize" then
                 self:resize( event.X - self.X + 1, event.Y - self.Y + ( self.borderless and 1 or 0 ) )
-                self.lastMouseEvent = os.clock()
+
+                event.handled = true
             end
         end
         self:submitEvent( event )
