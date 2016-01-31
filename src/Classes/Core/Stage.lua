@@ -421,3 +421,11 @@ function Stage:setChanged( bool )
     self.changed = bool
     if bool then self.application.changed = true end
 end
+
+function Stage:getNodes()
+    if self.activeTemplate then
+        return self.activeTemplate.nodes
+    else
+        return {}
+    end
+end
