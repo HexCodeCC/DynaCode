@@ -55,7 +55,7 @@ function Button:setText( text )
 end
 
 function Button:setWidth( width )
-    self.width = width
+    self.super:setWidth( width )
     self:updateLines()
 end
 
