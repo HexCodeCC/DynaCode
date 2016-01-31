@@ -213,9 +213,9 @@ function Stage:isPixel( x, y )
 
     if self.shadow then
         if self.focused then
-            return not ( x == self.width + 1 and y == 1 ) or ( x == 1 and y == self.height + ( self.borderless and 0 or 1 ) + 1 )
+            return not (( x == self.width + 1 and y == 1 ) or ( x == 1 and y == self.height + ( self.borderless and 0 or 1 ) + 1 ))
         else
-            return not ( x == self.width + 1 ) or ( y == self.height + ( self.borderless and 0 or 1 ) + 1 )
+            return not (( x == self.width + 1 ) or ( y == self.height + ( self.borderless and 0 or 1 ) + 1 ))
         end
     elseif not self.shadow then return true end
 
