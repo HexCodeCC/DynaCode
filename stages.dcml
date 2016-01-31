@@ -1,3 +1,5 @@
-<Stage X="2" Y="7" height="3" width="10" name="someStage" title="DCML window">
-    <Button X="1" Y="1" width="5" height="1">Hey</Button>
+<Stage name="MainStage" X="2" Y="7" height="3" width="10" title="DCML window">
+    <Template name="MainTemplate" active="true">
+        <Button X="2" Y="2" width="5" height="1" onTrigger="#hey">Hey</Button>
+    </Template>
 </Stage>
