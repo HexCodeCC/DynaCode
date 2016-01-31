@@ -283,9 +283,10 @@ function Stage:handleEvent( event )
     local borderOffset = self.borderless and 0 or 1
 
     if event.main == "MOUSE" then
+        local inNode = event:inArea( self.X, self.Y, self.X + self.width - 1, self.Y + self.height - ( self.borderless and 1 or 0 ) )
         -- Handle the event
         if event.sub == "CLICK" then
-            if event:inArea( self.X, self.Y, self.X + self.width - 1, self.Y + self.height - ( self.borderless and 1 or 0 ) ) then
+            if inNode then
                 local X, Y = event:getRelative( self )
                 self:focus()
 
@@ -324,6 +325,7 @@ function Stage:handleEvent( event )
             end
         end
         self:submitEvent( event )
+        if inNode then event.handled = true end
     else self:submitEvent( event ) end
 end
 

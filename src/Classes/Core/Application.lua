@@ -297,11 +297,11 @@ function Application:mapWindow( x1, y1, x2, y2 )
 
         if not (stageX > x2 or stageY > y2 or x1 > stageX2 or y1 > stageY2) then
             for y = math.max(stageY, y1), math.min(stageY2, y2) do
-                if y > height then break end
+                if y > height or y < 1 then break end
                 local yPos = self.width * ( y - 1 )
 
                 for x = math.max(stageX, x1), math.min(stageX2, x2) do
-                    if x <= width then
+                    if x <= width and x >= 1 then
                         local layer = layers[ yPos + x ]
 
                         if layer ~= ID and stageVisible and ( stage:isPixel( x - stageX + 1 , y - stageY + 1 ) ) then
