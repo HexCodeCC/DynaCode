@@ -114,7 +114,7 @@ function NodeScrollContainer:cacheScrollPositions()
 
     if cache.yActive then
         local yPos
-        local pos = math.ceil( self.yOffset / cache.nodeHeight * cache.displayHeight )
+        local pos = math.ceil( self.yOffset / cache.nodeHeight * (cache.displayHeight + .5) )
         if pos < 1 then
             yPos = 1
         elseif pos == 1 and self.yOffset ~= 0 then
@@ -125,6 +125,8 @@ function NodeScrollContainer:cacheScrollPositions()
 
         if self.yOffset == 0 then
             cache.yDisplayPosition = 1
+        elseif pos == 1 and self.yOffset ~= 0 then
+            cache.yDisplayPosition = 2
         elseif self.yOffset == cache.nodeHeight - cache.displayHeight then
             cache.yDisplayPosition = cache.displayHeight - cache.yScrollSize + 1
         else cache.yDisplayPosition = pos end
@@ -266,6 +268,30 @@ function NodeScrollContainer:onAnyEvent( event )
                             self:cacheScrollPositions()
                         else dontUse = true end
                     end
+                elseif sub == "DRAG" then
+                    local current = self.currentScrollbar
+
+                    if current == "x" then
+                        local newPos, newOffset = cache.xScrollPosition + ( x < self.lastMouse and -1 or 1 )
+                        if newPos <= 1 then newOffset = 0 else
+                            newOffset = math.max( math.min( math.floor( ( newPos ) * ( cache.nodeWidth / (cache.displayWidth + .5) ) ), cache.nodeWidth - cache.displayWidth ), 0 )
+                        end
+
+                        self.xOffset = newOffset
+                        self.lastMouse = x
+                    elseif current == "y" then
+                        local newPos = cache.yScrollPosition + ( y - self.lastMouse )
+                        local newOffset
+                        if newPos <= 1 then newOffset = 0 else
+                            newOffset = math.max( math.min( math.floor( ( newPos ) * ( cache.nodeHeight / (cache.displayHeight + .5) ) ), cache.nodeHeight - cache.displayHeight ), 0 )
+                        end
+
+                        self.yOffset = newOffset
+                        self.lastMouse = y
+                    end
+
+                    self.changed = true
+                    self:cacheScrollPositions()
                 end
             else
                 if self.focused then
@@ -275,40 +301,17 @@ function NodeScrollContainer:onAnyEvent( event )
                 dontUse = true
             end
 
-            if event.handled then return end
-            if sub == "DRAG" then
-                local current = self.currentScrollbar
-
-                if current == "x" then
-                    local newPos, newOffset = cache.xScrollPosition + ( x < self.lastMouse and -1 or 1 )
-                    if newPos <= 1 then newOffset = 0 else
-                        newOffset = math.max( math.min( math.floor( ( newPos ) * ( ( cache.nodeWidth - .5 ) / cache.displayWidth ) ), cache.nodeWidth - cache.displayWidth ), 0 )
-                    end
-
-                    self.xOffset = newOffset
-                    self.lastMouse = x
-                elseif current == "y" then
-                    local newPos = cache.yScrollPosition + ( y - self.lastMouse )
-                    local newOffset
-                    if newPos <= 1 then newOffset = 0 else
-                        newOffset = math.max( math.min( math.floor( ( newPos ) * ( ( cache.nodeHeight - .5 ) / cache.displayHeight ) ), cache.nodeHeight - cache.displayHeight ), 0 )
-                    end
-
-                    self.yOffset = newOffset
-                    self.lastMouse = y
-                end
-
-                self.changed = true
-                self:cacheScrollPositions()
-            elseif sub == "UP" then
+            if sub == "UP" then
                 self.currentScrollbar = nil
                 self.lastMouse = nil
                 self.changed = true
+                dontUse = true
             end
 
+            if event.handled then return end
             if (not dontUse or self.consumeAllMouseEvents) and inBounds then
                 event.handled = true
-                
+
                 if not self.focused then
                     self.stage:redirectKeyboardFocus( self )
                 end
