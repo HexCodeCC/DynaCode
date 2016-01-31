@@ -3,6 +3,12 @@
 -- Because contained nodes will require a 'stage' and/or 'parent' property Templates will have to be registered to an owner.
 -- The stage/parent will then be extracted from the owner and the template's owner will be locked.
 
+DCML.registerTag("Template", {
+    childHandler = function( self, element )
+        self.toFinishParsing = DCML.parse( element.content )
+    end;
+})
+
 class "Template" extends "MNodeManager" {
     nodes = {};
 
@@ -10,23 +16,13 @@ class "Template" extends "MNodeManager" {
     name = nil;
 }
 
-function Template:initialise( name, owner, DCML )
+function Template:initialise( ... )
+    if self.isParsing then self.args = { ... }; return end
+
+    local name, owner = ParseClassArguments( self, { ... }, { {"name", "string"}, {"owner", "C_INSTANCE"}}, false, true )
     self.name = type( name ) == "string" and name or ParameterException("Failed to initialise template. Name '"..tostring( name ).."' is invalid.")
-    self.owner = classLib.isInstance( owner ) and owner or ParameterException("Failed to initialise template. Owner '"..tostring( owner ).."' is invalid.")
 
-    self.isStageTemplate = self.owner.__type == "Stage"
-
-    if DCML then
-        if type( DCML ) == "table" then
-            for i = 1, #DCML do
-                self:appendFromDCML( DCML[i] )
-            end
-        elseif type( DCML ) == "string" then
-            self:appendFromDCML( DCML )
-        else
-            ParameterException("Failed to initialise template. DCML content '"..tostring( DCML ).."' is invalid type '"..type( DCML ).."'")
-        end
-    end
+    if owner then self.owner = owner end
 
     self:__overrideMetaMethod("__add", function( a, b )
         if a == self then
@@ -39,7 +35,14 @@ function Template:initialise( name, owner, DCML )
     end)
 end
 
+function Template:setOwner( owner )
+    self.owner = classLib.isInstance( owner ) and owner or ParameterException("Failed to initialise template. Owner '"..tostring( owner ).."' is invalid.")
+
+    self.isStageTemplate = self.owner.__type == "Stage"
+end
+
 function Template:addNode( node )
+    if not self.owner then Exception("Template '"..self.name.."' cannot contain nodes until it has an owner") end
     if self.isStageTemplate then
         node.stage = self.owner
     else
@@ -50,4 +53,13 @@ function Template:addNode( node )
     table.insert( self.nodes, node )
 
     return node
+end
+
+function Template:resolveDCMLChildren()
+    local children = self.toFinishParsing
+    for i = 1, #children do
+        self:addNode( children[i] )
+    end
+
+    self.toFinishParsing = nil
 end

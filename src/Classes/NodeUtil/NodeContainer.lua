@@ -10,6 +10,8 @@ function NodeContainer:resolveDCMLChildren()
     -- If this was defined using DCML then any children will be placed in a table ready to be added to the actual 'nodes' table. This is because the parent node is not properly configured right away.
 
     local nodes = self.nodesToAdd
+
+    if not nodes then return end
     for i = 1, #nodes do
         local node = nodes[i]
 
@@ -18,5 +20,5 @@ function NodeContainer:resolveDCMLChildren()
             node:resolveDCMLChildren()
         end
     end
-    self.nodesToAdd = {}
+    self.nodesToAdd = nil
 end

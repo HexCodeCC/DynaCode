@@ -372,6 +372,7 @@ end
 local function getFromDCML( path )
     return DCML.parse( DCML.loadFile( path ) )
 end
+
 function Application:appendStagesFromDCML( path )
     local data = getFromDCML( path )
 

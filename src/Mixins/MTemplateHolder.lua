@@ -61,7 +61,7 @@ end
 
 function MTemplateHolder:setActiveTemplate( nameOrTemplate )
     if type( nameOrTemplate ) == "string" then
-        local target = self:getTemplateByName( name )
+        local target = self:getTemplateByName( nameOrTemplate )
 
         if target then
             self.activeTemplate = target
