@@ -54,22 +54,26 @@ function Node:setY( y )
 end
 
 function Node:setWidth( width )
-    --TODO Update canvas width *job release-0*
     self.width = width
+    self.canvas.width = width
 end
 
 function Node:setHeight( height )
-    --TODO set height on instance and canvas. *job release-0*
     self.height = height
+    self.canvas.height = height - 1
 end
 
 function Node:setBackgroundColour( col )
-    --TODO force update on children too (if they are using the nodes color as default) *job release-0*
+    self.forceRedraw = true
+    self.changed = true
+
     self.backgroundColour = col
 end
 
 function Node:setTextColour( col )
-    --TODO force update on children too (if they are using the nodes color as default) *job release-0*
+    self.forceRedraw = true
+    self.changed = true
+
     self.textColour = col
 end
 
