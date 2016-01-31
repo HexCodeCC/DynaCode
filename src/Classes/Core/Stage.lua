@@ -231,10 +231,13 @@ function Stage:submitEvent( event )
     local nodes = self.nodes
     local main = event.main
 
-    local oX, oY
+    local oX, oY, oPb
     if main == "MOUSE" then
+        oPb = event.inParentBounds
+        event.inParentBounds = event:isInNode( self )
+
         -- convert X and Y to relative co-ords.
-        oX, oY = event.X, event.Y
+        oX, oY = event:getPosition()
         event:convertToRelative( self ) -- convert to relative, but revert this later so other stages aren't using relative co-ords.
         if not self.borderless then
             event.Y = event.Y - 1
@@ -245,7 +248,7 @@ function Stage:submitEvent( event )
         nodes[ i ]:handleEvent( event )
     end
     if main == "MOUSE" then
-        event.X, event.Y = oX, oY -- convert back to global because other stages may need to use this event.
+        event.X, event.Y, event.inParentBounds = oX, oY, oPb -- convert back to global because other stages may need to use this event.
     end
 end
 
