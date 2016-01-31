@@ -286,6 +286,8 @@ function Application:mapWindow( x1, y1, x2, y2 )
         local stageX, stageY = stage.X, stage.Y
         local stageWidth, stageHeight = stage.canvas.width, stage.canvas.height
 
+        local width, height = self.width, self.height
+
         local stageX2, stageY2
         stageX2 = stageX + stageWidth
         stageY2 = stageY + stageHeight
@@ -295,15 +297,18 @@ function Application:mapWindow( x1, y1, x2, y2 )
 
         if not (stageX > x2 or stageY > y2 or x1 > stageX2 or y1 > stageY2) then
             for y = math.max(stageY, y1), math.min(stageY2, y2) do
+                if y > height then break end
                 local yPos = self.width * ( y - 1 )
 
                 for x = math.max(stageX, x1), math.min(stageX2, x2) do
-                    local layer = layers[ yPos + x ]
+                    if x <= width then
+                        local layer = layers[ yPos + x ]
 
-                    if layer ~= ID and stageVisible and ( stage:isPixel( x - stageX + 1 , y - stageY + 1 ) ) then
-                        layers[ yPos + x ] = ID
-                    elseif layer == ID and not stageVisible then
-                        layers[ yPos + x ] = false
+                        if layer ~= ID and stageVisible and ( stage:isPixel( x - stageX + 1 , y - stageY + 1 ) ) then
+                            layers[ yPos + x ] = ID
+                        elseif layer == ID and not stageVisible then
+                            layers[ yPos + x ] = false
+                        end
                     end
                 end
             end
