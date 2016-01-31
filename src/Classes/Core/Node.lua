@@ -45,14 +45,6 @@ function Node:draw( xO, yO )
     end
 end
 
-function Node:setX( x )
-    self.X = x
-end
-
-function Node:setY( y )
-    self.Y = y
-end
-
 function Node:setWidth( width )
     self.width = width
     self.canvas.width = width
