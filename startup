@@ -6,7 +6,7 @@ log:setLoggingEnabled( true )
 log:setLoggingPath("DynaCode.log")
 
 myApp = Application( term.getSize() )
-myWindow = myApp + Stage( "myWindow", 10, 7, 30, 10 )
+myWindow = myApp + Stage( 10, 7, 30, 10 )
 myWindow.title = "Scroll Demo"
 
 secondWindow = myApp + Stage {
@@ -15,7 +15,6 @@ secondWindow = myApp + Stage {
     Y = 4;
     width = 15;
     height = 10;
-    name = "secondWindow";
     backgroundColor = colours.blue
 }
 
@@ -24,8 +23,7 @@ thirdWindow = myApp + Stage {
     X = 30;
     Y = 10;
     width = 15;
-    height = 10;
-    name = "thirdWindow"
+    height = 10
 }
 
 -- Lets create two pages

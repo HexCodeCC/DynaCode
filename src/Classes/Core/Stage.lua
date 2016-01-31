@@ -47,8 +47,6 @@ class "Stage" mixin "MTemplateHolder" alias "COLOUR_REDIRECT" {
     scenes = {};
     activeScene = nil;
 
-    name = nil;
-
     textColour = 32768;
     backgroundColour = 1;
 
@@ -81,11 +79,10 @@ class "Stage" mixin "MTemplateHolder" alias "COLOUR_REDIRECT" {
 
 function Stage:initialise( ... )
     -- Every stage has a unique ID used to find it afterwards, this removes the need to loop every stage looking for the correct object.
-    local name, X, Y, width, height = ParseClassArguments( self, { ... }, { {"name", "string"}, {"X", "number"}, {"Y", "number"}, {"width", "number"}, {"height", "number"} }, true, true )
+    local X, Y, width, height = ParseClassArguments( self, { ... }, {{"X", "number"}, {"Y", "number"}, {"width", "number"}, {"height", "number"} }, true, true )
 
     self.X = X
     self.Y = Y
-    self.name = name
 
     self.canvas = StageCanvas( {width = width; height = height; textColour = self.textColour; backgroundColour = self.backgroundColour, stage = self} )
 
