@@ -175,7 +175,7 @@ function Parser.parse( data )
 
         local matrix = DCMLMatrix[ label ]
         if type( matrix ) ~= "table" then
-            return error("No DCMLMatrix for tag with label '"..tostring(label).."'")
+            return DCMLParseException("No DCMLMatrix for tag with label '"..tostring(label).."'")
         end
 
         local custom = getFunction( false, matrix.customHandler )
@@ -196,7 +196,7 @@ function Parser.parse( data )
 
                     local c = classLib.getClass( label )
                     if not c then
-                        error("Failed to fetch class for '"..label.."' while fetching alias information")
+                        DCMLParseException("Failed to fetch class for '"..label.."' while fetching alias information")
                     end
 
                     aliasCache[ label ] = c.__alias
@@ -234,7 +234,7 @@ function Parser.parse( data )
             end
 
             if not instance then
-                return error("Failed to generate instance for DCML tag '"..label.."'")
+                return DCMLParseException("Failed to generate instance for DCML tag '"..label.."'")
             end
 
             if element.hasChildren and matrix.childHandler then
