@@ -22,6 +22,7 @@ function ParseClassArguments( instance, arguments, order, require, raw )
         local _type = types[ key ]
 
         if _type and type( value ) ~= _type then
+            if _type == "C_INSTANCE" and classLib.isInstance( value ) then return value end
             if not classLib.typeOf( value, _type, true ) then
                 _G.parseError = { key, value }
                 return ParameterException("Expected type '".._type.."' for argument '"..key.."', got '"..type( value ).."' instead while initialising '"..tostring( instance ).."'.", 4)

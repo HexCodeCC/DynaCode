@@ -428,7 +428,7 @@ end
 
 function Stage:setChanged( bool )
     self.changed = bool
-    if bool then self.application.changed = true end
+    if bool and self.application then self.application.changed = true end
 end
 
 function Stage:getNodes()
