@@ -75,7 +75,7 @@ function ApplicationCanvas:drawToScreen( force )
 
                 pos = pos + 1
             end
-            if tChanged then
+            if tChanged or force then
                 setCursorPos( 1, y )
                 blit( concat( tT, "" ), concat( tC, "" ), concat( tB, "" ) ) -- table.concat comes with a major speed advantage compared to tT = tT .. pixel[1] or " ". Same goes for term.blit
             end
