@@ -1,26 +1,34 @@
 local insert = table.insert
 local sub = string.sub
 
---[[DCML.registerTag("Stage", {
-    childHandler = function( self, element ) -- self = instance (new)
-        -- the stage has children, create them using the DCML parser and add them to the instance.
-        self.nodesToAdd = DCML.parse( element.content )
+DCML.registerTag("Stage", {
+    childHandler = function( self, raw )
+        -- Because we need the Stage to be ready for us (properties assigned) we wait until everyone is ready before adding nodes incrementally.
+        self.toFinishParsing = DCML.parse( raw.content )
     end;
     onDCMLParseComplete = function( self )
-        local nodes = self.nodesToAdd
+        local element = self.toFinishParsing
 
-        if nodes then
-            for i = 1, #nodes do
-                local node = nodes[i]
+        for i = 1, #element do
+            local node = element[ i ]
+            -- If its not a template throw an exception.
 
-                self:addNode( node )
-                if node.nodesToAdd and type( node.resolveDCMLChildren ) == "function" then
+            if classLib.typeOf( node, "Template", true ) then
+                -- Add the Template
+                self:registerTemplate( node )
+
+                if node.toFinishParsing and type( node.resolveDCMLChildren ) == "function" then
                     node:resolveDCMLChildren()
                 end
-            end
 
-            self.nodesToAdd = nil
+                if node.active then
+                    self.activeTemplate = node
+                end
+            else
+                DCMLParseException("Failed to parse DCML for Stage creation. '"..tostring( node ).."' was found inside a Stage (should be inside a Template)")
+            end
         end
+        self.toFinishParsing = nil
     end;
     argumentType = {
         X = "number";
@@ -28,8 +36,7 @@ local sub = string.sub
         width = "number";
         height = "number";
     },
-})]]
-local NO_REDRAW_ON_STAGE_AJUDST = true -- Stage contents will not be drawn while the stage has 'mouseMode' set (resize/move mode)
+})
 
 class "Stage" mixin "MTemplateHolder" alias "COLOUR_REDIRECT" {
     X = 1;
