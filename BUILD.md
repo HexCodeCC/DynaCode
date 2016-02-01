@@ -6,7 +6,9 @@ Depending on your use-case you will have to build DynaCode differently. This doc
 Building DynaCode is the process of gathering all source files and compacting them into one file. This one file can then be executed to load all DynaCode services.
 
 ## On The Fly Building
-On the fly building is the fastest and easiest method of building DynaCode. To build DynaCode to `DynaCode.lua` the following command would be used:
+On the fly building is the fastest and easiest method of building DynaCode. This method performs no minification and only serializes the file.
+
+To build DynaCode to `DynaCode.lua` the following command would be used:
 
 `dobuild.lua` is the builder: `dobuild.lua <pathToSource> <outputFile>`
 
@@ -23,6 +25,8 @@ dobuild.lua src DynaCode.lua
 
 ## Minification Building
 This build method takes a little longer and requires you to install Lua on your computer command line.
+
+This type of building minifies the source code and reduces the size of DynaCodes build file by up to 50%. This method is therefore best suited when you are limited on space or just prefer not using up unnecessary space.
 
 #### Step 1
 First, download Lua on your command line. The version you install needs to be 5.1.\*. When tested with 5.2 or 5.3 the builder failed (the third party LuaSrcDiet tool).
