@@ -11,6 +11,8 @@ class "Application" alias "COLOUR_REDIRECT" mixin "MDaemon" {
     running = false;
 
     lastID = 0;
+
+    terminatable = true;
 }
 
 function Application:initialise( ... )
@@ -154,6 +156,9 @@ function Application:run( thread )
             end
 
             local event = self.event:create( { coroutine.yield() } )
+            if event.main == "TERMINATE" and event.sub == "EVENT" and self.terminatable then
+                Exception("TERMINATE", 0)
+            end
             self.event:shipToRegistrations( event )
 
             if event.main == "KEY" then
