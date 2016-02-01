@@ -11,6 +11,8 @@ end
 abstract class "MultiLineTextDisplay" extends "NodeScrollContainer" {
     lastHorizontalStatus = false;
     lastVerticalStatus = false;
+
+    allowsIdentifiers = true;
 }
 
 function MultiLineTextDisplay:initialise( ... )
@@ -21,58 +23,63 @@ function MultiLineTextDisplay:initialise( ... )
 end
 
 function MultiLineTextDisplay:parseIdentifiers()
-    local segments = {}
-    local str = self.text
-    local oldStop = 0
+    if self.allowsIdentifiers then
+        local segments = {}
+        local str = self.text
+        local oldStop = 0
 
-    local newString = gsub( str, "[ ]?%@%w-%-%w+[[%+%w-%-%w+]+]?[ ]?", "" )
+        local newString = gsub( str, "[ ]?%@%w-%-%w+[[%+%w-%-%w+]+]?[ ]?", "" )
 
-    -- Loop until the string has been completely searched
-    local textColour, backgroundColour, alignment = false, false, false
-    while len( str ) > 0 do
-        -- Search the string for the next identifier.
-        local start, stop = find( str, "%@%w-%-%w+[[%+%w-%-%w+]+]?" )
-        local leading, trailing, identifier
+        -- Loop until the string has been completely searched
+        local textColour, backgroundColour, alignment = false, false, false
+        while len( str ) > 0 do
+            -- Search the string for the next identifier.
+            local start, stop = find( str, "%@%w-%-%w+[[%+%w-%-%w+]+]?" )
+            local leading, trailing, identifier
 
-        if not start or not stop then break end
+            if not start or not stop then break end
 
-        leading = sub( str, start - 1, start - 1 ) == " "
-        trailing = sub( str, stop + 1, stop + 1 ) == " "
-        identifier = sub( str, start, stop )
+            leading = sub( str, start - 1, start - 1 ) == " "
+            trailing = sub( str, stop + 1, stop + 1 ) == " "
+            identifier = sub( str, start, stop )
 
-        -- Remove the identifier from the string along with everything prior. Reduce the X index with that too.
-        local X = stop + oldStop - len( identifier )
-        oldStop = oldStop + start - 2 - ( leading and 1 or 0 ) - ( trailing and 1 or 0 )
+            -- Remove the identifier from the string along with everything prior. Reduce the X index with that too.
+            local X = stop + oldStop - len( identifier )
+            oldStop = oldStop + start - 2 - ( leading and 1 or 0 ) - ( trailing and 1 or 0 )
 
-        -- We have the X index which is where the settings will be applied during draw, trim the string
-        str = sub( str, stop )
+            -- We have the X index which is where the settings will be applied during draw, trim the string
+            str = sub( str, stop )
 
-        -- Parse this identifier
-        for part in gmatch( identifier, "([^%+]+)" ) do
-            if sub( part, 1, 1 ) == "@" then
-                -- discard the starting symbol
-                part = sub( part, 2 )
+            -- Parse this identifier
+            for part in gmatch( identifier, "([^%+]+)" ) do
+                if sub( part, 1, 1 ) == "@" then
+                    -- discard the starting symbol
+                    part = sub( part, 2 )
+                end
+
+                local pre, post = match( part, "(%w-)%-" ), match( part, "%-(%w+)" )
+                if not pre or not post then error("identifier '"..tostring( identifier ).."' contains invalid syntax") end
+
+                if pre == "tc" then
+                    textColour = parseColour( post )
+                elseif pre == "bg" then
+                    backgroundColour = parseColour( post )
+                elseif pre == "align" then
+                    alignment = post
+                else
+                    error("Unknown identifier target '"..tostring(pre).."' in identifier '"..tostring( identifier ).."' at part '"..part.."'")
+                end
             end
 
-            local pre, post = match( part, "(%w-)%-" ), match( part, "%-(%w+)" )
-            if not pre or not post then error("identifier '"..tostring( identifier ).."' contains invalid syntax") end
-
-            if pre == "tc" then
-                textColour = parseColour( post )
-            elseif pre == "bg" then
-                backgroundColour = parseColour( post )
-            elseif pre == "align" then
-                alignment = post
-            else
-                error("Unknown identifier target '"..tostring(pre).."' in identifier '"..tostring( identifier ).."' at part '"..part.."'")
-            end
+            segments[ X ] = { textColour, backgroundColour, alignment }
         end
 
-        segments[ X ] = { textColour, backgroundColour, alignment }
+        local container = self.container
+        container.segments, container.text = segments, newString
+    else
+        local container = self.container
+        container.segments, container.text = {}, self.text
     end
-
-    local container = self.container
-    container.segments, container.text = segments, newString
 end
 
 function MultiLineTextDisplay:cacheRequiredScrollbars()
