@@ -1,27 +1,43 @@
 # Building DynaCode
 
-DynaCode can be built via two methods. The first is the usual and can be done rather quickly using just ComputerCraft. The second minifies DynaCode source and is only really used to create builds that will be used.
+Depending on your use-case you will have to build DynaCode differently. This document aims to show you the two ways of building DynaCode.
 
-### On-The-Fly Building
-This method uses the `dobuild.lua` file. This file must be passed the directory in which to get the source and the location to save the output.
+#### What is building?
+Building DynaCode is the process of gathering all source files and compacting them into one file. This one file can then be executed to load all DynaCode services.
 
-Ex:
+## On The Fly Building
+On the fly building is the fastest and easiest method of building DynaCode. To build DynaCode to `DynaCode.lua` the following command would be used:
+
+`dobuild.lua` is the builder: `dobuild.lua <pathToSource> <outputFile>`
+
+The first argument is the path to the DynaCode source, which in this repo is `/src/`. The second argument is the file to output the build to.
+
+If you are building DynaCode from this repo then this is what I use to build it:
 ```lua
-dobuild.lua src/ bin/DynaCode.lua
+-- In a running file:
+dofile("dobuild.lua", "src", "DynaCode.lua")
+
+-- OR from command line:
+dobuild.lua src DynaCode.lua
 ```
 
-### Minification Building
-This method is a little more complex. The files `minify` and `make` are used for this build technique. This method only works on Windows at the moment
+## Minification Building
+This build method takes a little longer and requires you to install Lua on your computer command line.
 
-Firstly, run `minify` using a Lua interpreter (this cannot be ComputerCraft) in your command prompt.
+#### Step 1
+First, download Lua on your command line. The version you install needs to be 5.1.\*. When tested with 5.2 or 5.3 the builder failed (the third party LuaSrcDiet tool).
 
-```
-lua minify
-```
+#### Step 2
+Once Lua is ready to go, execute the `minify` file from this repo via the Lua interpreter (NOT ComputerCraft). This file takes no arguments as the paths are hardcoded. It will look in `/src/` for the source files and output the minified equivalent to `/minified/`.
 
-This will quickly gather information about all source files, open them, minify them and save the result to 'minified/'.
+If the minification fails check the troubleshooting section.
 
-Then, run `make` in ComputerCraft to load these minified files, serialise them and save them to a build location (`make <OUTPUT>`). The resulting file will contain a table of
-minified files and the necessary code to load them.
+#### Step 3
+Now that all the files are correctly minified execute `make <output> [--clean?]` in ComputerCraft.
 
-If the `make` file is run with `--clean` then the minified build files will be removed (which should be done as the minify file will remove the folder before building to remove files that are no longer needed).
+The first argument being the file to output the build to. The second argument being `--clean`, this argument is optional and when provided the minified version of the files will be deleted once the build has completed.
+
+### Troubleshooting
+The DynaCode minification builder uses LuaSrcDiet (third party) to minify Lua source code. If your problem is due to this file please ensure you are running Lua version 5.1.\*
+
+If the `minify` command doesn't work for you ensure you are running it through the Lua interpreter. Also, remember that the Minification builder only supports Windows and Mac.
