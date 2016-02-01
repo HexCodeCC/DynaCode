@@ -339,6 +339,7 @@ end
 function Stage:setMouseMode( mode )
     self.mouseMode = mode
     self.canvas:redrawFrame()
+    self.changed = true
 end
 
 function Stage:mapNode( x1, y1, x2, y2 )
