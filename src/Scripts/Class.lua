@@ -247,6 +247,7 @@ local function compileSuper( base, target, total, totalAlias, superNumber )
                     -- Adjust the super on the instance
                     local oSuper = instance.super
 
+
                     local new = instance:seekSuper( superNumber + 1 )
                     instance.super = new ~= nil and new ~= "nil" and new or nil
 
@@ -497,10 +498,13 @@ local function spawnClass( name, ... )
             throw("Failed to get 'nil' key. Key names must have a value.")
         end
 
+        -- Check if a getter is available. If there is and we own it set the super to #1 (lowest). Also, if the target is a function return a wrapper if we own it (to also set the super to #1).
         local getter = getters[ k ]
-        if type(instanceRaw[ getter ]) == "function" and not getting[ k ] then
+        if type( instanceRaw[ getter ] ) == "function" and not getting[ k ] then
+            -- Use the getter function. If its ours then wrap it, otherwise do not (its a super factory).
+            local adjustSuper = instanceRaw.__defined[ k ]
             local oSuper = instanceRaw.super
-            instanceRaw.super = firstSuper
+            if adjustSuper then instanceRaw.super = firstSuper end
 
             getting[ k ] = true
             local v = { instanceRaw[ getter ]( self ) }
@@ -509,9 +513,22 @@ local function spawnClass( name, ... )
             instanceRaw.super = oSuper
 
             return unpack( v )
+        elseif type( instanceRaw[ k ] ) == "function" and instanceRaw.__defined[ k ] then
+            -- Return a wrapper if its ours, otherwise don't (its inherited and will be a factory)
+            return function( self, ... )
+                local oSuper = instanceRaw.super
+                instanceRaw.super = firstSuper
+
+                local v = { instanceRaw[ k ]( self, ... ) }
+
+                instanceRaw.super = oSuper
+
+                return unpack( v )
+            end
         else
             return instanceRaw[ k ]
         end
+
     end
 
     local setting = {}
