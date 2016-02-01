@@ -78,10 +78,7 @@ function Button:onMouseDrag( event )
 end
 
 function Button:onMouseMiss( event )
-    if self.focused and event.sub == "DRAG" then -- dragged off of node, set colour back to normal
-        self.active = false
-        event.handled = true
-    elseif event.sub == "UP" and ( self.focused or self.active ) then -- mouse up off of the node, set its colour back to normal and remove focus
+    if event.sub == "UP" and ( self.focused or self.active ) then -- mouse up off of the node, set its colour back to normal and remove focus
         self.active = false
         self.focused = false
         event.handled = true
