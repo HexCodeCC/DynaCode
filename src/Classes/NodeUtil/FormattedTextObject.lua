@@ -162,12 +162,10 @@ end
 function FormattedTextObject:draw( xO, yO )
     local owner = self.owner
     if not classLib.isInstance( owner ) then
-        return error("Cannot draw '"..tostring( self:type() ).."'. The instance has no owner.")
+        return ParameterException("Cannot draw '"..tostring( self:type() ).."'. The instance has no owner.")
     end
 
     local canvas = owner.canvas
-    if not canvas then return error("Object '"..tostring( owner ).."' has no canvas") end
-    --canvas:clear()
     local buffer = canvas.buffer
 
     if not self.lines then
@@ -184,7 +182,7 @@ function FormattedTextObject:draw( xO, yO )
         startingPos = canvas.width * ( i - 0 )
 
         for x = 1, #line do
-            local pixel = line[x] or {" ", colours.red, colours.red}
+            local pixel = line[x]
             if pixel then
                 buffer[ (canvas.width * (i - 1 + yO)) + (x + lineX - 1) ] = { pixel[1], pixel[2], pixel[3] }
             end
