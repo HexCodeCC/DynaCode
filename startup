@@ -6,7 +6,7 @@ log:setLoggingEnabled( true )
 log:setLoggingPath("DynaCode.log")
 
 myApp = Application( term.getSize() )
---[==[myWindow = myApp + Stage( 10, 7, 30, 10 )
+myWindow = myApp + Stage( 10, 7, 30, 10 )
 myWindow.title = "Scroll Demo"
 
 secondWindow = myApp + Stage {
@@ -90,23 +90,19 @@ myWindow.activeTemplate = homePage
 myApp.hotkey:registerCombination("swapPage", "ctrl-b", function()
     myWindow.activeTemplate = myWindow.activeTemplate == homePage and aboutPage or homePage
 end)
-]==]
 
 myApp.hotkey:registerCombination("close", "ctrl-x", function()
     myApp:finish()
 end)
-
---myWindow:focus()
--- finally run the application
 
 myApp:appendStagesFromDCML("stages.dcml")
 
 local mainStage = myApp:getStageByName("MainStage")
 mainStage:focus()
 
-mainStage:addToController("hey", function()
-    myApp:finish()
-    print("muhahahahaha, I closed the application!")
+mainStage:addToController("hey", function( self )
+    self.stage:close()
 end)
 
+-- finally run the application
 myApp:run()
