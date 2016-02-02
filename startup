@@ -7,7 +7,7 @@ log:setLoggingPath("DynaCode.log")
 
 myApp = Application( term.getSize() )
 myWindow = myApp + Stage( 10, 7, 30, 10 )
-myWindow.title = "Scroll Demo"
+myWindow.title = "TextInput Demo"
 
 secondWindow = myApp + Stage {
     title = "Test Window";
@@ -57,7 +57,7 @@ end
 infoLabel = homePage + Label("'ctrl+b' to swap page", 5, 10)
 
 -- On the second page we'll have a text container.
-myText = aboutPage + TextContainer([[
+--[==[myText = aboutPage + TextContainer([[
 @align-center Hello friend, this is a @tc-blue  TextContainer@tc-grey . Pretty cool huh?
 
 This text will develop a scroll bar to allow for loooooads of text!
@@ -82,9 +82,14 @@ The text can also be aligned to the left, right or center of the TextContainer.
 
 @tc-yellow Press 'ctrl+b' to return to the main page.
 ]], 1, 1, 30, 9)
-
+]==]
 -- Set the active template to our first page
-myWindow.activeTemplate = homePage
+myWindow.activeTemplate = aboutPage
+
+inp = aboutPage + TextInput( 1, 1, 30, 9 )
+inp.defaultAlignment = "center"
+inp.cursorColor = colours.cyan
+inp.textColour = colours.grey
 
 -- and make some hotkeys
 myApp.hotkey:registerCombination("swapPage", "ctrl-b", function()
