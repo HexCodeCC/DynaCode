@@ -13,7 +13,7 @@ local popen = io.popen
 if not isMac then
     os.execute("IF EXIST minified ( rmdir minified /S /Q )")
 else
-    os.execute("if test -d minified; then rmdir minified; fi")
+    os.execute("if test -d minified; then rm -rf minified; fi")
 end
 os.execute("mkdir minified")
 
