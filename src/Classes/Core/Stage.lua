@@ -203,7 +203,7 @@ function Stage:appDrawComplete()
         if not enabled then return end
 
         term.setTextColour( tc )
-        term.setCursorPos( X, Y )
+        term.setCursorPos( X + self.X - 1, Y + self.Y - (self.borderless and 1 or 0) )
         term.setCursorBlink( true )
     end
 end
