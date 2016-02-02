@@ -13,6 +13,7 @@ abstract class "MultiLineTextDisplay" extends "NodeScrollContainer" {
     lastVerticalStatus = false;
 
     allowsIdentifiers = true;
+    defaultAlignment = "left";
 }
 
 function MultiLineTextDisplay:initialise( ... )

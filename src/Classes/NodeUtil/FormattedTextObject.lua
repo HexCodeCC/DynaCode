@@ -31,12 +31,13 @@ function FormattedTextObject:cacheSegmentInformation()
 
     local segments = self.segments
     local width, text, lines, currentY, currentX = self.owner.cache.displayWidth, self.text, {}, 1, 1
-    local textColour, backgroundColour, lineAlignment = false, false, "left"
+    local textColour, backgroundColour, lineAlignment = false, false, self.owner.defaultAlignment or "left"
 
-    local function newline()
+    local function newline( manual )
         currentX = 1
 
         lines[ currentY ].align = AssertEnum( lineAlignment, {"left", "center", "centre", "right"}, "Failed FormattedTextObject caching: '"..tostring( lineAlignment ).."' is an invalid alignment setting.") -- set the property on this line for later processing
+        lines[ currentY ].isNewline = manual or false
 
         currentY = currentY + 1
 
@@ -76,7 +77,7 @@ function FormattedTextObject:cacheSegmentInformation()
         local new = match( text, "^[\n]+")
         if new then
             for i = 1, len( new ) do
-                newline()
+                newline( true )
                 textIndex = textIndex + 1
             end
             text = sub( text, len( new ) + 1 )
