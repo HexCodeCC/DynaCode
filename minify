@@ -56,7 +56,7 @@ end
 local minificationClient
 local function minify( path )
     makeDirsRequired( path )
-    minificationClient( ".build_temp", "--quiet", "-o", "minified"..dirSeperator..path )
+    minificationClient( ".build_temp", "--quiet", "--opt-eols", "-o", "minified"..dirSeperator..path )
 end
 
 print("Initialising minification client")
