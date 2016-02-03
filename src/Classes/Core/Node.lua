@@ -1,4 +1,4 @@
-abstract class "Node" alias "COLOUR_REDIRECT" {
+abstract class "Node" mixin "MAnchorable" alias "COLOUR_REDIRECT" {
     X = 1;
     Y = 1;
 
@@ -70,7 +70,16 @@ function Node:setTextColour( col )
 end
 
 function Node:onParentChanged()
-    self.changed = true
+    error("hit")
+    --self.changed = true
+end
+
+function Node:onParentResize()
+    -- Update any anchors
+    local anchor = self.anchor
+    if anchor then
+        anchor:updateAnchor()
+    end
 end
 
 local function call( self, callback, ... )

@@ -272,6 +272,15 @@ function Stage:resize( nW, nH )
 
     self.forceRedraw = true
     self.application.changed = true
+
+    if type( self.onResize ) == "function" then
+        self:onResize()
+    end
+
+    local nodes, anchor = self.nodes
+    for i = 1, #nodes do
+        nodes[ i ]:onParentResize()
+    end
 end
 
 function Stage:focus()
