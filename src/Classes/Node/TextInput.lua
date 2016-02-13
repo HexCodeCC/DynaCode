@@ -81,18 +81,23 @@ function TextInput:getCursorInformation()
 
     local remainingOffset = self.cursorPosition
     local newlineOffset = 0;
-    -- Use the cursor position to calculate the active line and the position on that line.
+
+    local function newlineFound( lineLen )
+        if lineLen then remainingOffset = math.max( remainingOffset - lineLen - 1, 0 ) end
+
+        cursorY = cursorY + 1
+    end
+
     local line
     for y = 1, #lines do
         line = lines[ y ]
-
-        if remainingOffset - 1 > #line then
-            cursorY = cursorY + 1
-            remainingOffset = math.max( remainingOffset - #line - 1, 0 )
-
-            if line.isNewline then newlineOffset = newlineOffset + 1 end
+        if remainingOffset - 1 > #line - (line.isWrapped and 1 or 0) then
+            newlineFound( #line - (line.isWrapped and 1 or 0) )
+        elseif remainingOffset - 1 > #line and line.isNewline then
+            newlineOffset = newlineOffset + 1
+            newlineFound( #line )
         else
-            cursorX = line.X + remainingOffset - newlineOffset + cursorY - 2
+            cursorX = line.X + remainingOffset - 1 - newlineOffset
             break
         end
     end

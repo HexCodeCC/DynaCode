@@ -37,7 +37,7 @@ function FormattedTextObject:cacheSegmentInformation()
         currentX = 1
 
         lines[ currentY ].align = AssertEnum( lineAlignment, {"left", "center", "centre", "right"}, "Failed FormattedTextObject caching: '"..tostring( lineAlignment ).."' is an invalid alignment setting.") -- set the property on this line for later processing
-        lines[ currentY ].isNewline = manual or false
+        lines[ currentY ][ manual and "isNewline" or "isWrapped"] = true
 
         currentY = currentY + 1
 

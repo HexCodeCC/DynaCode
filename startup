@@ -87,9 +87,11 @@ The text can also be aligned to the left, right or center of the TextContainer.
 myWindow.activeTemplate = aboutPage
 
 inp = aboutPage + TextInput( 1, 1, 30, 9 )
-inp.defaultAlignment = "center"
+inp.defaultAlignment = "left"
 inp.cursorColor = colours.cyan
 inp.textColour = colours.grey
+
+inp.text="Hello\n\nWorld\n\nHow are you doing this fine evening?"
 
 -- and make some hotkeys
 myApp.hotkey:registerCombination("swapPage", "ctrl-b", function()
