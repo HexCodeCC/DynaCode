@@ -779,6 +779,7 @@ function classLib.setClassLoader( fn )
 
     MISSING_CLASS_LOADER = fn
 end
+classLib.preprocess = preprocess
 function classLib.runClassString( str, file, ignore )
     local ext = CRASH_DUMP.ENABLE and " The file being loaded at the time of the crash has been saved to '"..CRASH_DUMP.LOCATION.."'" or ""
 
