@@ -55,7 +55,7 @@ local interfaces = explore( fs.combine( SOURCE_DIRECTORY, "interfaces" ) )]]
 local export = {}
 for i = 1, #files do
     local path = files[ i ]
-    
+
     if fs.getName( path ) ~= ".DS_Store" then
         local h = fs.open( path, "r" )
         export[ fs.getName( files[i] ) ] = h.readAll()
@@ -63,110 +63,43 @@ for i = 1, #files do
     end
 end
 
-local final = ""
-final = final .. [[
--- DynaCode - Class Edition
-
--- Files follow:
-]]
+local final = "-- DynaCode - Class Edition - Harry Felton (HexCodeCC/hbomb_79)\n"
 final = final .. "local files = "..textutils.serialise( export ) .. "\n"
 
 final = final .. [==[
--- Start of unpacker. This script will load all packed files and verify their classes were created correctly.
-
---[[
-    Files checked (in order):
-    - scriptFiles.cfg - Files in here are assumed to not load any classes, therefore the class will not be verified. (IGNORE FILE)
-    - loadFirst.cfg - Files in here will be loaded before other classes
-]]
-
-local ignore = {
-    ["Class.lua"] = true
-}
-local loaded = {}
-
-local function executeString( name )
-    -- Load this lua chunk from string.
-    local fn, err = loadstring( files[ name ], name )
-    if err then
-        return error("Failed to load file '"..name.."'. Exception: "..err, 0)
-    end
-
-    -- Execute the Lua chunk if the loadstring was successful.
-    local ok, err = pcall( fn )
-    if err then
-        return error("Error occured while running chunk '"..name.."': "..err, 0)
-    end
-end
-
--- Load the class library now!
-if files[ "Class.lua" ] then
-    executeString( "Class.lua" )
-    loaded[ "Class.lua" ] = true
-else
-    return error("Cannot unpack DynaCode because the class library is missing (Class.lua)")
-end
-
-local function getHandleFromPack( file )
-    if not files[ file ] then return false, 404 end
-    return files[ file ]
-end
-
-local function loadFromPack( name )
-    print( name )
+local doNotVerify, loaded = {["Class.lua"] = true}, {}
+local function execute( data, name )
     if loaded[ name ] then return end
 
-    local ignoreFile = ignore[ name ]
+    local fn, err = loadstring( classLib and classLib.preprocess( data ) or data, name )
+    if err then error("Failed to load string to Lua chunk for file '"..(name or "no name").."': "..err, 0) end
 
-    if not files[ name ] then
-        return error("Cannot load file '"..name.."' from packed files because it cannot be found. Please check your DynaCode installation")
+    local ok, err = pcall( fn )
+    if err then error("Failed to execute Lua chunk for file '"..(name or "no name").."': "..err, 0) end
+
+    if not doNotVerify[ name ] then
+        local className = name:gsub("%..*", "")
+        local class = classLib.getClass( className )
+
+        if class then class:seal() else error("File '"..name.."' failed to create class '"..className.."'", 0) end
     end
-
-    -- Execution complete, check class validity
-    classLib.runClassString( files[ name ], name, ignoreFile )
     loaded[ name ] = true
 end
-
-classLib.setClassLoader( function( _c )
-    loadFromPack( _c..".lua" )
-end )
-
--- First, compile a list of files to be ignored.
-local content, err = getHandleFromPack( "scriptFiles.cfg" )
-if content then
-    for name in content:gmatch( "[^\n]+" ) do
-		ignore[ name ] = true
-	end
-    loaded[ "scriptFiles.cfg" ] = true
+local function executeFromPackage( name )
+    execute( files[ name ] or error("File '"..name.."' couldn't be loaded because it doesn't exist in the package."), name)
+end
+local function scanLines( file, fn )
+    local content = files[ file ]
+    if content then for name in content:gmatch( "[^\n]+" ) do fn( name ) end loaded[ file ] = true end
 end
 
-local content, err = getHandleFromPack( "loadFirst.cfg" )
-if content then
-    for name in content:gmatch( "[^\n]+" ) do
-		loadFromPack( name )
-	end
-    loaded[ "loadFirst.cfg" ] = true
-end
+if files["Class.lua"] then execute( files["Class.lua"], "Class.lua" ) else error("Failed to locate and load DynaCode Class System (Class.lua)", 0) end
+classLib.setClassLoader(function( _c ) executeFromPackage( _c..".lua" ) end)
 
-for name, _ in pairs( files ) do
-    loadFromPack( name )
-end
-
-local path = shell.getRunningProgram() or DYNACODE_PATH
-_G.DynaCode = {}
-function DynaCode.checkForUpdate()
-
-end
-
-function DynaCode.installUpdateData()
-
-end
-
-function DynaCode.checkForAndInstallUpdate()
-
-end
+scanLines("scriptFiles.cfg", function( n ) doNotVerify[ n ] = true end)
+scanLines("loadFirst.cfg", function( n ) executeFromPackage( n ) end)
+for name, data in pairs( files ) do execute( data, name ) end
 ]==]
-
 
 local h = fs.open( OUTPUT_FILE, "w" )
 h.write( final )
