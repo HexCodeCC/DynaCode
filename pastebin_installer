@@ -23,7 +23,7 @@ local REPO_DOWNLOAD_EARLY
 local REPO_DOWNLOAD_MINIFIED
 local DOWNLOAD_SOURCE
 
-local INSTALL_DIR = "/INSTALL"
+local INSTALL_DIR = "/"
 local INSTALL_PATH = "DynaCode.lua"
 
 local SUPPORTED_FLAGS = {
