@@ -1,6 +1,18 @@
+local allowedProperties = { "right", "left", "bottom", "top", "minimumWidth", "maximumWidth", "minimumHeight", "maximumHeight" }
+
+local function isInTable( tbl, key )
+    if not tbl then return false end
+    for i = 1, #tbl do
+        if tbl[i] == key then return true end
+    end
+    return false
+end
+
 abstract class "MAnchorable" {
     anchorable = true;
     achor = false;
+
+    __anchorWorking = false;
 }
 
 function MAnchorable:createAnchor( property, value )

@@ -400,3 +400,10 @@ function NodeScrollContainer:removeNode( n )
 
     self.recacheAllNextDraw = true
 end
+
+
+function NodeScrollContainer:onParentResize()
+    self.super:onParentResize()
+
+    self.recacheAllNextDraw = true
+end

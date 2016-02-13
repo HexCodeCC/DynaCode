@@ -127,6 +127,12 @@ function Application:run( thread )
         local tm = self.timer
 
         if self.onRun then self:onRun() end
+        
+        local stage
+        for i = 1, #self.stages do
+            stage = self.stages[i]
+            stage:resize( stage.width, stage.height )
+        end
 
         self:draw( true )
         log("s", "Engine start successful. Running in protected mode")

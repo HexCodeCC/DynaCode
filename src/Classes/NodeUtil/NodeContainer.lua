@@ -22,3 +22,12 @@ function NodeContainer:resolveDCMLChildren()
     end
     self.nodesToAdd = nil
 end
+
+function NodeContainer:onParentResize()
+    self.super:onParentResize()
+
+    local nodes = self.nodes
+    for i = 1, #nodes do
+        nodes[ i ]:onParentResize()
+    end
+end

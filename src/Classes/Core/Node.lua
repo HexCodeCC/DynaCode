@@ -45,14 +45,28 @@ function Node:draw( xO, yO )
     end
 end
 
+function Node:triggerResize()
+    if self.__anchorWorking then return end
+
+    local nodes, anchor = self.nodes
+    if not nodes then return end
+
+    for i = 1, #nodes do
+        nodes[ i ]:onParentResize()
+    end
+end
 function Node:setWidth( width )
     self.width = width
     self.canvas.width = width
+
+    self:triggerResize()
 end
 
 function Node:setHeight( height )
     self.height = height
     self.canvas.height = height - 1
+
+    self:triggerResize()
 end
 
 function Node:setBackgroundColour( col )
@@ -75,6 +89,10 @@ function Node:onParentChanged()
 end
 
 function Node:onParentResize()
+    if type( self.onResize ) == "function" then
+        self:onResize()
+    end
+
     -- Update any anchors
     local anchor = self.anchor
     if anchor then
