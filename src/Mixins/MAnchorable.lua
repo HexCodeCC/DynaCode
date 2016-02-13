@@ -32,14 +32,15 @@ function MAnchorable:createAnchor( property, value )
         anchor:addPropertyTarget( property, value )
     end
 
-    self:bindAnchor( anchor )
+    self:setAnchor( anchor )
     return anchor
 end
 
-function MAnchorable:bindAnchor( anchor )
+function MAnchorable:setAnchor( anchor )
     if self.anchor then
-        return Exception("An anchor already exists on this Node. Add extra properties to this achor instead of making a new one.")
+        return Exception("An anchor already exists on this Node. Add extra properties to this anchor instead of making a new one.")
     end
+    self.anchor = anchor
 end
 
 function MAnchorable:unbindAnchor()
@@ -49,4 +50,8 @@ function MAnchorable:unbindAnchor()
     else
         return Exception("No anchor exists on this Node.")
     end
+end
+
+function MAnchorable:isPropertyAnchorable( k, v )
+    return isInTable( k ) and type( v ) == "number"
 end

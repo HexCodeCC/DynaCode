@@ -96,20 +96,7 @@ function Stage:initialise( ... )
     self.width = width
     self.height = height
 
-    self:__overrideMetaMethod("__add", function( a, b )
-        if classLib.typeOf(a, "Stage", true) then
-            if classLib.typeOf( b, "Scene", true ) then
-                return self:addScene( b )
-            else
-                error("Invalid right hand assignment. Should be instance of Scene "..tostring( b ))
-            end
-        else
-            error("Invalid left hand assignment. Should be instance of Stage. "..tostring( a ))
-        end
-    end)
-
     self:updateCanvasSize()
-    --self.canvas:redrawFrame()
 
     self.mouseMode = false
 end
