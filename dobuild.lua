@@ -67,7 +67,8 @@ local final = "-- DynaCode - Class Edition - Harry Felton (HexCodeCC/hbomb_79)\n
 final = final .. "local files = "..textutils.serialise( export ) .. "\n"
 
 final = final .. [==[
-local doNotVerify, loaded = {["Class.lua"] = true}, {}
+local dynacodeInitialisationFile = "init.lua"
+local doNotVerify, loaded = {["Class.lua"] = true, [ dynacodeInitialisationFile ] = true}, {[ dynacodeInitialisationFile ] = true}
 local function execute( data, name )
     if loaded[ name ] then return end
 
@@ -99,6 +100,11 @@ classLib.setClassLoader(function( _c ) executeFromPackage( _c..".lua" ) end)
 scanLines("scriptFiles.cfg", function( n ) doNotVerify[ n ] = true end)
 scanLines("loadFirst.cfg", function( n ) executeFromPackage( n ) end)
 for name, data in pairs( files ) do execute( data, name ) end
+
+if files[ dynacodeInitialisationFile ] then
+    loaded[ dynacodeInitialisationFile ] = nil
+    execute( files[ dynacodeInitialisationFile ], dynacodeInitialisationFile )
+end
 ]==]
 
 local h = fs.open( OUTPUT_FILE, "w" )
