@@ -339,13 +339,13 @@ function Stage:setMouseMode( mode )
 end
 
 function Stage:mapNode( x1, y1, x2, y2 )
-    -- functions similarly to Application:mapWindow.
+    -- functions similarly to Application.mapStage.
 end
 
 function Stage:map()
     local canvas = self.canvas
 
-    self.application:mapWindow( self.X, self.Y, self.X + canvas.width - 1, self.Y + canvas.height - 1 )
+    self.application:mapStage( self.X, self.Y, self.X + canvas.width - 1, self.Y + canvas.height - 1 )
 end
 
 function Stage:removeFromMap()

@@ -2,9 +2,6 @@ class "Application" alias "COLOUR_REDIRECT" mixin "MDaemon" mixin "MCanvas" mixi
     canvas = nil;
     hotkey = nil;
     timer = nil;
-    event = nil;
-
-    stages = {};
 
     changed = true;
     running = false;
@@ -13,7 +10,9 @@ class "Application" alias "COLOUR_REDIRECT" mixin "MDaemon" mixin "MCanvas" mixi
 
     terminatable = true;
 
-    threads = {}
+    threads = {};
+    layerMap = {};
+    stages = {}
 }
 
 function Application:initialise( ... )
@@ -46,15 +45,93 @@ end
 ]]
 
 function Application:addStage( stageObject )
+    if not classLib.typeOf( stageObject, "Stage", true ) then
+        return ParameterException("Cannot add stage to Application instance. Invalid object: '"..tostring( stageObject ).."'")
+    end
 
+    stageObject.application = self
+    stageObject:map()
+
+    table.insert( self.stages, stageObject )
 end
 
 function Application:removeStage( stageNameOrObject )
+    local stages = self.stages
+    local searchForName = type( stageNameOrObject ) == "string"
 
+    local stage
+    for i = 1, #stages do
+        if ( searchForName and stage.name == stageNameOrObject ) or ( not searchForName and stage == stageNameOrObject ) then
+            return table.remove( self.stages, i )
+        end
+    end
 end
 
 function Application:getStage( stageName )
+    local stages, stage = self.stages
 
+    for i = 1, #stages do
+        stage = stages[ i ]
+
+        if stage.name == stageName then
+            return stage
+        end
+    end
+end
+
+function Application:mapStage( x1, y1, x2, y2 )
+    local stages = self.stages
+    local layers = self.layerMap
+
+    local stage, stageX, stageY, stageX2, stageY2, stageVisible, ID
+    for i = #stages, 1, -1 do
+        stage = stages[ i ]
+
+        stageX = stage.X
+        stageY = stage.Y
+        stageX2 = stageX + stage.canvas.width
+        stageY2 = stageY + stage.canvas.height
+
+        stageVisible = stage.visible
+        ID = stage.mappingID
+
+        if not (stageX > x2 or stageY > y2 or x1 > stageX2 or y1 > stageY2) then
+            local yPos, layer
+            for y = math.max(stageY, y1), math.min(stageY2, y2) do
+                yPos = self.width * ( y - 1 )
+
+                for x = math.max(stageX, x1), math.min(stageX2, x2) do
+                    layer = layers[ yPos + x ]
+
+                    if layer ~= ID and stageVisible and ( stage:isPixel( x - stageX + 1 , y - stageY + 1 ) ) then
+                        layers[ yPos + x ] = ID
+                    elseif layer == ID and not stageVisible then
+                        layers[ yPos + x ] = false
+                    end
+                end
+            end
+        end
+    end
+
+    local buffer = self.canvas.buffer
+    local width = self.width
+
+    local yPos, pos, layer
+    for y = y1, y2 do
+        yPos = width * ( y - 1 )
+
+        for x = x1, x2 do
+            pos = yPos + x
+            layer = layers[ yPos + x ]
+            if layer == false then
+                if buffer[ pos ] then buffer[ pos ] = { false, false, false } end -- bg pixel. Anything may draw in this space.
+            end
+        end
+    end
+end
+
+function Application:requestStageFocus( stage )
+    self.toReorder = stage
 end
 
 --[[
@@ -65,11 +142,7 @@ function Application:createThread( threadFunction, name )
         return ParameterException("Failed to create Application Thread. Expected function to execute as thread.")
     end
 
-    local thread = {
-        name, -- name
-        coroutine.create( threadFunction ), -- the coroutine
-        false -- the coroutines event filter
-    }
+    local thread = { name, coroutine.create( threadFunction ), false }
 
     return table.insert( self.threads, thread )
 end
@@ -89,8 +162,6 @@ function Application:destroyThread( t )
         end
     end
 end
-
-
 
 --[[
     Miscellaneous
@@ -136,6 +207,10 @@ function Application:submitThreadEvent( ... )
     end
 end
 
+function Application:submitDaemonEvent( ... )
+
+end
+
 function Application:draw( force )
     if not self.changed and not force then return end
     local stages, stage = self.stages
@@ -153,24 +228,58 @@ end
 function Application:start( ... )
     local function engine()
         -- Listen for events, submit to threads and stages when caught.
-        local draw, submitThread, submitUI = self.draw, self.submitThreadEvent, self.submitUIEvent -- quicker maybe (because of class system and proxies etc..)?
+        local draw, submitThread, submitUI, submitDaemon = self.draw, self.submitThreadEvent, self.submitUIEvent, self.submitDaemonEvent -- quicker maybe (because of class system and proxies etc..)?
         while true do
             draw( self )
             local event = { coroutine.yield() }
+
+            submitDaemon( self, event )
+            submitThread( self, unpack( event ) )
+            submitUI( self, event )
 
             if event[1] == "terminate" and self.terminatable then
                 Exception("Application terminated", 0)
             end
 
-            submitThread( self, unpack( event ) )
-            submitUI( self, event )
+            local re = self.toReorder
+            if re then
+                local stages, stage = self.stages
+
+                for i = 1, #stages do
+                    stage = stages[ i ]
+
+                    if stage == re then
+                        table.insert( stages, 1, table.remove( stages, i ) )
+                        self.stageFocus = re
+                        break
+                    end
+                end
+                self.toReorder = nil
+            end
         end
     end
-    
+
     self:call( "start", ... )
     engine()
 end
 
 function Application:stop()
     self:call( "stop", true )
+end
+
+function Application:setStageFocus( stage )
+    if not classLib.typeOf( stage, "Stage", true ) then return ParameterException("Expected Class Instance Stage, not "..tostring( stage )) end
+
+    self:unSetStageFocus()
+
+    stage:onFocus()
+    self.focusedStage = stage
+end
+
+function Application:unSetStageFocus()
+
+    if self.focusedStage then
+        self.focusedStage:onBlur()
+        self.focusedStage = nil
+    end
 end

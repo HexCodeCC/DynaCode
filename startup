@@ -6,4 +6,6 @@ log:setLoggingPath("DynaCode.log")
 
 app = Application( term.getSize() )
 
+window = app + Stage( 2, 2, 20, 10 )
+
 app:start()
