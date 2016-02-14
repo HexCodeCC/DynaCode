@@ -229,8 +229,9 @@ function Application:start( ... )
     local function engine()
         -- Listen for events, submit to threads and stages when caught.
         local draw, submitThread, submitUI, submitDaemon = self.draw, self.submitThreadEvent, self.submitUIEvent, self.submitDaemonEvent -- quicker maybe (because of class system and proxies etc..)?
+
         while true do
-            draw( self )
+            draw( self, self.forceRedraw )
             local event = { coroutine.yield() }
 
             submitDaemon( self, event )
