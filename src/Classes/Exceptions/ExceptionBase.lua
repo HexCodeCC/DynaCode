@@ -68,6 +68,10 @@ function ExceptionBase:generateStack( level )
         end
 
         local fileName, fileLine = err:match("(%w+%.?.-):(%d+).-")
+        if not fileName and not fileLine then
+            stack = stack .. "> No further stack information could be generated"
+            break
+        end
         stack = stack .. "> "..(fileName or "?")..":"..(fileLine or "?").."\n"
 
         currentLevel = currentLevel + 1

@@ -5,6 +5,9 @@ log:setLoggingEnabled( true )
 log:setLoggingPath("DynaCode.log")
 
 app = Application( term.getSize() )
+app:createThread(function()
+    error("HIT")
+end)
 
 window = app + Stage( 2, 2, 20, 10 )
 

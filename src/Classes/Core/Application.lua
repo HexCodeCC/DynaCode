@@ -261,7 +261,8 @@ function Application:start( ... )
     end
 
     self:call( "start", ... )
-    engine()
+    local ok, err = pcall( engine )
+    print("OK: "..tostring( ok )..", error: "..tostring( err ))
 end
 
 function Application:stop()
