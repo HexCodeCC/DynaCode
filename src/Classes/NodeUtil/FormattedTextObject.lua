@@ -77,7 +77,7 @@ function FormattedTextObject:cacheSegmentInformation()
         if new then
             for i = 1, len( new ) do
                 newline( true )
-                textIndex = textIndex + 1
+                applySegments()
             end
             text = sub( text, len( new ) + 1 )
         end

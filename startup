@@ -6,23 +6,22 @@ log:setLoggingPath("DynaCode.log")
 
 app = Application( term.getSize() )
 
-window = app + Stage( 2, 2, 20, 10 )
+window = app + Stage( 2, 2, 20, 9 )
 
 main = Template("mainPage", window)
 window.activeTemplate = main
 
-inp = main + TextInput(1, 1, 18, 8)
+inp = main + TextContainer([[The TextContainer will  @tc-red d @tc-green e @tc-blue v @tc-orange e @tc-lime l @tc-purple o @tc-cyan p @tc-grey  scrollbars when required which can help when viewing text in large volume.]], 1, 1, 18, 8)
 inp:createAnchor {
     right = 1,
     bottom = 1,
     top = 1,
     left = 1
 }
-
-inp.backgroundColour = colours.red
+inp.textColor = colours.grey
 
 app.hotkey:registerCombination("close", "ctrl-b", function()
-    app:stop()
+    error("done", 0)
 end)
 
 app:start()

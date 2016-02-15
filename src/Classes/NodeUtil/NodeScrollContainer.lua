@@ -405,5 +405,5 @@ end
 function NodeScrollContainer:onParentResize()
     self.super:onParentResize()
 
-    self.recacheNodeInformationNextDraw = true
+    self.recacheAllNextDraw = true
 end

@@ -45,7 +45,7 @@ function MultiLineTextDisplay:parseIdentifiers()
             identifier = sub( str, start, stop )
 
             -- Remove the identifier from the string along with everything prior. Reduce the X index with that too.
-            local X = stop + oldStop - len( identifier )
+            local X = stop + oldStop - len( identifier ) - ( leading and 1 or 0 )
             oldStop = oldStop + start - 2 - ( leading and 1 or 0 ) - ( trailing and 1 or 0 )
 
             -- We have the X index which is where the settings will be applied during draw, trim the string
