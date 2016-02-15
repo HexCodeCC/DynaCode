@@ -239,6 +239,13 @@ function Application:start( ... )
         -- Listen for events, submit to threads and stages when caught.
         local draw, submitThread, submitUI, submitDaemon = self.draw, self.submitThreadEvent, self.submitUIEvent, self.submitDaemonEvent -- quicker maybe (because of class system and proxies etc..)?
 
+        local stages, stage = self.stages
+        for i = 1, #stages do
+            stage = stages[ i ]
+            
+            stage:resize( stage.width, stage.height )
+        end
+
         while true do
             draw( self, self.forceRedraw )
 

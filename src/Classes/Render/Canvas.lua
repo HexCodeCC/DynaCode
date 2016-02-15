@@ -1,5 +1,6 @@
 local insert = table.insert
 local remove = table.remove
+local empty = {false, false, false}
 
 abstract class "Canvas" alias "COLOUR_REDIRECT" {
     width = 10;
@@ -55,41 +56,44 @@ end
 
 function Canvas:setWidth( width )
     if not self.buffer then self.width = width return end
-
     local height, buffer = self.height, self.buffer
-    if not self.width then error("found on "..tostring( self )..". Current width: "..tostring( self.width )..", new width: "..tostring( width )) end
-    while self.width < width do
+    local selfWidth = self.width
+
+    while selfWidth < width do
         -- Insert pixels at the end of each line to make up for the increase in width
         for i = 1, height do
-            insert( buffer, ( self.width + 1 ) * i, {"", self.textColor, self.textColour} )
+            insert( buffer, ( selfWidth + 1 ) * i, empty )
         end
-        self.width = self.width + 1
+        selfWidth = selfWidth + 1
     end
-    while self.width > width do
+    while selfWidth > width do
         for i = 1, width do
-            remove( buffer, self.width * i )
+            remove( buffer, selfWidth * i )
         end
-        self.width = self.width - 1
+        selfWidth = selfWidth - 1
     end
-    --self:clear()
+
+    self.width = selfWidth
 end
 
 function Canvas:setHeight( height )
     if not self.buffer then self.height = height return end
     local width, buffer, cHeight = self.width, self.buffer, self.height
+    local selfHeight = self.height
 
-	while self.height < height do
+	while selfHeight < height do
 		for i = 1, width do
-			buffer[#buffer + 1] = px
+			buffer[#buffer + 1] = empty
 		end
-		self.height = self.height + 1
+		selfHeight = selfHeight + 1
 	end
 
-	while self.height > height do
+	while selfHeight > height do
 		for i = 1, width do
 			remove( buffer, #buffer )
 		end
-		self.height = self.height - 1
+		selfHeight = selfHeight - 1
 	end
-    --self:clear()
+
+    self.height = selfHeight
 end

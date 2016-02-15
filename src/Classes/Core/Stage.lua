@@ -189,8 +189,10 @@ function Stage:appDrawComplete()
         local enabled, X, Y, tc = self.currentKeyboardFocus:getCursorInformation()
         if not enabled then return end
 
+        local nX, nY = self.currentKeyboardFocus:getTotalOffset()
+
         term.setTextColour( tc )
-        term.setCursorPos( X + self.X - 1, Y + self.Y - (self.borderless and 1 or 0) )
+        term.setCursorPos( X + self.X + nX - 2, Y + self.Y + nY - (self.borderless and 2 or 1) )
         term.setCursorBlink( true )
     end
 end

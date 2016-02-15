@@ -1,4 +1,11 @@
-abstract class "Node" mixin "MAnchorable" alias "COLOUR_REDIRECT" {
+local clickMatrix = {
+    CLICK = "onMouseDown";
+    UP = "onMouseUp";
+    SCROLL = "onMouseScroll";
+    DRAG = "onMouseDrag";
+}
+
+abstract class "Node" mixin "MAnchorable" mixin "MSubscriber" alias "COLOUR_REDIRECT" {
     X = 1;
     Y = 1;
 
@@ -48,7 +55,7 @@ end
 function Node:triggerResize()
     if self.__anchorWorking then return end
 
-    local nodes, anchor = self.nodes
+    local nodes = self.nodes
     if not nodes then return end
 
     for i = 1, #nodes do
@@ -83,16 +90,7 @@ function Node:setTextColour( col )
     self.textColour = col
 end
 
-function Node:onParentChanged()
-    error("hit")
-    --self.changed = true
-end
-
 function Node:onParentResize()
-    if type( self.onResize ) == "function" then
-        self:onResize()
-    end
-
     -- Update any anchors
     local anchor = self.anchor
     if anchor then
@@ -101,35 +99,33 @@ function Node:onParentResize()
 end
 
 local function call( self, callback, ... )
-    if type( self[ callback ] ) == "function" then
-        self[ callback ]( self, ... )
+    local cb = self[ callback ]
+    if type( cb ) == "function" then
+        cb( self, ... )
     end
 end
 
-local clickMatrix = {
-    CLICK = "onMouseDown";
-    UP = "onMouseUp";
-    SCROLL = "onMouseScroll";
-    DRAG = "onMouseDrag";
-}
 function Node:handleEvent( event )
     -- Automatically fires callbacks on the node depending on the event. For example onMouseMiss, onMouseDown, onMouseUp etc...
     if event.handled then return end
+    local main, sub = event.main, event.sub
 
     if not self.manuallyHandle then
-        if event.main == "MOUSE" and self.acceptMouse then
+        local keyboard = self.acceptKeyboard
+        if main == "MOUSE" and self.acceptMouse then
             if event.inParentBounds or self.ignoreEventParentBounds then
-                if event:inArea( self.X, self.Y, self.X + self.width - 1, self.Y + self.height - 1 ) then
-                    call( self, clickMatrix[ event.sub ] or error("No click matrix entry for "..tostring( event.sub )), event )
+                local X, Y = self.X, self.Y
+                if event:inArea( X, Y, X + self.width - 1, Y + self.height - 1 ) then
+                    call( self, clickMatrix[ sub ] or Exception("No click matrix entry for "..tostring(main).."_"..tostring( sub )), event )
                 else
                     call( self, "onMouseMiss", event )
                 end
             else
                 call( self, "onMouseMiss", event )
             end
-        elseif event.main == "KEY" and self.acceptKeyboard then
-            call( self, event.sub == "UP" and "onKeyUp" or "onKeyDown", event )
-        elseif event.main == "CHAR" and self.acceptKeyboard then
+        elseif main == "KEY" and keyboard then
+            call( self, sub == "UP" and "onKeyUp" or "onKeyDown", event )
+        elseif main == "CHAR" and keyboard then
             call( self, "onChar", event )
         elseif self.acceptMisc then
             -- unknown main event
@@ -155,15 +151,12 @@ end
 
 function Node:getTotalOffset()
     -- goes up through every parent and returns the total X, Y offset.
-    local X, Y = 0, 0
-    if self.parent then
+    local X, Y, parent = 0, 0, self.parent
+    if parent then
         -- get the offset from the parent, add this to the total
-        local pX, pY = self.parent:getTotalOffset()
+        local pX, pY = parent:getTotalOffset()
         X = X + pX - 1
         Y = Y + pY - 1
-    elseif self.stage then
-        X = X + self.stage.X
-        Y = Y + self.stage.Y
     end
 
     X = X + self.X

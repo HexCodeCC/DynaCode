@@ -25,7 +25,6 @@ function FormattedTextObject:initialise( owner, width )
 end
 
 function FormattedTextObject:cacheSegmentInformation()
-    log("i", "Parsing segment information with width: "..tostring( self.owner.cache.displayWidth ) )
     if not text then self.owner:parseIdentifiers() text = self.text end
     if not self.text then return error("Failed to parse text identifiers. No new text received.") end
 
@@ -100,9 +99,9 @@ function FormattedTextObject:cacheSegmentInformation()
             text = sub( text, len(whitespace) + 1 )
         end
 
-        local word = match( text, "%S+" )
+        local word, lengthOfWord = match( text, "%S+" )
         if word then
-            local lengthOfWord = len( word )
+            lengthOfWord = len( word )
             text = sub( text, lengthOfWord + 1 )
 
             if currentX + lengthOfWord <= width then

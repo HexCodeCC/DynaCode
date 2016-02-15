@@ -35,6 +35,7 @@ end
 
 function Anchor:updateAnchor()
     local config, target, parent = self.config, self.target, self.parent
+    target.__anchorWorking = true
 
     -- Sub anchors. No parent calculations required as the co-ordinates are relative to the top corner.
     if config.top then target.Y = config.top + 1 end
@@ -64,4 +65,6 @@ function Anchor:updateAnchor()
             target.X = parent.width + 1 - config.right - target.width
         end
     end
+
+    target.__anchorWorking = true
 end

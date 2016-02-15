@@ -20,7 +20,6 @@ inp:createAnchor {
 }
 
 inp.backgroundColour = colours.red
-inp.cursorColour = colours.lime
 
 app.hotkey:registerCombination("close", "ctrl-b", function()
     app:stop()
