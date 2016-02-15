@@ -53,6 +53,7 @@ function Application:addStage( stageObject )
     stageObject:map()
 
     table.insert( self.stages, stageObject )
+    return stageObject
 end
 
 function Application:removeStage( stageNameOrObject )
@@ -232,6 +233,13 @@ function Application:start( ... )
 
         while true do
             draw( self, self.forceRedraw )
+
+            term.setCursorBlink( false )
+            local stage = self.focusedStage
+            if stage then
+                stage:appDrawComplete()
+            end
+
             local event = { coroutine.yield() }
 
             submitDaemon( self, event )

@@ -5,10 +5,21 @@ log:setLoggingEnabled( true )
 log:setLoggingPath("DynaCode.log")
 
 app = Application( term.getSize() )
-app:createThread(function()
-    error("HIT")
-end)
 
 window = app + Stage( 2, 2, 20, 10 )
+
+main = Template("mainPage", window)
+window.activeTemplate = main
+
+inp = main + TextInput(1, 1, 18, 8)
+inp:createAnchor {
+    right = 1,
+    bottom = 1,
+    top = 1,
+    left = 1
+}
+
+inp.backgroundColour = colours.red
+inp.cursorColour = colours.lime
 
 app:start()
