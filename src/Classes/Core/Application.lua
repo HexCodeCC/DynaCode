@@ -171,6 +171,14 @@ function Application:submitUIEvent( event )
     self:call( event[1] )
 
     local dEvent = spawnEvent( event )
+
+    if dEvent.main == "KEY" then
+        self.hotkey:handleKey( dEvent )
+        self.hotkey:checkCombinations()
+    elseif dEvent.main == "TIMER" then
+        self.timer:update( dEvent.raw[2] )
+    end
+
     local stages = self.stages
 
     local stage
