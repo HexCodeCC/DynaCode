@@ -17,6 +17,8 @@ class "FormattedTextObject" extends "Node" {
         height = nil;
         text = nil;
     };
+
+    receivesEvents = false
 }
 
 function FormattedTextObject:initialise( owner, width )

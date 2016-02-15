@@ -27,6 +27,8 @@ abstract class "Node" mixin "MAnchorable" mixin "MSubscriber" alias "COLOUR_REDI
     acceptKeyboard = false;
     acceptMouse = false;
     manuallyHandle = false;
+
+    receivesEvents = true;
 }
 
 function Node:initialise( ... )
@@ -109,8 +111,10 @@ end
 
 function Node:handleEvent( event )
     -- Automatically fires callbacks on the node depending on the event. For example onMouseMiss, onMouseDown, onMouseUp etc...
-    if event.handled then return end
+    if event.handled or not self.receivesEvents then return end
     local main, sub = event.main, event.sub
+
+    self:call( main .. "_" .. sub )
 
     if not self.manuallyHandle then
         local keyboard = self.acceptKeyboard

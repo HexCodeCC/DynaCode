@@ -28,4 +28,8 @@ inp:on("resize", function( self )
     log("i", "TextContainer resized")
 end)
 
+inp:on("MOUSE_CLICK", function( self )
+    log("i", "clicked")
+end)
+
 app:start()
