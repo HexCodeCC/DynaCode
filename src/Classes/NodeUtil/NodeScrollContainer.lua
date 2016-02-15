@@ -257,6 +257,8 @@ function NodeScrollContainer:onAnyEvent( event )
 
                             self.changed = true
                             self:cacheScrollPositions()
+
+                            self:call("scroll", event)
                         else dontUse = true end
                     elseif cache.yActive then
                         -- scroll the vertical bar
@@ -266,6 +268,8 @@ function NodeScrollContainer:onAnyEvent( event )
 
                             self.changed = true
                             self:cacheScrollPositions()
+
+                            self:call("scroll", event)
                         else dontUse = true end
                     end
                 elseif sub == "DRAG" then
@@ -279,6 +283,8 @@ function NodeScrollContainer:onAnyEvent( event )
 
                         self.xOffset = newOffset
                         self.lastMouse = x
+
+                        self:call("scroll", event)
                     elseif current == "y" then
                         local newPos = cache.yScrollPosition + ( y - self.lastMouse )
                         local newOffset
@@ -288,6 +294,8 @@ function NodeScrollContainer:onAnyEvent( event )
 
                         self.yOffset = newOffset
                         self.lastMouse = y
+
+                        self:call("scroll", event)
                     end
 
                     self.changed = true
@@ -322,6 +330,7 @@ function NodeScrollContainer:onAnyEvent( event )
 
                 self.changed = true
                 self:cacheScrollPositions()
+                self:call("scroll", event)
                 event.handled = true
             end
             if event.sub == "KEY" and hotkey.keys.shift then

@@ -24,4 +24,8 @@ app.hotkey:registerCombination("close", "ctrl-b", function()
     error("done", 0)
 end)
 
+inp:on("resize", function( self )
+    log("i", "TextContainer resized")
+end)
+
 app:start()

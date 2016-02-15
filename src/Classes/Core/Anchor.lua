@@ -37,6 +37,9 @@ function Anchor:updateAnchor()
     local config, target, parent = self.config, self.target, self.parent
     target.__anchorWorking = true
 
+    local oWidth, oHeight = target.width, target.height
+    local nWidth, nHeight
+
     -- Sub anchors. No parent calculations required as the co-ordinates are relative to the top corner.
     if config.top then target.Y = config.top + 1 end
     if config.left then target.X = config.left + 1 end
@@ -49,7 +52,9 @@ function Anchor:updateAnchor()
 
 
             desiredHeight = desiredHeight > maxH and maxH or ( desiredHeight < minH and minH ) or desiredHeight
-            target.height = desiredHeight < 1 and 1 or desiredHeight
+            nHeight = desiredHeight < 1 and 1 or desiredHeight
+
+            target.height = nHeight
         else
             target.Y = parent.height + 1 - config.bottom - target.height
         end
@@ -60,11 +65,14 @@ function Anchor:updateAnchor()
             local maxW, minW = config.maximumWidth or desiredWidth, config.minimumWidth or desiredWidth
 
             desiredWidth = desiredWidth > maxW and maxW or ( desiredWidth < minW and minW ) or desiredWidth
-            target.width = desiredWidth < 1 and 1 or desiredWidth
+            nWidth = desiredWidth < 1 and 1 or desiredWidth
+
+            target.width = nWidth
         else
             target.X = parent.width + 1 - config.right - target.width
         end
     end
 
-    target.__anchorWorking = true
+    target.__anchorWorking = false
+    if (nWidth and oWidth ~= nWidth) or (nHeight and oHeight ~= target.height) then target:triggerResize() end
 end

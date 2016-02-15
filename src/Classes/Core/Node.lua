@@ -55,6 +55,8 @@ end
 function Node:triggerResize()
     if self.__anchorWorking then return end
 
+    self:call("resize")
+
     local nodes = self.nodes
     if not nodes then return end
 
