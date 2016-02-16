@@ -1,7 +1,5 @@
-class "Application" alias "COLOUR_REDIRECT" mixin "MDaemon" mixin "MCanvas" mixin "MSubscriber" {
+class "Application" alias "COLOUR_REDIRECT" mixin "MDaemon" mixin "MCanvas" mixin "MSubscriber" mixin "MTimerManager" mixin "MHotkeyManager" {
     canvas = nil;
-    hotkey = nil;
-    timer = nil;
 
     changed = true;
     running = false;
@@ -24,9 +22,6 @@ function Application:initialise( ... )
     end
 
     self.canvas = ApplicationCanvas( self, self.width, self.height )
-    self.hotkey = HotkeyManager( self )
-    self.timer = TimerManager( self )
-
     self:__overrideMetaMethod( "__add", function( a, b )
         if classLib.typeOf( a, "Application", true ) then
             if classLib.typeOf( b, "Stage", true ) then
@@ -131,6 +126,21 @@ function Application:mapStage( x1, y1, x2, y2 )
     end
 end
 
+function Application:setStageFocus( stage )
+    if not classLib.typeOf( stage, "Stage", true ) then return ParameterException("Expected Class Instance Stage, not "..tostring( stage )) end
+
+    self:unSetStageFocus()
+    stage:onFocus()
+    self.focusedStage = stage
+end
+
+function Application:unSetStageFocus()
+    if self.focusedStage then
+        self.focusedStage:onBlur()
+        self.focusedStage = nil
+    end
+end
+
 function Application:requestStageFocus( stage )
     self.toReorder = stage
 end
@@ -168,20 +178,18 @@ end
     Miscellaneous
 ]]
 function Application:submitUIEvent( event )
-    self:call( event[1] )
-
-    local dEvent = spawnEvent( event )
-
-    if dEvent.main == "KEY" then
-        self.hotkey:handleKey( dEvent )
-        self.hotkey:checkCombinations()
-    elseif dEvent.main == "TIMER" then
-        self.timer:update( dEvent.raw[2] )
+    if event[1] == "timer" then
+        self:scanTimers( event[2] )
+    elseif event[1] == "key" or event[1] == "key_up" then
+        self:handleKeyEvent( event )
     end
 
-    local stages = self.stages
+    self:scanHotkeys()
 
-    local stage
+    local dEvent = spawnEvent( event )
+    self:call( dEvent.name, dEvent )
+
+    local stages, stage = self.stages
     for i = 1, #stages do
         stages[ i ]:handleEvent( dEvent )
     end
@@ -216,9 +224,6 @@ function Application:submitThreadEvent( ... )
     end
 end
 
-function Application:submitDaemonEvent( ... )
-
-end
 
 function Application:draw( force )
     if not self.changed and not force then return end
@@ -237,16 +242,16 @@ end
 function Application:start( ... )
     local function engine()
         -- Listen for events, submit to threads and stages when caught.
-        local draw, submitThread, submitUI, submitDaemon = self.draw, self.submitThreadEvent, self.submitUIEvent, self.submitDaemonEvent -- quicker maybe (because of class system and proxies etc..)?
+        local draw, submitThread, submitUI = self.draw, self.submitThreadEvent, self.submitUIEvent -- quicker maybe (because of class system and proxies etc..)?
 
         local stages, stage = self.stages
         for i = 1, #stages do
             stage = stages[ i ]
-            
+
             stage:resize( stage.width, stage.height )
         end
 
-        while true do
+        while self.running do
             draw( self, self.forceRedraw )
 
             term.setCursorBlink( false )
@@ -257,7 +262,6 @@ function Application:start( ... )
 
             local event = { coroutine.yield() }
 
-            submitDaemon( self, event )
             submitThread( self, unpack( event ) )
             submitUI( self, event )
 
@@ -283,28 +287,17 @@ function Application:start( ... )
         end
     end
 
+    self.running = true
+
     self:call( "start", ... )
+    
     local ok, err = pcall( engine )
     print("OK: "..tostring( ok )..", error: "..tostring( err ))
 end
 
 function Application:stop()
     self:call( "stop", true )
-end
 
-function Application:setStageFocus( stage )
-    if not classLib.typeOf( stage, "Stage", true ) then return ParameterException("Expected Class Instance Stage, not "..tostring( stage )) end
-
-    self:unSetStageFocus()
-
-    stage:onFocus()
-    self.focusedStage = stage
-end
-
-function Application:unSetStageFocus()
-
-    if self.focusedStage then
-        self.focusedStage:onBlur()
-        self.focusedStage = nil
-    end
+    self.running = false
+    os.queueEvent("dummy_event")
 end

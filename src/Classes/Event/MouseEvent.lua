@@ -1,4 +1,6 @@
 local sub = string.sub
+local len = string.len
+local find = string.find
 
 class "MouseEvent" mixin "Event" {
     main = "MOUSE";
@@ -12,7 +14,7 @@ class "MouseEvent" mixin "Event" {
 
 function MouseEvent:initialise( raw )
     self.raw = raw
-    local t = sub( raw[1], string.find( raw[1], "_" ) + 1, raw[1]:len() )
+    local t = sub( raw[1], find( raw[1], "_" ) + 1, len( raw[1] ) )
 
     self.sub = t:upper()
     self.misc = raw[2]

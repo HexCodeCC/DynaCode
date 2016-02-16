@@ -1,8 +1,8 @@
 shell.run("dobuild.lua", "/src", "bin/DynaCode.lua")
 dofile("bin/DynaCode.lua")
 
-log:setLoggingEnabled( true )
-log:setLoggingPath("DynaCode.log")
+log:setEnabled( true )
+log:setPath("DynaCode.log")
 
 app = Application( term.getSize() )
 
@@ -20,8 +20,8 @@ inp:createAnchor {
 }
 inp.textColor = colours.grey
 
-app.hotkey:registerCombination("close", "ctrl-b", function()
-    error("done", 0)
+app:createHotkey("close", "ctrl-b", function()
+    app:stop()
 end)
 
 inp:on("resize", function( self )

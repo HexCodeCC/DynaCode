@@ -16,66 +16,61 @@ local loggingModes = {
 
     eh = "Exception Handling";
 }
-local clearWhenLow = true
-local clearWhen = 50000
-
-local loggingIntroString = [[
---@@== DynaCode Logging ==@@--
-
-
-Log Start >
-]]
+local clearWhenLarge = true
+local fileSizeLimit = 50000
+local loggingIntroString = "--@@== DynaCode Logging ==@@--\n\n\nLog Start >\n"
+local handle
 
 local log = {}
 function log:log( mode, message )
-    if not (loggingEnabled and loggingPath and mode and message) then return end
-
-    if clearWhenLow and fs.getSize( loggingPath ) >= clearWhen then
-        self:clearLog()
-
-        local f = fs.open( loggingPath, "w" )
-        f.write([[
---@@== DynaCode Logging ==@@--
-
-This file was cleared at os time ']] .. os.clock() .. [[' to reduce file size.
-
-
-Log Resume >
-]])
-        f.close()
+    if not mode or not message or not handle then
+        return
     end
 
-    local f = fs.open( loggingPath, "a" )
-    f.write( "["..os.clock().."][".. ( loggingModes[ mode ] or mode ) .."] > " .. message .. "\n" )
-    f.close()
+    if clearWhenLarge and fs.getSize( loggingPath ) > fileSizeLimit then
+        self:closeHandle()
+        fs.delete( loggingPath )
+
+        self:openHandle("--@@== DynaCode Logging ==@@--\n\nThis file was cleared at os time '"..os.clock().."' to save system storage space\n\nLog Start >\n")
+    end
+
+    handle.write( "["..os.clock().."]["..( loggingModes[ mode ] or tostring( mode ) ).."] > "..message.."\n" )
+    handle.flush()
 end
 
 function log:registerMode( short, long )
     loggingModes[ short ] = long
 end
 
-function log:setLoggingEnabled( bool )
-    loggingEnabled = bool
+function log:closeHandle()
+    if not handle or not loggingEnabled then return end
+
+    handle.close()
+    handle = nil
 end
 
-function log:getEnabled() return loggingEnabled end
+function log:openHandle( intro )
+    if handle or not loggingEnabled or not loggingPath then return end
 
-function log:setLoggingPath( path )
-    -- clear the path
-    loggingPath = path
-    self:clearLog( true )
+    handle = fs.open( loggingPath, "w" )
+    handle.write( intro or loggingIntroString )
 end
 
-function log:getLoggingPath() return loggingPath end
-
-function log:clearLog( intro )
-    if not loggingPath then return end
-
-    local f = fs.open( loggingPath, "w" )
-    if intro then
-        f.write( loggingIntroString )
+function log:setPath( path )
+    if not type( path ) == "string" then
+        ParameterException("Failed to set loggingPath to '"..tostring( path )..". Must be string file location'")
     end
-    f.close()
+
+    self:closeHandle()
+    loggingPath = path
+    self:openHandle()
+end
+
+function log:setEnabled( enabled )
+    self:closeHandle()
+
+    loggingEnabled = enabled
+    if enabled then self:openHandle() end
 end
 
 setmetatable( log, {__call = log.log})

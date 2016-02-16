@@ -12,3 +12,14 @@ function Event:isType( main, sub )
     end
     return false
 end
+
+function Event:getName()
+    local name = self.name
+    if not name then
+        self.name = self.main .. "_" .. self.sub
+
+        return self.name
+    end
+
+    return name
+end
