@@ -66,7 +66,7 @@ local DCMLMatrix = {}
 local Parser = {}
 
 function Parser.registerTag( name, config )
-    if type( name ) ~= "string" or type( config ) ~= "table" then return error("Expected string, table") end
+    if type( name ) ~= "string" or type( config ) ~= "table" then return ParameterException("Expected string, table") end
 
     DCMLMatrix[ name ] = config
 end
@@ -77,8 +77,10 @@ end
 
 function Parser.setMatrix( tbl )
     if type( tbl ) ~= "table" then
-        return error("Expected table")
+        return ParameterException("Expected table")
     end
+
+    DCMLMatrix = tbl
 end
 
 function Parser.loadFile( path )

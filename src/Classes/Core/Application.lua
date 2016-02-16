@@ -175,6 +175,22 @@ function Application:destroyThread( t )
 end
 
 --[[
+    DCML Management
+]]
+
+function Application:appendStagesFromDCML( path )
+    local content = DCML.parse( DCML.loadFile( path ) )
+
+    for i = 1, #content do
+        self:addStage( content[i] )
+    end
+end
+
+function Application:replaceWithStagesFromDCML( path )
+
+end
+
+--[[
     Miscellaneous
 ]]
 function Application:submitUIEvent( event )
@@ -237,6 +253,8 @@ function Application:draw( force )
 
     self.canvas:drawToScreen( force )
     self.changed = false
+
+    if self.forceRedraw then self.forceRedraw = false end
 end
 
 function Application:start( ... )
@@ -288,6 +306,7 @@ function Application:start( ... )
     end
 
     self.running = true
+    self.forceRedraw = true
 
     self:call( "start", ... )
 

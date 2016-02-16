@@ -2,4 +2,7 @@
     <Template name="MainTemplate" active="true">
         <Button X="2" Y="2" width="5" height="1" onTrigger="#hey">Hey</Button>
     </Template>
+    <Template name="SecondaryTemplate">
+        <Label />
+    </Template>
 </Stage>

@@ -433,6 +433,6 @@ function Stage:getNodes()
     if self.activeTemplate then
         return self.activeTemplate.nodes
     else
-        return {}
+        return ParameterException("No template set, please set a template before using this stage.")
     end
 end

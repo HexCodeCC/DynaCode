@@ -24,12 +24,10 @@ app:createHotkey("close", "ctrl-b", function()
     app:stop()
 end)
 
-inp:on("resize", function( self )
-    log("i", "TextContainer resized")
-end)
+app:appendStagesFromDCML("stages.dcml")
+window2 = app:getStage("MainStage")
 
-inp:on("MOUSE_CLICK", function( self )
-    log("i", "clicked")
+window2:addToController("hey", function( self )
+    window2.activeTemplate = "SecondaryTemplate"
 end)
-
 app:start()
