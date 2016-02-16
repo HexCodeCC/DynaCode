@@ -290,7 +290,7 @@ function Application:start( ... )
     self.running = true
 
     self:call( "start", ... )
-    
+
     local ok, err = pcall( engine )
     print("OK: "..tostring( ok )..", error: "..tostring( err ))
 end

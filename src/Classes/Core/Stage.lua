@@ -151,7 +151,6 @@ end
 function Stage:draw( _force )
     -- Firstly, clear the stage buffer and re-draw it.
     if not self.visible then return end
-    local hotkey = self.application.hotkey
 
     local changed = self.changed
     local force = _force or self.forceRedraw
@@ -166,7 +165,7 @@ function Stage:draw( _force )
 
     local canvas = self.canvas
 
-    if (changed or force) and ( not mm or ( ( mm and noRedrawOnStageAdjust and hotkey.keys.shift ) or ( mm and not noRedrawOnStageAdjust and not hotkey.keys.shift ) ) ) then
+    if (changed or force) and ( not mm or ( ( mm and noRedrawOnStageAdjust and keys.shift ) or ( mm and not noRedrawOnStageAdjust and not keys.shift ) ) ) then
         local nodes = self.nodes
         for i = #nodes, 1, -1 do
             local node = nodes[i]
