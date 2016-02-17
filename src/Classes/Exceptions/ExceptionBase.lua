@@ -1,5 +1,3 @@
-local _
-
 abstract class "ExceptionBase" {
     exceptionOffset = 1;
     levelOffset = 1;

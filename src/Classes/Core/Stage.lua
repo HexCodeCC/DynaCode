@@ -32,53 +32,53 @@ DCML.registerTag("Stage", {
         Y = "number";
         width = "number";
         height = "number";
+
+        borderless = "boolean";
+        shadow = "boolean";
+        movable = "boolean";
+        resizable = "boolean";
+        visible = "boolean";
+        noRedrawOnStageAdjust = "boolean";
+        closeButton = "boolean";
+
+        textColour = "colour";
+        backgroundColour = "colour";
+        closeButtonTextColour = "colour";
+        closeButtonBackgroundColour = "colour";
+        titleBackgroundColour = "colour";
+        titleTextColour = "colour";
+        activeTitleBackgroundColour = "colour";
+        activeTitleTextColour = "colour";
     },
 })
 
 class "Stage" mixin "MTemplateHolder" alias "COLOUR_REDIRECT" {
     X = 1;
     Y = 1;
-
     width = 10;
     height = 6;
-
-    borderless = false;
-
-    canvas = nil;
-
-    application = nil;
-
-    scenes = {};
-    activeScene = nil;
+    
+    shadow = true;
+    closeButton = true;
+    visible = true;
+    resizable = true;
+    movable = true;
+    closeable = true;
 
     textColour = 32768;
     backgroundColour = 1;
-
-    shadow = true;
-    shadowColour = colours.grey;
-
-    focused = false;
-
-    closeButton = true;
-    closeButtonTextColour = 1;
-    closeButtonBackgroundColour = colours.red;
 
     titleBackgroundColour = 128;
     titleTextColour = 1;
     activeTitleBackgroundColour = colours.lightBlue;
     activeTitleTextColour = 1;
 
+    closeButtonTextColour = 1;
+    closeButtonBackgroundColour = colours.red;
+
+    shadowColour = 128;
+
     controller = {};
-
-    mouseMode = nil;
-
-    visible = true;
-
-    resizable = true;
-    movable = true;
-    closeable = true;
-
-    noRedrawOnStageAdjust = false;
 }
 
 function Stage:initialise( ... )
@@ -294,17 +294,17 @@ function Stage:handleEvent( event )
                 self:focus()
 
                 if Y == 1 then
-                    if X == self.width then
+                    if X == self.width and not self.borderless then
                         event.handled = true
                         return self:close()
-                    else
+                    elseif self.movable then
                         self.mouseMode = "move"
                         self.lastX, self.lastY = event.X, event.Y
 
                         event.handled = true
                         return
                     end
-                elseif Y == self.height + borderOffset and X == self.width then
+                elseif Y == self.height + borderOffset and X == self.width and self.resizable then
                     self.mouseMode = "resize"
 
                     event.handled = true

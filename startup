@@ -11,7 +11,7 @@ window = app + Stage( 2, 2, 20, 9 )
 main = Template("mainPage", window)
 window.activeTemplate = main
 
-inp = main + TextContainer([[The TextContainer will  @tc-red d @tc-green e @tc-blue v @tc-orange e @tc-lime l @tc-purple o @tc-cyan p @tc-grey  scrollbars when required which can help when viewing text in large volume.]], 1, 1, 18, 8)
+inp = main + TextContainer([[The TextContainer will  @tc-red d @tc-green e @tc-blue v @tc-orange e @tc-lime l @tc-purple o @tc-cyan p @tc-grey  scrollbars when required which can help when viewing text in large volume.]], 1, 1, 15, 8)
 inp:createAnchor {
     right = 1,
     bottom = 1,
@@ -27,7 +27,29 @@ end)
 app:appendStagesFromDCML("stages.dcml")
 window2 = app:getStage("MainStage")
 
+local container = window2.activeTemplate
+local outer = container:getNode("outer")
+local inner = outer:getNode("inner")
+
 window2:addToController("hey", function( self )
     window2.activeTemplate = "SecondaryTemplate"
 end)
+window2:addToController("close", function( self )
+    window2:close()
+end)
+
+outer:createAnchor {
+    right = 1,
+    bottom = 1,
+    top = 1,
+    left = 1
+}
+
+inner:createAnchor {
+    right = 1,
+    bottom = 1,
+    top = 1,
+    left = 1
+}
+
 app:start()
