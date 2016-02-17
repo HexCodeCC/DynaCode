@@ -56,9 +56,14 @@ function Template:addNode( node )
 end
 
 function Template:resolveDCMLChildren()
-    local children = self.toFinishParsing
+    local children, child = self.toFinishParsing
     for i = 1, #children do
-        self:addNode( children[i] )
+        child = children[i]
+        self:addNode( child )
+
+        if child.toFinishParsing and type( child.resolveDCMLChildren ) == "function" then
+            child:resolveDCMLChildren()
+        end
     end
 
     self.toFinishParsing = nil

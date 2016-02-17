@@ -1,8 +1,12 @@
-<Stage name="MainStage" X="2" Y="7" height="3" width="10" title="DCML window">
+<Stage name="MainStage" X="2" Y="7" height="10" width="20" title="DCML window">
     <Template name="MainTemplate" active="true">
-        <Button X="2" Y="2" width="5" height="1" onTrigger="#hey">Hey</Button>
+        <Panel X="1" Y="1" width="20" height="10" backgroundColor="red">
+            <Panel X="2" Y="2" width="18" height="8" backgroundColour="lime">
+                <Button X="2" Y="2" width="5" height="1" onTrigger="#hey">Hey</Button>
+            </Panel>
+        </Panel>
     </Template>
     <Template name="SecondaryTemplate">
-        <Label />
+        <Label X="2" Y="2">Hello World</Label>
     </Template>
 </Stage>

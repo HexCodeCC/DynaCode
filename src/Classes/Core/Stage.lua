@@ -10,22 +10,19 @@ DCML.registerTag("Stage", {
         local element = self.toFinishParsing
 
         for i = 1, #element do
-            local node = element[ i ]
+            local template = element[ i ]
             -- If its not a template throw an exception.
 
-            if classLib.typeOf( node, "Template", true ) then
+            if classLib.typeOf( template, "Template", true ) then
                 -- Add the Template
-                self:registerTemplate( node )
+                self:registerTemplate( template )
+                template:resolveDCMLChildren()
 
-                if node.toFinishParsing and type( node.resolveDCMLChildren ) == "function" then
-                    node:resolveDCMLChildren()
-                end
-
-                if node.active then
-                    self.activeTemplate = node
+                if template.active then
+                    self.activeTemplate = template
                 end
             else
-                DCMLParseException("Failed to parse DCML for Stage creation. '"..tostring( node ).."' was found inside a Stage (should be inside a Template)")
+                DCMLParseException("Failed to parse DCML for Stage creation. '"..tostring( template ).."' was found inside a Stage (should be inside a Template)")
             end
         end
         self.toFinishParsing = nil
@@ -435,4 +432,8 @@ function Stage:getNodes()
     else
         return ParameterException("No template set, please set a template before using this stage.")
     end
+end
+
+function Stage:setNodes()
+    return Exception("Stage nodes cannot be manually set", 2)
 end

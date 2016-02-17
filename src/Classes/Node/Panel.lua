@@ -1,6 +1,6 @@
 DCML.registerTag("Panel", {
     childHandler = function( self, element )
-        self.nodesToAdd = DCML.parse( element.content )
+        self.toFinishParsing = DCML.parse( element.content )
     end;
     argumentType = {
         X = "number";
@@ -11,6 +11,7 @@ DCML.registerTag("Panel", {
         textColour = "colour";
     },
     callbackGenerator = "#generateNodeCallback";
+    aliasHandler = true;
 })
 
 class "Panel" extends "NodeScrollContainer" {
