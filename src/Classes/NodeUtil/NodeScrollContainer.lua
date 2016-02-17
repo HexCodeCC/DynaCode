@@ -74,7 +74,8 @@ end
 
 function NodeScrollContainer:cacheRequiredScrollbars()
     local cache = self.cache
-    local width, height = cache.nodeWidth > self.width, cache.nodeHeight > self.height
+    local sWidth, sHeight = self.width, self.height
+    local width, height = cache.nodeWidth > sWidth, cache.nodeHeight > sHeight
 
     cache.xActive = width or ( height and cache.nodeWidth > self.width - 1 )
     cache.yActive = height or ( width and cache.nodeHeight > self.height - 1 )
@@ -84,8 +85,8 @@ function NodeScrollContainer:cacheScrollSizes()
     local cache = self.cache
     local dWidth, dHeight = cache.displayWidth, cache.displayHeight
 
-    local xSize = math.ceil( dWidth / cache.nodeWidth * dWidth - .5 )
-    local ySize = math.ceil( dHeight / cache.nodeHeight * dHeight - .5 )
+    local xSize = math.max( math.ceil( dWidth / cache.nodeWidth * dWidth - .5 ), 1 )
+    local ySize = math.max( math.ceil( dHeight / cache.nodeHeight * dHeight - .5 ), 1 )
 
     cache.xScrollSize, cache.yScrollSize = xSize, ySize
 end
@@ -186,6 +187,7 @@ function NodeScrollContainer:drawContent( force )
 end
 
 function NodeScrollContainer:draw( xO, yO, force )
+    self:cacheScrollbarInformation()
     if self.recacheAllNextDraw then
         self:cacheAllInformation()
 
@@ -195,11 +197,6 @@ function NodeScrollContainer:draw( xO, yO, force )
             self:cacheNodeSizes()
 
             self.recacheNodeInformationNextDraw = false
-        end
-        if self.recacheScrollInformationNextDraw then
-            self:cacheScrollbarInformation()
-
-            self.recacheScrollInformationNextDraw = false
         end
     end
 
