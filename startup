@@ -37,6 +37,9 @@ end)
 window2:addToController("close", function( self )
     window2:close()
 end)
+window2:addToController("return", function( self )
+    window2.activeTemplate = "MainTemplate"
+end)
 
 outer:createAnchor {
     right = 1,
@@ -51,5 +54,5 @@ inner:createAnchor {
     top = 1,
     left = 1
 }
-
+window:focus()
 app:start()

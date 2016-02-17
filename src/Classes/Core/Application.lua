@@ -283,6 +283,22 @@ function Application:start( ... )
         end
 
         while self.running do
+            local re = self.toReorder
+            if re then
+                local stages, stage = self.stages
+
+                for i = 1, #stages do
+                    stage = stages[ i ]
+
+                    if stage == re then
+                        table.insert( stages, 1, table.remove( stages, i ) )
+                        self.stageFocus = re
+                        break
+                    end
+                end
+                self.toReorder = nil
+            end
+            
             draw( self, self.forceRedraw )
 
             term.setCursorBlink( false )
@@ -298,22 +314,6 @@ function Application:start( ... )
 
             if event[1] == "terminate" and self.terminatable then
                 Exception("Application terminated", 0)
-            end
-
-            local re = self.toReorder
-            if re then
-                local stages, stage = self.stages
-
-                for i = 1, #stages do
-                    stage = stages[ i ]
-
-                    if stage == re then
-                        table.insert( stages, 1, table.remove( stages, i ) )
-                        self.stageFocus = re
-                        break
-                    end
-                end
-                self.toReorder = nil
             end
         end
     end

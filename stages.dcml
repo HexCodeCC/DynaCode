@@ -9,5 +9,6 @@
     <Template name="SecondaryTemplate">
         <Label X="2" Y="2">Hello World</Label>
         <Button X="2" Y="4" width="7" height="1" onTrigger="#close">Close</Button>
+        <Button X="11" Y="4" width="8" height="1" onTrigger="#return">Return</Button>
     </Template>
 </Stage>
