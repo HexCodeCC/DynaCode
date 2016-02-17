@@ -276,6 +276,8 @@ end
 function Stage:close()
     self:removeFromMap()
     self.application:removeStage( self )
+
+    self.application.forceRedraw = true
 end
 
 function Stage:handleEvent( event )

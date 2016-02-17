@@ -44,10 +44,14 @@ function Application:addStage( stageObject )
         return ParameterException("Cannot add stage to Application instance. Invalid object: '"..tostring( stageObject ).."'")
     end
 
+    local last = self.lastID + 1
     stageObject.application = self
+    stageObject.mappingID = last
     stageObject:map()
 
     table.insert( self.stages, stageObject )
+
+    self.lastID = last
     return stageObject
 end
 
@@ -57,6 +61,8 @@ function Application:removeStage( stageNameOrObject )
 
     local stage
     for i = 1, #stages do
+        stage = stages[i]
+
         if ( searchForName and stage.name == stageNameOrObject ) or ( not searchForName and stage == stageNameOrObject ) then
             return table.remove( self.stages, i )
         end
@@ -79,6 +85,8 @@ function Application:mapStage( x1, y1, x2, y2 )
     local stages = self.stages
     local layers = self.layerMap
 
+    local totalWidth, totalHeight = self.width, self.height
+
     local stage, stageX, stageY, stageX2, stageY2, stageVisible, ID
     for i = #stages, 1, -1 do
         stage = stages[ i ]
@@ -93,16 +101,19 @@ function Application:mapStage( x1, y1, x2, y2 )
 
         if not (stageX > x2 or stageY > y2 or x1 > stageX2 or y1 > stageY2) then
             local yPos, layer
-            for y = math.max(stageY, y1), math.min(stageY2, y2) do
+            for y = stageY > y1 and stageY or y1, stageY2 < y2 and stageY2 or y2 do
+                if y > totalHeight then break end
                 yPos = self.width * ( y - 1 )
 
-                for x = math.max(stageX, x1), math.min(stageX2, x2) do
-                    layer = layers[ yPos + x ]
+                for x = stageX > x1 and stageX or x1, stageX2 < x2 and stageX2 or x2 do
+                    if x <= totalWidth and x > 0 then
+                        layer = layers[ yPos + x ]
 
-                    if layer ~= ID and stageVisible and ( stage:isPixel( x - stageX + 1 , y - stageY + 1 ) ) then
-                        layers[ yPos + x ] = ID
-                    elseif layer == ID and not stageVisible then
-                        layers[ yPos + x ] = false
+                        if layer ~= ID and stageVisible and ( stage:isPixel( x - stageX + 1 , y - stageY + 1 ) ) then
+                            layers[ yPos + x ] = ID
+                        elseif layer == ID and not stageVisible then
+                            layers[ yPos + x ] = false
+                        end
                     end
                 end
             end
@@ -207,7 +218,9 @@ function Application:submitUIEvent( event )
 
     local stages, stage = self.stages
     for i = 1, #stages do
-        stages[ i ]:handleEvent( dEvent )
+        if stages[i] then
+            stages[ i ]:handleEvent( dEvent )
+        end
     end
 end
 
